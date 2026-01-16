@@ -1,3 +1,4 @@
+import React from "react";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Topbar({ title, subtitle }) {

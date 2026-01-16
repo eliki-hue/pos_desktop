@@ -8,7 +8,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
 
   const login = async (username, password) => {
-    const res = await api.post("/auth/login/", { username, password });
+    const res = await api.post("https://unmisanthropically-transcultural-minnie.ngrok-free.dev/api/auth/login/", { username, password });
     const access = res.data.access;
     setToken(access);
     setAuthToken(access);
