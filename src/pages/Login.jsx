@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -6,7 +7,7 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -56,12 +57,12 @@ export default function Login() {
         )}
 
         <div style={{ marginTop: 14 }}>
-          <label className="muted">Email</label>
+          <label className="muted">Username</label>
           <input
             className="input"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="cashier@example.com"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="cashier"
           />
         </div>
 

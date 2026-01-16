@@ -1,3 +1,4 @@
+import React from "react";
 import { createContext, useContext, useMemo, useState } from "react";
 import { api, setAuthToken } from "../api/client";
 
@@ -6,8 +7,8 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
 
-  const login = async (email, password) => {
-    const res = await api.post("/auth/login/", { email, password });
+  const login = async (username, password) => {
+    const res = await api.post("/auth/login/", { username, password });
     const access = res.data.access;
     setToken(access);
     setAuthToken(access);
