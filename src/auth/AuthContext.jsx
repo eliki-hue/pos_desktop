@@ -1,36 +1,52 @@
 import React from "react";
-import { createContext, useContext, useMemo, useState } from "react";
-import { api, setAuthToken } from "../api/client";
+import { createContext, useContext, useEffect, useState } from "react";
+import { api } from "../api/axios";
 
 const AuthContext = createContext(null);
 
+
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchMe = async () => {
+    try {
+      const res = await api.get("/api/auth/me/");
+      setUser(res.data);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMe();
+  }, []);
 
   const login = async (username, password) => {
-    const res = await api.post("https://unmisanthropically-transcultural-minnie.ngrok-free.dev/api/auth/login/", { username, password });
-    const access = res.data.access;
-    setToken(access);
-    setAuthToken(access);
-    return res.data;
+    await api.post("/api/auth/login/", { username, password });
+    await fetchMe();
   };
 
-  const logout = () => {
-    setToken(null);
-    setAuthToken(null);
+  const logout = async () => {
+    await api.post("/api/auth/logout/");
+    setUser(null);
   };
 
-  const value = useMemo(
-    () => ({
-      token,
-      isAuthenticated: !!token,
-      login,
-      logout,
-    }),
-    [token]
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        loading,
+        login,
+        logout,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
