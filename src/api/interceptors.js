@@ -19,36 +19,48 @@ export function setupInterceptors() {
     return config;
   });
 
-  // Auto refresh if access expired
   api.interceptors.response.use(
     (response) => response,
     async (error) => {
       const originalRequest = error.config;
 
-      if (error.response?.status === 401 && !originalRequest._retry) {
-        originalRequest._retry = true;
-
-        if (isRefreshing) {
-          return new Promise((resolve, reject) => {
-            queue.push({ resolve, reject });
-          }).then(() => api(originalRequest));
-        }
-
-        isRefreshing = true;
-
-        try {
-          await api.post("/api/auth/refresh/");
-          processQueue(null);
-          return api(originalRequest);
-        } catch (refreshError) {
-          processQueue(refreshError);
-          return Promise.reject(refreshError);
-        } finally {
-          isRefreshing = false;
-        }
+      // if not 401, reject
+      if (error.response?.status !== 401) {
+        return Promise.reject(error);
       }
 
-      return Promise.reject(error);
+      // prevent infinite loops
+      if (originalRequest._retry) {
+        return Promise.reject(error);
+      }
+
+      // 🚫 DO NOT refresh if user has no refresh cookie (not logged in)
+      const refreshCookie = getCookie("refresh_token");
+      if (!refreshCookie) {
+        return Promise.reject(error);
+      }
+
+      originalRequest._retry = true;
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          queue.push({ resolve, reject });
+        }).then(() => api(originalRequest));
+      }
+
+      isRefreshing = true;
+
+      try {
+        // ✅ must match your backend route
+        await api.post("/api/auth/pos/refresh/");
+        processQueue(null);
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError);
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
   );
 }

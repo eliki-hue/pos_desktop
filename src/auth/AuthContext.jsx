@@ -21,11 +21,22 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    fetchMe();
-  }, []);
+  const init = async () => {
+    try {
+      await api.post("/api/auth/pos/refresh/");
+    } catch (e) {
+      // ignore if not logged in
+    } finally {
+      await fetchMe();
+    }
+  };
+
+  init();
+}, []);
+
 
   const login = async (username, password) => {
-    await api.post("/api/auth/login/", { username, password });
+    await api.post("/api/auth/pos/login/", { username, password });
     await fetchMe();
   };
 
