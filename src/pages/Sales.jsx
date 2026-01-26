@@ -10,7 +10,7 @@ export default function Sales() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/sales/");
+      const res = await api.get("api/sales/");
       setSales(res.data);
     } finally {
       setLoading(false);

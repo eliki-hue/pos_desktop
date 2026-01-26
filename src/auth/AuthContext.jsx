@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await api.post("/api/auth/logout/");
+    await api.post("/api/auth/pos/logout/");
     setUser(null);
   };
 
