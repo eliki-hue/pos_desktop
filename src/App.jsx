@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import RequireAuth from "./auth/RequireAuth";
 import React from "react";
+
+import RequireAuth from "./auth/RequireAuth";
+import RequireRole from "./auth/RequireRole";
+
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
@@ -10,6 +13,13 @@ import Stores from "./pages/Stores";
 import Account from "./pages/Account";
 import Receipts from "./pages/Receipts";
 
+// ✅ Manager/Admin pages (already created)
+import ManagerInventory from "./pages/ManagerInventory";
+import ManagerSales from "./pages/ManagerSales";
+
+// ✅ Admin pages (already created)
+import AdminBranches from "./pages/AdminBranches";
+import AdminProducts from "./pages/AdminProducts";
 
 export default function App() {
   return (
@@ -19,6 +29,7 @@ export default function App() {
 
         <Route path="/login" element={<Login />} />
 
+        {/* ================= POS (Cashier) ================= */}
         <Route
           path="/dashboard"
           element={
@@ -56,19 +67,19 @@ export default function App() {
         />
 
         <Route
-          path="/stores"
+          path="/receipts"
           element={
             <RequireAuth>
-              <Stores />
+              <Receipts />
             </RequireAuth>
           }
         />
 
         <Route
-          path="/receipts"
+          path="/stores"
           element={
             <RequireAuth>
-              <Receipts />
+              <Stores />
             </RequireAuth>
           }
         />
@@ -82,6 +93,45 @@ export default function App() {
           }
         />
 
+        {/* ================= Manager Routes ================= */}
+        <Route
+          path="/manager/inventory"
+          element={
+            <RequireRole allowedRoles={["MANAGER", "ADMIN"]}>
+              <ManagerInventory />
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="/manager/sales"
+          element={
+            <RequireRole allowedRoles={["MANAGER", "ADMIN"]}>
+              <ManagerSales />
+            </RequireRole>
+          }
+        />
+
+        {/* ================= Admin Routes ================= */}
+        <Route
+          path="/admin/branches"
+          element={
+            <RequireRole allowedRoles={["ADMIN"]}>
+              <AdminBranches />
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="/admin/products"
+          element={
+            <RequireRole allowedRoles={["ADMIN"]}>
+              <AdminProducts />
+            </RequireRole>
+          }
+        />
+
+        {/* fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>

@@ -2,7 +2,7 @@ import React from "react";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Topbar({ title, subtitle }) {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   return (
     <div
@@ -21,9 +21,20 @@ export default function Topbar({ title, subtitle }) {
         {subtitle ? <div className="muted">{subtitle}</div> : null}
       </div>
 
-      <button className="btn" onClick={logout}>
-        Logout
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontWeight: 800, fontSize: 13 }}>
+            {user?.username || "-"}
+          </div>
+          <div className="muted" style={{ fontSize: 12 }}>
+            {user?.role || ""}
+          </div>
+        </div>
+
+        <button className="btn" onClick={logout}>
+          Logout
+        </button>
+      </div>
     </div>
   );
 }
