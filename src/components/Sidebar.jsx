@@ -44,6 +44,9 @@ export default function Sidebar() {
         <NavLink to="/sales" style={linkStyle}>
           Sales
         </NavLink>
+        <NavLink to="/receipts" style={linkStyle}>
+          Receipts
+        </NavLink>
         <NavLink to="/stores" style={linkStyle}>
           Stores
         </NavLink>

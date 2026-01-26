@@ -8,6 +8,8 @@ import Cart from "./pages/Cart";
 import Sales from "./pages/Sales";
 import Stores from "./pages/Stores";
 import Account from "./pages/Account";
+import Receipts from "./pages/Receipts";
+
 
 export default function App() {
   return (
@@ -58,6 +60,15 @@ export default function App() {
           element={
             <RequireAuth>
               <Stores />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/receipts"
+          element={
+            <RequireAuth>
+              <Receipts />
             </RequireAuth>
           }
         />
