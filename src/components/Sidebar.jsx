@@ -96,8 +96,13 @@ export default function Sidebar() {
               Branches
             </NavLink>
 
-            <NavLink to="/admin/products" style={linkStyle}>
-              Products
+            
+            <NavLink to="/admin/dashboard" style={linkStyle}>
+              Admin Dashboard
+            </NavLink>
+
+            <NavLink to="/admin/users" style={linkStyle}>
+              manage users
             </NavLink>
 
             <NavLink to="/account" style={linkStyle}>

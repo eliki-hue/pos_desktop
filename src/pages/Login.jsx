@@ -37,7 +37,7 @@ export default function Login() {
       >
         <h2 style={{ margin: 0 }}>POS Login</h2>
         <p className="muted" style={{ marginTop: 6 }}>
-          Sign in to access cashier dashboard
+          Sign in to access the dashboard
         </p>
 
         {error && (

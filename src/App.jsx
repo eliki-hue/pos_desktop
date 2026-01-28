@@ -20,6 +20,9 @@ import ManagerSales from "./pages/ManagerSales";
 // ✅ Admin pages (already created)
 import AdminBranches from "./pages/AdminBranches";
 import AdminProducts from "./pages/AdminProducts";
+import AdminUsers from "./pages/AdminUsers";
+import AdminDashboard from "./pages/AdminDashboard";
+
 
 export default function App() {
   return (
@@ -130,6 +133,29 @@ export default function App() {
             </RequireRole>
           }
         />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <RequireAuth>
+              <RequireRole allowedRoles={["ADMIN"]}>
+                <AdminDashboard />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/admin/users"
+          element={
+            <RequireAuth>
+              <RequireRole allowedRoles={["ADMIN"]}>
+                <AdminUsers />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+
+
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
