@@ -14,6 +14,8 @@ export default function AdminDashboard() {
 
   const [overview, setOverview] = useState(null);
   const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [branchSummary, setBranchSummary] = useState(null);
   const [cashiers, setCashiers] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,22 @@ export default function AdminDashboard() {
 
       /* ================= Cashier Performance ================= */
       setCashiers(Array.isArray(cashiersRes.data) ? cashiersRes.data : []);
+
+      const loadBranchSummary = async (branchId) => {
+        try {
+          const res = await api.get("/api/reports/branch-sales-summary/", {
+            params: {
+              branch: branchId,
+              start,
+              end,
+            },
+          });
+          setBranchSummary(res.data);
+        } catch {
+          setBranchSummary(null);
+        }
+      };
+
     } catch (err) {
       console.error("Admin dashboard error:", err);
       setError("❌ Failed to load admin dashboard data");
@@ -187,7 +205,9 @@ console.log(topProducts[0]);
                 </thead>
                 <tbody>
                   {branches.map((b) => (
-                    <tr key={b.branch_id}>
+                    <tr key={b.branch_id}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => loadBranchSummary(b.branch_id)}>
                       <td>{b.branch_name}</td>
                       <td>{b.orders}</td>
                       <td>{b.items_sold}</td>

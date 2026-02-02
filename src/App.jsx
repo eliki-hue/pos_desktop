@@ -12,6 +12,8 @@ import Sales from "./pages/Sales";
 import Stores from "./pages/Stores";
 import Account from "./pages/Account";
 import Receipts from "./pages/Receipts";
+import AdminBranchDetail from "./pages/branchesReports/AdminBranchDetail"
+
 
 // ✅ Manager/Admin pages (already created)
 import ManagerInventory from "./pages/ManagerInventory";
@@ -152,6 +154,16 @@ export default function App() {
                 <AdminUsers />
               </RequireRole>
             </RequireAuth>
+          }
+        />
+        {/* import AdminBranchDetail from "./pages/AdminBranchDetail"; */}
+
+        <Route
+          path="/admin/branches/:branchId"
+          element={
+            <RequireRole allowedRoles={["ADMIN"]}>
+              <AdminBranchDetail />
+            </RequireRole>
           }
         />
 

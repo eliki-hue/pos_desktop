@@ -48,7 +48,7 @@ export default function Sidebar() {
 
       <div style={{ marginTop: 14, display: "grid", gap: 6 }}>
         {/* Cashier / POS links */}
-        {canUsePOS && (
+        {isCashier && (
           <>
             <NavLink to="/dashboard" style={linkStyle}>
               Dashboard
@@ -69,7 +69,7 @@ export default function Sidebar() {
         )}
 
         {/* Manager links */}
-        {(isManager || isAdmin) && (
+        {(isManager ) && (
           <>
             <div style={{ marginTop: 10 }} className="muted">
               Management
@@ -105,8 +105,8 @@ export default function Sidebar() {
               manage users
             </NavLink>
 
-            <NavLink to="/account" style={linkStyle}>
-              Account
+            <NavLink to="/admin/branches/1" style={linkStyle}>
+              AdminBranchDEtail
             </NavLink>
           </>
         )}
