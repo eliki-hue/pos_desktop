@@ -1,5 +1,6 @@
 import React from "react";
 import { useAuth } from "../auth/AuthContext";
+import NotificationBell from "./NotificationBell";
 
 export default function Topbar({ title, subtitle }) {
   const { logout, user } = useAuth();
@@ -16,12 +17,18 @@ export default function Topbar({ title, subtitle }) {
         gap: 12,
       }}
     >
+      {/* LEFT: TITLE */}
       <div>
         <div style={{ fontSize: 18, fontWeight: 900 }}>{title}</div>
         {subtitle ? <div className="muted">{subtitle}</div> : null}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {/* RIGHT: ACTIONS */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        {/* 🔔 NOTIFICATION BELL */}
+        <NotificationBell />
+
+        {/* USER INFO */}
         <div style={{ textAlign: "right" }}>
           <div style={{ fontWeight: 800, fontSize: 13 }}>
             {user?.username || "-"}
@@ -31,6 +38,7 @@ export default function Topbar({ title, subtitle }) {
           </div>
         </div>
 
+        {/* LOGOUT */}
         <button className="btn" onClick={logout}>
           Logout
         </button>
