@@ -6,7 +6,7 @@ import RequireRole from "./auth/RequireRole";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Products from "./pages/Products";
+import Products from "./pages/products/Products";
 import Cart from "./pages/Cart";
 import Sales from "./pages/Sales";
 import Stores from "./pages/Stores";
@@ -21,9 +21,12 @@ import ManagerSales from "./pages/ManagerSales";
 
 // ✅ Admin pages (already created)
 import AdminBranches from "./pages/AdminBranches";
-import AdminProducts from "./pages/AdminProducts";
+import AdminProducts from "./pages/products/AdminProducts";
 import AdminUsers from "./pages/AdminUsers";
 import AdminDashboard from "./pages/AdminDashboard";
+
+import AdminAddProduct from "./pages/products/AdminProducts";
+
 
 
 export default function App() {
@@ -167,6 +170,10 @@ export default function App() {
           }
         />
 
+        <Route
+          path="/admin/products/add"
+          element={<AdminAddProduct />}
+        />
 
 
         {/* fallback */}

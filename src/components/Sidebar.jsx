@@ -93,20 +93,22 @@ export default function Sidebar() {
             </div>
 
             <NavLink to="/admin/branches" style={linkStyle}>
-              Branches
+              Manage Branches 
             </NavLink>
 
             
             <NavLink to="/admin/dashboard" style={linkStyle}>
               Admin Dashboard
             </NavLink>
+            
+            <NavLink to="/admin/products" style={linkStyle}>Products</NavLink>
 
             <NavLink to="/admin/users" style={linkStyle}>
               manage users
             </NavLink>
 
             <NavLink to="/admin/branches/1" style={linkStyle}>
-              AdminBranchDEtail
+              Branch Detail
             </NavLink>
           </>
         )}
