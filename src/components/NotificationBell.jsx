@@ -57,7 +57,7 @@ export default function NotificationBell() {
       console.error("Failed to mark all as read", err);
     }
   }
-console.log(notifications)
+// console.log(notifications)
   /* ================= UI ================= */
 
   return (

@@ -26,6 +26,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminDashboard from "./pages/AdminDashboard";
 
 import AdminAddProduct from "./pages/products/AdminProducts";
+import Users from "./pages/users/Users";
 
 
 
@@ -154,7 +155,7 @@ export default function App() {
           element={
             <RequireAuth>
               <RequireRole allowedRoles={["ADMIN"]}>
-                <AdminUsers />
+                <Users />
               </RequireRole>
             </RequireAuth>
           }
@@ -175,6 +176,7 @@ export default function App() {
           element={<AdminAddProduct />}
         />
 
+        <Route path="/admin/users" element={<Users />} />
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

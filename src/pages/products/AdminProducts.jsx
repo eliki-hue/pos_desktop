@@ -18,7 +18,7 @@ export default function AdminProducts() {
 
   async function deactivate(id) {
     if (!window.confirm("Deactivate this product?")) return;
-    await api.post(`/api/products/admin/${id}/deactivate/`);
+    await api.post(`/api/products/${id}/deactivate/`);
     load();
   }
 

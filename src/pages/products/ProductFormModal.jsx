@@ -83,7 +83,7 @@ export default function ProductFormModal({ product, onClose }) {
 
       if (isEdit) {
         await api.patch(
-          `/api/products/admin/${product.id}/update/`,
+          `/api/products/${product.id}/update/`,
           data,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
