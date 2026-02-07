@@ -25,7 +25,7 @@ export default function UserFormModal({ user, branches, onClose, onSaved }) {
     if (user) {
       await api.patch(`/api/auth/admin/users/${user.id}/`, form);
     } else {
-      await api.post("/api/users/", form);
+      await api.post("/api/auth/admin/users/create/", form);
     }
 
     onClose();
