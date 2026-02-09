@@ -91,34 +91,43 @@ export default function Sidebar() {
             <div style={{ marginTop: 10 }} className="muted">
               Admin
             </div>
-
-            <NavLink to="/admin/branches" style={linkStyle}>
-              Manage Branches 
-            </NavLink>
-
-            
+          
             <NavLink to="/admin/dashboard" style={linkStyle}>
               Admin Dashboard
             </NavLink>
             
-            <NavLink to="/admin/products" style={linkStyle}>Products</NavLink>
+            <NavLink to="/admin/products" style={linkStyle}>
+              Products
+            </NavLink>
+
+            
+
+            <NavLink to="/admin/branches/1" style={linkStyle}>
+              Branch Detail
+            </NavLink>
+
+             <NavLink to="/admin/branches" style={linkStyle}>
+              Manage Branches 
+            </NavLink>
 
             <NavLink to="/admin/users" style={linkStyle}>
               manage users
             </NavLink>
 
-            <NavLink to="/admin/branches/1" style={linkStyle}>
-              Branch Detail
+            <NavLink to="/admin/sessions" style={linkStyle}>
+              user sessions
             </NavLink>
+            
+
           </>
         )}
 
         {/* Everyone can see account */}
-        {!isAdmin && (
+          
           <NavLink to="/account" style={linkStyle}>
             Account
           </NavLink>
-        )}
+        
       </div>
 
       <div style={{ marginTop: 18 }} className="muted">

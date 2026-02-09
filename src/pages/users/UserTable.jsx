@@ -6,6 +6,7 @@ export default function UserTable({ users, onEdit, onDeactivate }) {
           <tr>
             <th>Username</th>
             <th>Role</th>
+            <th>Email</th>
             <th>Branch</th>
             <th>Status</th>
             <th />
@@ -16,6 +17,7 @@ export default function UserTable({ users, onEdit, onDeactivate }) {
             <tr key={u.id}>
               <td>{u.username}</td>
               <td>{u.role}</td>
+              <td>{u.email}</td>
               <td>{u.branch_name || "—"}</td>
               <td>{u.is_active ? "Active" : "Inactive"}</td>
               <td style={{ display: "flex", gap: 8 }}>

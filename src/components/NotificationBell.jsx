@@ -49,7 +49,7 @@ export default function NotificationBell() {
 
   async function markAllAsRead() {
     try {
-      await api.post("/api/notifications/read-all/");
+      await api.post("/api/notifications/read-albbbbl/");
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, is_read: true }))
       );

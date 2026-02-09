@@ -24,6 +24,7 @@ import AdminBranches from "./pages/AdminBranches";
 import AdminProducts from "./pages/products/AdminProducts";
 import AdminUsers from "./pages/AdminUsers";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminSessions from "./pages/AdminSessions";
 
 import AdminAddProduct from "./pages/products/AdminProducts";
 import Users from "./pages/users/Users";
@@ -145,6 +146,17 @@ export default function App() {
             <RequireAuth>
               <RequireRole allowedRoles={["ADMIN"]}>
                 <AdminDashboard />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/admin/sessions"
+          element={
+            <RequireAuth>
+              <RequireRole allowedRoles={["ADMIN"]}>
+                <AdminSessions />
               </RequireRole>
             </RequireAuth>
           }

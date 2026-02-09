@@ -64,10 +64,10 @@ export default function Account() {
           </div>
 
           <div className="profile-grid">
-            <ProfileItem label="Role" value={user?.role} />
+            <ProfileItem label="Role:  " value={user?.role} />
             <ProfileItem
-              label="Branch"
-              value={user?.branch_name || "—"}
+              label="Branch: "
+              value={user?.branch || "—"}
             />
           </div>
         </section>
