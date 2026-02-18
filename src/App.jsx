@@ -12,36 +12,31 @@ import Sales from "./pages/Sales";
 import Stores from "./pages/Stores";
 import Account from "./pages/Account";
 import Receipts from "./pages/Receipts";
-import AdminBranchDetail from "./pages/branchesReports/AdminBranchDetail"
+import AdminBranchDetail from "./pages/branchesReports/AdminBranchDetail";
 
-
-// ✅ Manager/Admin pages (already created)
 import ManagerInventory from "./pages/ManagerInventory";
 import ManagerSales from "./pages/ManagerSales";
 
-// ✅ Admin pages (already created)
 import AdminBranches from "./pages/AdminBranches";
 import AdminProducts from "./pages/products/AdminProducts";
 import AdminUsers from "./pages/AdminUsers";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminSessions from "./pages/AdminSessions";
-
 import AdminAddProduct from "./pages/products/AdminProducts";
 import Users from "./pages/users/Users";
 
-
-
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/pos">
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Root */}
+        <Route path="/" element={<Navigate to="dashboard" replace />} />
 
-        <Route path="/login" element={<Login />} />
+        <Route path="login" element={<Login />} />
 
         {/* ================= POS (Cashier) ================= */}
         <Route
-          path="/dashboard"
+          path="dashboard"
           element={
             <RequireAuth>
               <Dashboard />
@@ -50,7 +45,7 @@ export default function App() {
         />
 
         <Route
-          path="/products"
+          path="products"
           element={
             <RequireAuth>
               <Products />
@@ -59,7 +54,7 @@ export default function App() {
         />
 
         <Route
-          path="/cart"
+          path="cart"
           element={
             <RequireAuth>
               <Cart />
@@ -68,7 +63,7 @@ export default function App() {
         />
 
         <Route
-          path="/sales"
+          path="sales"
           element={
             <RequireAuth>
               <Sales />
@@ -77,7 +72,7 @@ export default function App() {
         />
 
         <Route
-          path="/receipts"
+          path="receipts"
           element={
             <RequireAuth>
               <Receipts />
@@ -86,7 +81,7 @@ export default function App() {
         />
 
         <Route
-          path="/stores"
+          path="stores"
           element={
             <RequireAuth>
               <Stores />
@@ -95,7 +90,7 @@ export default function App() {
         />
 
         <Route
-          path="/account"
+          path="account"
           element={
             <RequireAuth>
               <Account />
@@ -103,9 +98,9 @@ export default function App() {
           }
         />
 
-        {/* ================= Manager Routes ================= */}
+        {/* ================= Manager ================= */}
         <Route
-          path="/manager/inventory"
+          path="manager/inventory"
           element={
             <RequireRole allowedRoles={["MANAGER", "ADMIN"]}>
               <ManagerInventory />
@@ -114,7 +109,7 @@ export default function App() {
         />
 
         <Route
-          path="/manager/sales"
+          path="manager/sales"
           element={
             <RequireRole allowedRoles={["MANAGER", "ADMIN"]}>
               <ManagerSales />
@@ -122,9 +117,9 @@ export default function App() {
           }
         />
 
-        {/* ================= Admin Routes ================= */}
+        {/* ================= Admin ================= */}
         <Route
-          path="/admin/branches"
+          path="admin/branches"
           element={
             <RequireRole allowedRoles={["ADMIN"]}>
               <AdminBranches />
@@ -133,15 +128,16 @@ export default function App() {
         />
 
         <Route
-          path="/admin/products"
+          path="admin/products"
           element={
             <RequireRole allowedRoles={["ADMIN"]}>
               <AdminProducts />
             </RequireRole>
           }
         />
+
         <Route
-          path="/admin/dashboard"
+          path="admin/dashboard"
           element={
             <RequireAuth>
               <RequireRole allowedRoles={["ADMIN"]}>
@@ -152,7 +148,7 @@ export default function App() {
         />
 
         <Route
-          path="/admin/sessions"
+          path="admin/sessions"
           element={
             <RequireAuth>
               <RequireRole allowedRoles={["ADMIN"]}>
@@ -163,7 +159,7 @@ export default function App() {
         />
 
         <Route
-          path="/admin/users"
+          path="admin/users"
           element={
             <RequireAuth>
               <RequireRole allowedRoles={["ADMIN"]}>
@@ -172,10 +168,9 @@ export default function App() {
             </RequireAuth>
           }
         />
-        {/* import AdminBranchDetail from "./pages/AdminBranchDetail"; */}
 
         <Route
-          path="/admin/branches/:branchId"
+          path="admin/branches/:branchId"
           element={
             <RequireRole allowedRoles={["ADMIN"]}>
               <AdminBranchDetail />
@@ -184,14 +179,12 @@ export default function App() {
         />
 
         <Route
-          path="/admin/products/add"
+          path="admin/products/add"
           element={<AdminAddProduct />}
         />
 
-        <Route path="/admin/users" element={<Users />} />
-
-        {/* fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

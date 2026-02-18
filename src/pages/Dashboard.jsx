@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
 
 export default function Dashboard() {
@@ -21,20 +22,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div style={{ marginTop: 16 }} className="card">
-        <div style={{ fontWeight: 900 }}>Quick Actions</div>
-        <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
-          <a className="btn btn-primary" href="/products">
-            Go to Products
-          </a>
-          <a className="btn" href="/cart">
-            Open Cart
-          </a>
-          <a className="btn" href="/sales">
-            View Sales
-          </a>
-        </div>
-      </div>
+      {/*  */}
     </AppLayout>
   );
 }
