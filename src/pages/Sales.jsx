@@ -46,6 +46,7 @@ function SaleDetailModal({ sale, onClose }) {
 
   const totalPaid = cashPaid + mpesaPaid;
   const isSplit = cashPaid > 0 && mpesaPaid > 0;
+  
 
   const showCustomer =
     sale.status === "PARTIAL" || sale.status === "CREDIT";
@@ -245,6 +246,19 @@ export default function Sales() {
                 KES {summary.mpesa_total}
               </div>
             </div>
+
+            <div>
+            <div className="muted">Credit Sales</div>
+            <div
+              style={{
+                fontWeight: 900,
+                fontSize: 18,
+                color: "#dc2626",
+              }}
+            >
+              KES {summary.credit_total}
+            </div>
+          </div>
           </div>
         </div>
       )}
