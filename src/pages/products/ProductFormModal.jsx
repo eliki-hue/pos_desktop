@@ -11,6 +11,8 @@ export default function ProductFormModal({ product, onClose }) {
     category: "",
     unit_price: "",
     unit_cost: "",
+    allows_bag: false,
+    bag_weight_kg: "",
     image: null,
     is_active: true,
   });
@@ -43,6 +45,8 @@ export default function ProductFormModal({ product, onClose }) {
         category: product.category || "",
         unit_price: product.unit_price || "",
         unit_cost: product.unit_cost || "",
+        allows_bag: product.allows_bag || false,
+        bag_weight_kg: product.bag_weight_kg || "",
         image: null, // never preload file input
         is_active: product.is_active ?? true,
       });
@@ -66,6 +70,11 @@ export default function ProductFormModal({ product, onClose }) {
       return;
     }
 
+    if (form.allows_bag && !form.bag_weight_kg) {
+      setError("Bag weight (KG) is required when bags are enabled");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -75,6 +84,11 @@ export default function ProductFormModal({ product, onClose }) {
       data.append("category", form.category);
       data.append("unit_price", form.unit_price);
       data.append("unit_cost", form.unit_cost);
+      data.append("allows_bag", form.allows_bag);
+      data.append(
+        "bag_weight_kg",
+        form.allows_bag ? form.bag_weight_kg : ""
+      );
       data.append("is_active", form.is_active);
 
       if (form.image) {
@@ -99,7 +113,8 @@ export default function ProductFormModal({ product, onClose }) {
     } catch (err) {
       console.error(err);
       setError(
-        err.response?.data?.sku?.[0] ||
+        err.response?.data?.detail ||
+          err.response?.data?.sku?.[0] ||
           "Failed to save product"
       );
     } finally {
@@ -111,11 +126,7 @@ export default function ProductFormModal({ product, onClose }) {
 
   return (
     <Modal onClose={onClose}>
-      <form
-        className="card"
-        onSubmit={submit}
-        style={{ maxWidth: 460 }}
-      >
+      <form className="card" onSubmit={submit} style={{ maxWidth: 460 }}>
         <div style={{ fontSize: 18, fontWeight: 900 }}>
           {isEdit ? "Edit Product" : "Add Product"}
         </div>
@@ -136,7 +147,7 @@ export default function ProductFormModal({ product, onClose }) {
           value={form.sku}
           onChange={(e) => updateField("sku", e.target.value)}
           required
-          disabled={isEdit} // SKU usually immutable
+          disabled={isEdit}
         />
 
         {/* CATEGORY */}
@@ -159,11 +170,9 @@ export default function ProductFormModal({ product, onClose }) {
           className="input"
           type="number"
           step="0.01"
-          placeholder="Unit price"
+          placeholder="Unit price (per KG)"
           value={form.unit_price}
-          onChange={(e) =>
-            updateField("unit_price", e.target.value)
-          }
+          onChange={(e) => updateField("unit_price", e.target.value)}
           required
         />
 
@@ -171,13 +180,44 @@ export default function ProductFormModal({ product, onClose }) {
           className="input"
           type="number"
           step="0.01"
-          placeholder="Unit cost"
+          placeholder="Unit cost (per KG)"
           value={form.unit_cost}
-          onChange={(e) =>
-            updateField("unit_cost", e.target.value)
-          }
+          onChange={(e) => updateField("unit_cost", e.target.value)}
           required
         />
+
+        {/* BAG SUPPORT */}
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 8,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={form.allows_bag}
+            onChange={(e) =>
+              updateField("allows_bag", e.target.checked)
+            }
+          />
+          Allow selling by bag
+        </label>
+
+        {form.allows_bag && (
+          <input
+            className="input"
+            type="number"
+            step="0.01"
+            placeholder="Bag weight (KG)"
+            value={form.bag_weight_kg}
+            onChange={(e) =>
+              updateField("bag_weight_kg", e.target.value)
+            }
+            required
+          />
+        )}
 
         {/* IMAGE */}
         <input

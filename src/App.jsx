@@ -14,7 +14,7 @@ import Account from "./pages/Account";
 import Receipts from "./pages/Receipts";
 import AdminBranchDetail from "./pages/branchesReports/AdminBranchDetail";
 
-import ManagerInventory from "./pages/ManagerInventory";
+import ManagerInventory from "./pages/inventory/ManagerInventory";
 import ManagerSales from "./pages/ManagerSales";
 
 import AdminBranches from "./pages/AdminBranches";
@@ -24,6 +24,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminSessions from "./pages/AdminSessions";
 import AdminAddProduct from "./pages/products/AdminProducts";
 import Users from "./pages/users/Users";
+import StockIn from "./pages/inventory/stock_in";
 
 export default function App() {
   return (
@@ -107,6 +108,8 @@ export default function App() {
             </RequireRole>
           }
         />
+
+        <Route path="/inventory/stock-in" element={<StockIn />} />
 
         <Route
           path="manager/sales"
