@@ -79,12 +79,16 @@ export default function Sidebar() {
               Stocks
             </NavLink>
 
-            <NavLink to="/inventory/stock-in">
-              Stock In
+            <NavLink to="/api/reports/movements" style={linkStyle}>
+              Reports
             </NavLink>
 
             <NavLink to="/manager/sales" style={linkStyle}>
               Sales Reports
+            </NavLink>
+
+            <NavLink to="/inventory/transfers" style={linkStyle}>
+              Stock Transfers
             </NavLink>
           </>
         )}

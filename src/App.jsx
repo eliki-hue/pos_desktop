@@ -25,6 +25,8 @@ import AdminSessions from "./pages/AdminSessions";
 import AdminAddProduct from "./pages/products/AdminProducts";
 import Users from "./pages/users/Users";
 import StockIn from "./pages/inventory/stock_in";
+import StockMovementReport from "./pages/inventory/StockMovementReport";
+import Transfers from "./pages/inventory/Transfers";
 
 export default function App() {
   return (
@@ -110,6 +112,7 @@ export default function App() {
         />
 
         <Route path="/inventory/stock-in" element={<StockIn />} />
+        <Route path="/inventory/transfers" element={<Transfers />} />
 
         <Route
           path="manager/sales"
@@ -120,6 +123,9 @@ export default function App() {
           }
         />
 
+        <Route
+         path="/api/reports/movements" 
+         element={<StockMovementReport />} />
         {/* ================= Admin ================= */}
         <Route
           path="admin/branches"

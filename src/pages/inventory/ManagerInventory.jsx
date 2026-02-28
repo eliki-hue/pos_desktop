@@ -1,20 +1,24 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import AppLayout from "../../components/AppLayout";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 
-/* ===============================
-   CONSTANTS
-================================ */
+/* ========================================
+   ACTION TYPES
+======================================== */
 const ACTIONS = {
   IN: "IN",
-  OUT: "OUT",
   ADJUST: "ADJUST",
 };
 
-/* ===============================
-   COMPONENT
-================================ */
+/* ========================================
+   UNIT TYPES - EXACTLY AS BACKEND EXPECTS
+======================================== */
+const UNITS = {
+  KG: "kg",    // backend expects "kg"
+  BAG: "bag",  // backend expects "bag" (singular)
+};
+
 export default function InventoryManager() {
   const { user } = useAuth();
 
@@ -22,58 +26,89 @@ export default function InventoryManager() {
   const branchName = user?.branch?.name;
 
   const [items, setItems] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [showModal, setShowModal] = useState(false);
-  const [actionType, setActionType] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  const [unit, setUnit] = useState("kg");
+  /* ---------- MAIN MODAL ---------- */
+  const [showMainModal, setShowMainModal] = useState(false);
+  const [actionType, setActionType] = useState(null);
   const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState(UNITS.KG);
   const [note, setNote] = useState("");
+
+  /* ---------- STOCK OUT MODAL ---------- */
+  const [showStockOutModal, setShowStockOutModal] = useState(false);
+  const [stockOutQuantity, setStockOutQuantity] = useState("");
+  const [stockOutUnit, setStockOutUnit] = useState(UNITS.KG);
+  const [stockOutNote, setStockOutNote] = useState("");
+  const [stockOutSource, setStockOutSource] = useState("internal_use");
+  const [destinationBranch, setDestinationBranch] = useState("");
+
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const noteRef = useRef(null);
 
-  /* ===============================
+  /* ========================================
      LOAD INVENTORY
-  ================================ */
+  ======================================== */
   useEffect(() => {
     if (!branchId) return;
 
     setLoading(true);
+
     api
       .get(`/api/inventory/admin-branch/?branch=${branchId}`)
       .then((res) => setItems(res.data.items || []))
-      .catch(() => setItems([]))
       .finally(() => setLoading(false));
+
+    api.get("/api/branches/").then((res) => {
+      setBranches(res.data || []);
+    });
   }, [branchId]);
 
-  
-  /* ===============================
-     OPEN / CLOSE MODAL
-  ================================ */
-  const openModal = (type, item) => {
-    setActionType(type);
-    setSelectedItem(item);
-    setUnit("kg");
-    setQuantity("");
-    setNote("");
-    setError(null);
-    setShowModal(true);
+  const reloadInventory = async () => {
+    const res = await api.get(
+      `/api/inventory/admin-branch/?branch=${branchId}`
+    );
+    setItems(res.data.items || []);
   };
 
-  const closeModal = () => {
+  const closeModals = () => {
     if (submitting) return;
-    setShowModal(false);
+    setShowMainModal(false);
+    setShowStockOutModal(false);
+    setError(null);
   };
 
-  /* ===============================
-     SUBMIT ACTION
-  ================================ */
-  const submitAction = async () => {
+  /* ========================================
+     OPEN MODALS
+  ======================================== */
+  const openMainModal = (type, item) => {
+    setSelectedItem(item);
+    setActionType(type);
+    setQuantity("");
+    setUnit(UNITS.KG);
+    setNote("");
+    setShowMainModal(true);
+  };
+
+  const openStockOutModal = (item) => {
+    setSelectedItem(item);
+    setStockOutQuantity("");
+    setStockOutUnit(UNITS.KG);
+    setStockOutNote("");
+    setStockOutSource("internal_use");
+    setDestinationBranch("");
+    setShowStockOutModal(true);
+  };
+
+  /* ========================================
+     SUBMIT MAIN
+  ======================================== */
+  const submitMain = async () => {
     if (!quantity || Number(quantity) <= 0) {
-      setError("Quantity must be greater than zero");
+      setError("Quantity must be greater than zero.");
       return;
     }
 
@@ -84,309 +119,896 @@ export default function InventoryManager() {
       branch: branchId,
       product: selectedItem.product_id,
       quantity: Number(quantity),
-      unit,
+      unit: unit,  // This will be either "kg" or "bag" as defined in UNITS
       note,
     };
 
     try {
       if (actionType === ACTIONS.IN) {
         await api.post("/api/inventory/stock-in/", payload);
-      } else if (actionType === ACTIONS.OUT) {
-        await api.post("/api/inventory/stock-out/", payload);
-      } else if (actionType === ACTIONS.ADJUST) {
+      } else {
         await api.post("/api/inventory/adjust/", payload);
       }
 
-      // Reload inventory
-      const res = await api.get(
-        `/api/inventory/admin-branch/?branch=${branchId}`
-      );
-      setItems(res.data.items || []);
-      setShowModal(false);
+      await reloadInventory();
+      closeModals();
     } catch (err) {
-      setError(err.response?.data?.error || "Action failed");
+      setError(err.response?.data?.error || "Action failed.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  /* ===============================
-     RENDER
-  ================================ */
+  /* ========================================
+     SUBMIT STOCK OUT
+  ======================================== */
+  const submitStockOut = async () => {
+    if (!stockOutQuantity || Number(stockOutQuantity) <= 0) {
+      setError("Quantity must be greater than zero.");
+      return;
+    }
+
+    if (stockOutSource === "transfer" && !destinationBranch) {
+      setError("Please select destination branch.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    const payload = {
+      branch: branchId,
+      product: selectedItem.product_id,
+      quantity: Number(stockOutQuantity),
+      unit: stockOutUnit,  // This will be either "kg" or "bag" as defined in UNITS
+      source: stockOutSource,
+      note: stockOutNote,
+    };
+
+    if (stockOutSource === "transfer") {
+      payload.to_branch = destinationBranch;
+    }
+
+    try {
+      await api.post("/api/inventory/stock-out/", payload);
+      await reloadInventory();
+      closeModals();
+    } catch (err) {
+      setError(err.response?.data?.error || "Stock out failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <AppLayout title="Inventory Management">
-      {/* Branch Info */}
-      <div className="card mb-3">
-        <div className="card-body">
-          <strong>Branch:</strong> {branchName}
+      {/* Branch Card */}
+      <div className="card mb-4 border-0 shadow-sm">
+        <div className="card-body py-3">
+          <span className="text-muted">Branch</span>
+          <h6 className="mb-0">{branchName}</h6>
         </div>
       </div>
 
       {/* Inventory Table */}
-      <div className="card">
-        <div className="card-header">
-          <h5 className="mb-0">Branch Inventory</h5>
-        </div>
-
+      <div className="card border-0 shadow-sm">
         <div className="card-body p-0">
           {loading ? (
-            <div className="p-4 text-center">Loading inventory…</div>
-          ) : items.length === 0 ? (
-            <div className="p-4 text-center text-muted">
-              No inventory items found.
+            <div className="p-5 text-center text-muted">
+              Loading inventory...
             </div>
           ) : (
-            <table className="table table-hover mb-0">
+            <table className="table align-middle mb-0">
               <thead className="table-light">
                 <tr>
                   <th>Product</th>
-                  <th>Stock</th>
+                  <th>Stock (KG)</th>
                   <th>Status</th>
                   <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => {
-                  const bags =
-                    item.bag_weight_kg
-                      ? (item.stock_kg / item.bag_weight_kg).toFixed(1)
-                      : null;
-
-                  return (
-                    <tr
-                      key={item.product_id}
-                      className={!item.is_ok ? "table-danger" : ""}
-                    >
-                      <td>{item.product}</td>
-                      <td>
-                        {item.stock_kg} KG
-                        {bags && (
-                          <span className="text-muted">
-                            {" "}
-                            ({bags} bags)
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            item.is_ok ? "bg-success" : "bg-danger"
-                          }`}
-                        >
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="text-end">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-success me-1"
-                          onClick={() => openModal(ACTIONS.IN, item)}
-                        >
-                          Stock In
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-warning me-1"
-                          onClick={() => openModal(ACTIONS.OUT, item)}
-                        >
-                          Stock Out
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => openModal(ACTIONS.ADJUST, item)}
-                        >
-                          Adjust
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {items.map((item) => (
+                  <tr key={item.product_id}>
+                    <td>
+                      <div style={{ fontWeight: 500 }}>
+                        {item.product}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "#64748b",
+                        }}
+                      >
+                        SKU: {item.sku}
+                      </div>
+                    </td>
+                    <td>
+                      {item.stock_kg} kg
+                      <div
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "#64748b",
+                        }}
+                      >
+                        (
+                        {item.full_bags} bag
+                        {item.full_bags !== 1 ? "s" : ""}
+                        {item.remaining_kg > 0 &&
+                          ` + ${item.remaining_kg} kg`}
+                        )
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          item.is_ok
+                            ? "bg-success"
+                            : "bg-danger"
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="text-end">
+                      <button
+                        className="btn btn-sm btn-dark me-2"
+                        onClick={() =>
+                          openMainModal(ACTIONS.IN, item)
+                        }
+                      >
+                        Stock In
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-dark me-2"
+                        onClick={() =>
+                          openMainModal(ACTIONS.ADJUST, item)
+                        }
+                      >
+                        Adjust
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() =>
+                          openStockOutModal(item)
+                        }
+                      >
+                        Stock Out
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}
         </div>
       </div>
 
-      {/* ===============================
-         MODAL OVERLAY
-      ================================ */}
-      {showModal && (
-        <>
-          {/* Overlay */}
-          <div
-            onClick={closeModal}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.6)",
-              zIndex: 1040,
-            }}
+      {/* ================= MAIN MODAL ================= */}
+      {showMainModal && (
+        <ModernModal
+          title={actionType === ACTIONS.IN ? "Stock In" : "Adjust Stock"}
+          subtitle={selectedItem?.product}
+          onClose={closeModals}
+          size="md"
+        >
+          {error && (
+            <div style={{
+              padding: "16px 20px",
+              borderRadius: "12px",
+              background: "#fef2f2",
+              border: "1px solid #fee2e2",
+              color: "#991b1b",
+              fontSize: "0.95rem",
+              marginBottom: "24px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}>
+              <span style={{ fontSize: "1.2rem" }}>⚠️</span>
+              {error}
+            </div>
+          )}
+
+          <FormField 
+            label="Quantity" 
+            required 
+            helper="Enter amount"
+          >
+            <div style={{ display: "flex", gap: "12px" }}>
+              <div style={{ flex: 1, position: "relative" }}>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    fontSize: "1rem",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    transition: "all 0.2s ease",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#3b82f6";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#e2e8f0";
+                    e.target.style.boxShadow = "none";
+                  }}
+                  placeholder="0.00"
+                />
+              </div>
+              <UnitSelector
+                value={unit}
+                onChange={setUnit}
+              />
+            </div>
+          </FormField>
+
+          <FormField label="Note (Optional)">
+            <textarea
+              rows="4"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                fontSize: "0.95rem",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                transition: "all 0.2s ease",
+                outline: "none",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "#3b82f6";
+                e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "#e2e8f0";
+                e.target.style.boxShadow = "none";
+              }}
+              placeholder="Add any additional notes here..."
+            />
+          </FormField>
+
+          <ActionButtons
+            onCancel={closeModals}
+            onSubmit={submitMain}
+            submitting={submitting}
+            submitText={actionType === ACTIONS.IN ? "Complete Stock In" : "Apply Adjustment"}
+            submitVariant="primary"
+          />
+        </ModernModal>
+      )}
+
+      {/* ================= STOCK OUT MODAL ================= */}
+      {showStockOutModal && (
+        <ModernModal
+          title="Stock Out"
+          subtitle={selectedItem?.product}
+          onClose={closeModals}
+          size="lg"
+        >
+          {error && (
+            <div style={{
+              padding: "16px 20px",
+              borderRadius: "12px",
+              background: "#fef2f2",
+              border: "1px solid #fee2e2",
+              color: "#991b1b",
+              fontSize: "0.95rem",
+              marginBottom: "24px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}>
+              <span style={{ fontSize: "1.2rem" }}>⚠️</span>
+              {error}
+            </div>
+          )}
+
+          <SelectCard
+            value={stockOutSource}
+            onChange={setStockOutSource}
+            options={[
+              {
+                value: "internal_use",
+                label: "🏢 Internal Use",
+                description: "Stock used within the branch"
+              },
+              {
+                value: "transfer",
+                label: "🔄 Transfer",
+                description: "Move stock to another branch"
+              }
+            ]}
           />
 
-          {/* Modal container */}
-          <div
-            style={{
-              position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "100%",
-              maxWidth: "560px",
-              zIndex: 1050,
-            }}
+          {stockOutSource === "transfer" && (
+            <FormField label="Destination Branch" required>
+              <select
+                value={destinationBranch}
+                onChange={(e) => setDestinationBranch(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  fontSize: "0.95rem",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "12px",
+                  background: "#ffffff",
+                  cursor: "pointer",
+                  outline: "none",
+                  appearance: "none",
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 16px center",
+                  backgroundSize: "16px",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#3b82f6";
+                  e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "#e2e8f0";
+                  e.target.style.boxShadow = "none";
+                }}
+              >
+                <option value="">Select destination branch</option>
+                {branches
+                  .filter((b) => b.id !== branchId)
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+              </select>
+            </FormField>
+          )}
+
+          <FormField 
+            label="Quantity" 
+            required 
+            helper="Enter amount"
           >
-            <div
-              style={{
-                backgroundColor: "#ffffff",   
-                borderRadius: "8px",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-                overflow: "hidden",
-              }}
-            >
-              {/* Header */}
-              <div
-                style={{
-                  padding: "16px 20px",
-                  borderBottom: "1px solid #e5e7eb",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  backgroundColor: "#ffffff",
-                }}
-              >
-                <div>
-                  <h5 style={{ margin: 0 }}>
-                    {actionType === ACTIONS.IN && "Stock In"}
-                    {actionType === ACTIONS.OUT && "Stock Out"}
-                    {actionType === ACTIONS.ADJUST && "Adjust Stock"}
-                  </h5>
-                  <small style={{ color: "#6b7280" }}>
-                    {selectedItem.product}
-                  </small>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={closeModal}
+            <div style={{ display: "flex", gap: "12px" }}>
+              <div style={{ flex: 1, position: "relative" }}>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={stockOutQuantity}
+                  onChange={(e) => setStockOutQuantity(e.target.value)}
                   style={{
-                    border: "none",
-                    background: "transparent",
-                    fontSize: "20px",
-                    cursor: "pointer",
-                    color: "#374151",
+                    width: "100%",
+                    padding: "14px 16px",
+                    fontSize: "1rem",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    transition: "all 0.2s ease",
+                    outline: "none",
                   }}
-                  aria-label="Close"
-                >
-                  ×
-                </button>
-              </div>
-
-              {/* Body */}
-              <div
-                style={{
-                  padding: "20px",
-                  backgroundColor: "#ffffff", 
-                }}
-              >
-                {/* Current stock */}
-                <div
-                  style={{
-                    marginBottom: "16px",
-                    padding: "12px",
-                    background: "#f9fafb",
-                    borderRadius: "6px",
-                    display: "flex",
-                    justifyContent: "space-between",
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#3b82f6";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
                   }}
-                >
-                  <span style={{ color: "#6b7280" }}>Current Stock</span>
-                  <strong>{selectedItem.stock_kg} KG</strong>
-                </div>
-
-                {error && (
-                  <div className="alert alert-danger py-2 mb-3">
-                    {error}
-                  </div>
-                )}
-
-                {/* Unit + Quantity */}
-                <div style={{ marginBottom: "24px" }}>
-                  <div className="row g-3">
-                    <div className="col-4">
-                      <label className="form-label">Unit</label>
-                      <select
-                        className="form-select"
-                        value={unit}
-                        onChange={(e) => setUnit(e.target.value)}
-                      >
-                        <option value="kg">KG</option>
-                        {selectedItem.bag_weight_kg && (
-                          <option value="bag">Bag</option>
-                        )}
-                      </select>
-                    </div>
-
-                    <div className="col-8">
-                      <label className="form-label">
-                        Quantity ({unit === "bag" ? "Bags" : "KG"})
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        className="form-control"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Note */}
-                <div className="mt-2">
-                  <label className="form-label">Note (optional)</label>
-                  <textarea
-                    rows="2"
-                    className="form-control"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                  />
-                </div>
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#e2e8f0";
+                    e.target.style.boxShadow = "none";
+                  }}
+                  placeholder="0.00"
+                />
               </div>
-
-              {/* Footer */}
-              <div
-                style={{
-                  padding: "16px 20px",
-                  borderTop: "1px solid #e5e7eb",
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "12px",
-                  backgroundColor: "#f9fafb",
-                }}
-              >
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={closeModal}
-                  disabled={submitting}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={submitAction}
-                  disabled={submitting}
-                >
-                  {submitting ? "Processing…" : "Confirm"}
-                </button>
-              </div>
+              <UnitSelector
+                value={stockOutUnit}
+                onChange={setStockOutUnit}
+              />
             </div>
-          </div>
-        </>
+          </FormField>
+
+          <FormField label="Note (Optional)">
+            <textarea
+              rows="4"
+              value={stockOutNote}
+              onChange={(e) => setStockOutNote(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                fontSize: "0.95rem",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                transition: "all 0.2s ease",
+                outline: "none",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "#3b82f6";
+                e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "#e2e8f0";
+                e.target.style.boxShadow = "none";
+              }}
+              placeholder="Add reason or additional notes..."
+            />
+          </FormField>
+
+          <ActionButtons
+            onCancel={closeModals}
+            onSubmit={submitStockOut}
+            submitting={submitting}
+            submitText="Complete Stock Out"
+            submitVariant="danger"
+          />
+        </ModernModal>
       )}
     </AppLayout>
   );
 }
+
+/* ========================================
+   UNIT SELECTOR COMPONENT
+======================================== */
+function UnitSelector({ value, onChange }) {
+  return (
+    <div style={{
+      display: "flex",
+      background: "#f1f5f9",
+      borderRadius: "12px",
+      padding: "4px",
+    }}>
+      <button
+        type="button"
+        onClick={() => onChange(UNITS.KG)}
+        style={{
+          padding: "10px 20px",
+          borderRadius: "10px",
+          border: "none",
+          background: value === UNITS.KG ? "#ffffff" : "transparent",
+          color: value === UNITS.KG ? "#0f172a" : "#64748b",
+          fontSize: "0.95rem",
+          fontWeight: "500",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+          boxShadow: value === UNITS.KG ? "0 2px 8px rgba(0,0,0,0.05)" : "none",
+        }}
+      >
+        KG
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(UNITS.BAG)}
+        style={{
+          padding: "10px 20px",
+          borderRadius: "10px",
+          border: "none",
+          background: value === UNITS.BAG ? "#ffffff" : "transparent",
+          color: value === UNITS.BAG ? "#0f172a" : "#64748b",
+          fontSize: "0.95rem",
+          fontWeight: "500",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+          boxShadow: value === UNITS.BAG ? "0 2px 8px rgba(0,0,0,0.05)" : "none",
+        }}
+      >
+        Bag
+      </button>
+    </div>
+  );
+}
+
+/* ========================================
+   MODERN ENTERPRISE MODAL COMPONENT
+======================================== */
+function ModernModal({ title, subtitle, children, onClose, size = "md" }) {
+  // Handle ESC key press
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
+  const sizes = {
+    sm: '400px',
+    md: '560px',
+    lg: '720px',
+    xl: '900px'
+  };
+
+  return (
+    <>
+      {/* Backdrop with refined blur and gradient */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0, 0, 0, 0.7)",
+          backdropFilter: "blur(12px) saturate(180%)",
+          WebkitBackdropFilter: "blur(12px) saturate(180%)",
+          zIndex: 2000,
+          animation: "fadeIn 0.2s ease-out",
+        }}
+      />
+      
+      {/* Modal container with centered positioning */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 2010,
+          padding: "24px",
+          animation: "slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: sizes[size],
+            background: "#ffffff",
+            borderRadius: "24px",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          {/* Subtle gradient accent line at top */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "4px",
+              background: "linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)",
+            }}
+          />
+
+          {/* Header with refined typography */}
+          <div
+            style={{
+              padding: "28px 32px",
+              borderBottom: "1px solid #f1f5f9",
+              background: "#ffffff",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <h3
+                  style={{
+                    fontSize: "1.5rem",
+                    fontWeight: "600",
+                    letterSpacing: "-0.025em",
+                    color: "#0f172a",
+                    margin: 0,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {title}
+                </h3>
+                {subtitle && (
+                  <p
+                    style={{
+                      fontSize: "0.95rem",
+                      color: "#64748b",
+                      marginTop: "6px",
+                      marginBottom: 0,
+                      fontWeight: "400",
+                    }}
+                  >
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+              
+              {/* Close button with hover effect */}
+              <button
+                onClick={onClose}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "#94a3b8",
+                  transition: "all 0.2s ease",
+                  fontSize: "20px",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#f1f5f9";
+                  e.currentTarget.style.color = "#0f172a";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "#94a3b8";
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Content with refined spacing */}
+          <div
+            style={{
+              padding: "32px",
+              background: "#ffffff",
+              maxHeight: "calc(90vh - 140px)",
+              overflowY: "auto",
+            }}
+          >
+            {children}
+          </div>
+        </div>
+      </div>
+
+      {/* Global styles for animations */}
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          
+          @keyframes slideUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
+    </>
+  );
+}
+
+/* ========================================
+   FORM FIELD COMPONENT
+======================================== */
+function FormField({ label, children, required, error, helper }) {
+  return (
+    <div style={{ marginBottom: "24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+        <label
+          style={{
+            fontSize: "0.9rem",
+            fontWeight: "500",
+            color: "#334155",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {label}
+          {required && <span style={{ color: "#ef4444", marginLeft: "4px" }}>*</span>}
+        </label>
+        {helper && (
+          <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>{helper}</span>
+        )}
+      </div>
+      {children}
+      {error && (
+        <p style={{ fontSize: "0.85rem", color: "#ef4444", marginTop: "6px", marginBottom: 0 }}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ========================================
+   SELECT CARD COMPONENT
+======================================== */
+function SelectCard({ value, onChange, options }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${options.length}, 1fr)`,
+        gap: "12px",
+        marginBottom: "24px",
+      }}
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          style={{
+            padding: "16px 20px",
+            borderRadius: "14px",
+            border: value === option.value 
+              ? "2px solid #3b82f6" 
+              : "1px solid #e2e8f0",
+            background: value === option.value ? "#eff6ff" : "#ffffff",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            textAlign: "left",
+            width: "100%",
+            boxShadow: value === option.value 
+              ? "0 4px 12px rgba(59, 130, 246, 0.15)" 
+              : "none",
+          }}
+          onMouseEnter={(e) => {
+            if (value !== option.value) {
+              e.currentTarget.style.background = "#f8fafc";
+              e.currentTarget.style.borderColor = "#cbd5e1";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (value !== option.value) {
+              e.currentTarget.style.background = "#ffffff";
+              e.currentTarget.style.borderColor = "#e2e8f0";
+            }
+          }}
+        >
+          <div style={{ fontWeight: "600", color: "#0f172a", marginBottom: "4px" }}>
+            {option.label}
+          </div>
+          {option.description && (
+            <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+              {option.description}
+            </div>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ========================================
+   ACTION BUTTONS COMPONENT
+======================================== */
+function ActionButtons({ onCancel, onSubmit, submitting, submitText, submitVariant = "primary" }) {
+  const variantStyles = {
+    primary: {
+      background: "#0f172a",
+      color: "#ffffff",
+      hover: "#1e293b",
+    },
+    danger: {
+      background: "#dc2626",
+      color: "#ffffff",
+      hover: "#b91c1c",
+    },
+    success: {
+      background: "#059669",
+      color: "#ffffff",
+      hover: "#047857",
+    },
+  };
+
+  const style = variantStyles[submitVariant];
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "flex-end",
+        gap: "12px",
+        marginTop: "32px",
+        borderTop: "1px solid #f1f5f9",
+        paddingTop: "24px",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={submitting}
+        style={{
+          padding: "12px 24px",
+          borderRadius: "12px",
+          border: "1px solid #e2e8f0",
+          background: "#ffffff",
+          color: "#475569",
+          fontSize: "0.95rem",
+          fontWeight: "500",
+          cursor: submitting ? "not-allowed" : "pointer",
+          transition: "all 0.2s ease",
+          opacity: submitting ? 0.6 : 1,
+        }}
+        onMouseEnter={(e) => {
+          if (!submitting) {
+            e.currentTarget.style.background = "#f8fafc";
+            e.currentTarget.style.borderColor = "#cbd5e1";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!submitting) {
+            e.currentTarget.style.background = "#ffffff";
+            e.currentTarget.style.borderColor = "#e2e8f0";
+          }
+        }}
+      >
+        Cancel
+      </button>
+      
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={submitting}
+        style={{
+          padding: "12px 28px",
+          borderRadius: "12px",
+          border: "none",
+          background: style.background,
+          color: style.color,
+          fontSize: "0.95rem",
+          fontWeight: "500",
+          cursor: submitting ? "not-allowed" : "pointer",
+          transition: "all 0.2s ease",
+          opacity: submitting ? 0.6 : 1,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+        }}
+        onMouseEnter={(e) => {
+          if (!submitting) {
+            e.currentTarget.style.background = style.hover;
+            e.currentTarget.style.transform = "translateY(-1px)";
+            e.currentTarget.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.15)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!submitting) {
+            e.currentTarget.style.background = style.background;
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
+          }
+        }}
+      >
+        {submitting ? (
+          <>
+            <span style={{
+              display: "inline-block",
+              width: "16px",
+              height: "16px",
+              border: "2px solid rgba(255,255,255,0.3)",
+              borderTopColor: "#ffffff",
+              borderRadius: "50%",
+              animation: "spin 0.6s linear infinite",
+            }} />
+            Processing...
+          </>
+        ) : (
+          submitText || "Confirm"
+        )}
+      </button>
+    </div>
+  );
+}
+
+// Export units for use in other components if needed
+export { UNITS };
