@@ -12,13 +12,14 @@ export default function Account() {
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const initials =
-    user?.username
-      ?.split(" ")
-      .map((p) => p[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "?";
+  const initials = user?.username
+    ? user.username
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "?";
 
   const changePassword = async () => {
     setMsg("");
@@ -33,10 +34,13 @@ export default function Account() {
       setEditingPassword(false);
       setOldPassword("");
       setNewPassword("");
+      setMsg("Password updated successfully");
     } catch (err) {
       const error =
         err?.response?.data?.error ||
+        err?.response?.data?.detail ||
         "Failed to change password";
+
       setMsg(Array.isArray(error) ? error.join(", ") : error);
     } finally {
       setSaving(false);
@@ -46,7 +50,8 @@ export default function Account() {
   return (
     <AppLayout title="Account" subtitle="Personal settings">
       <div className="account-container">
-        {/* ================= PROFILE ================= */}
+
+        {/* PROFILE */}
         <section className="card">
           <div className="profile-header">
             <div className="avatar">
@@ -58,21 +63,21 @@ export default function Account() {
             </div>
 
             <div>
-              <h3 className="section-title">{user?.username}</h3>
+              <h3 className="section-title">{user?.username || "User"}</h3>
               <div className="muted">{user?.email || "—"}</div>
             </div>
           </div>
 
           <div className="profile-grid">
-            <ProfileItem label="Role:  " value={user?.role} />
+            <ProfileItem label="Role:" value={user?.role || "—"} />
             <ProfileItem
-              label="Branch: "
-              value={user?.branch || "—"}
+              label="Branch:"
+              value={user?.branch?.name || "—"}
             />
           </div>
         </section>
 
-        {/* ================= SECURITY ================= */}
+        {/* SECURITY */}
         <section className="card">
           <div className="security-header">
             <h3 className="section-title">Security</h3>
@@ -109,6 +114,7 @@ export default function Account() {
 
               <div className="actions">
                 <button
+                  type="button"
                   className="btn btn-primary"
                   disabled={saving}
                   onClick={changePassword}
@@ -117,10 +123,13 @@ export default function Account() {
                 </button>
 
                 <button
+                  type="button"
                   className="btn"
                   onClick={() => {
                     setEditingPassword(false);
                     setMsg("");
+                    setOldPassword("");
+                    setNewPassword("");
                   }}
                 >
                   Cancel
@@ -129,9 +138,10 @@ export default function Account() {
             </div>
           )}
         </section>
+
       </div>
 
-      {/* ================= STYLES ================= */}
+      {/* STYLES */}
       <style>{`
         .account-container {
           max-width: 860px;

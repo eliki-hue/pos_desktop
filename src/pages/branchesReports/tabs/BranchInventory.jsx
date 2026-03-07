@@ -39,41 +39,41 @@ export default function AdminBranchInventory({ branchId }) {
   /* ================= SAVE THRESHOLD ================= */
 
   async function saveThreshold(productId) {
-    if (newThreshold === "") return;
+  if (newThreshold === "") return;
 
-    try {
-      setSaving(true);
+  try {
+    setSaving(true);
 
-      await api.post("/api/inventory/threshold/", {
-        branch: branchId,
-        product: productId,
-        threshold: Number(newThreshold),
-      });
+    await api.post("/api/inventory/threshold/", {
+      branch: branchId,
+      product: productId,
+      threshold: Number(newThreshold),
+    });
 
-      // update UI locally
-      setData((prev) => ({
-        ...prev,
-        items: prev.items.map((i) =>
-          i.product_id === productId
-            ? {
-                ...i,
-                threshold: Number(newThreshold),
-                is_ok: i.stock > Number(newThreshold),
-                status: i.stock > Number(newThreshold) ? "OK" : "LOW",
-              }
-            : i
-        ),
-      }));
+    // update UI locally
+    setData((prev) => ({
+      ...prev,
+      items: prev.items.map((i) =>
+        i.product_id === productId
+          ? {
+              ...i,
+              threshold_kg: Number(newThreshold),
+              is_ok: i.stock > Number(newThreshold),
+              status: i.stock > Number(newThreshold) ? "OK" : "LOW",
+            }
+          : i
+      ),
+    }));
 
-      setEditing(null);
-      setNewThreshold("");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update threshold");
-    } finally {
-      setSaving(false);
-    }
+    setEditing(null);
+    setNewThreshold("");
+  } catch (err) {
+    console.error(err);
+    alert("Failed to update threshold");
+  } finally {
+    setSaving(false);
   }
+}
 
   /* ================= UI ================= */
 
@@ -85,7 +85,7 @@ export default function AdminBranchInventory({ branchId }) {
     <>
       {/* ================= SUMMARY ================= */}
       <div className="grid grid-3" style={{ marginTop: 20 }}>
-        <StatCard label="Total Stock Units" value={data.total_stock} />
+        <StatCard label="Total Stock Units" value={data.total_stock_kg} />
         <StatCard label="Low Stock Items" value={data.low_stock_items} />
         <StatCard label="Branch ID" value={data.branch_id} />
       </div>
@@ -102,6 +102,7 @@ export default function AdminBranchInventory({ branchId }) {
           <table className="table">
             <thead>
               <tr>
+                <th>Image</th>
                 <th>Product</th>
                 <th>SKU</th>
                 <th>Stock</th>
@@ -112,9 +113,20 @@ export default function AdminBranchInventory({ branchId }) {
             <tbody>
               {data.items.map((i) => (
                 <tr key={i.product_id}>
+                  <td>
+                  {i.image ? (
+                    <img
+                      src={i.image}
+                      alt=""
+                      style={{ width: 40, height: 40, objectFit: "cover" }}
+                    />
+                  ) : (
+                    "—"
+                  )}
+                </td>
                   <td>{i.product}</td>
                   <td>{i.sku}</td>
-                  <td>{i.stock}</td>
+                  <td>{i.stock_kg}kg ({i.bag_weight_kg}bags {i.remaining_kg}kg)</td>
 
                   {/* ===== INLINE THRESHOLD EDIT ===== */}
                   <td>
@@ -125,10 +137,9 @@ export default function AdminBranchInventory({ branchId }) {
                           className="input"
                           style={{ width: 70 }}
                           value={newThreshold}
-                          onChange={(e) =>
-                            setNewThreshold(e.target.value)
-                          }
+                          onChange={(e) => setNewThreshold(e.target.value)}
                         />
+
                         <button
                           className="btn"
                           disabled={saving}
@@ -136,6 +147,7 @@ export default function AdminBranchInventory({ branchId }) {
                         >
                           ✓
                         </button>
+
                         <button
                           className="btn"
                           onClick={() => {
@@ -154,13 +166,14 @@ export default function AdminBranchInventory({ branchId }) {
                           gap: 8,
                         }}
                       >
-                        <span>{i.threshold}</span>
+                        <span>{i.threshold_kg} kg</span>
+
                         <button
                           className="btn"
                           style={{ padding: "2px 6px" }}
                           onClick={() => {
                             setEditing(i.product_id);
-                            setNewThreshold(i.threshold);
+                            setNewThreshold(i.threshold_kg);
                           }}
                         >
                           ✎
