@@ -21,6 +21,8 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
+  let refreshTimer;
+
   const init = async () => {
     try {
       await api.post("/api/auth/pos/refresh/");
@@ -28,10 +30,23 @@ export function AuthProvider({ children }) {
       // ignore if not logged in
     } finally {
       await fetchMe();
+
+      // start refresh loop after initialization
+      refreshTimer = setInterval(async () => {
+        try {
+          await api.post("/api/auth/pos/refresh/");
+        } catch (e) {
+          console.error("Token refresh failed");
+        }
+      }, 270000); // 4.5 minutes
     }
   };
 
   init();
+
+  return () => {
+    if (refreshTimer) clearInterval(refreshTimer);
+  };
 }, []);
 
 

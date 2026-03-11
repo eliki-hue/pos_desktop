@@ -29,21 +29,19 @@ export default function AdminDashboard() {
       /* ================= SAFE REPORT ENDPOINTS ================= */
 
       const [
-        // companyRes,
         topProductsRes,
         overviewRes,
         branchesRes,
         cashiersRes,
       ] = await Promise.all([
-        // api.get("/api/reports/company-summary/", {
-        //   params: { start, end },
-        // }),
         api.get("/api/reports/product-performance/", {
           params: { start, end }
         }),
         api.get("/api/reports/admin-overview/"),
         api.get("/api/reports/branches-performance/"),
-        api.get("/api/reports/cashiers-performance/"),
+        api.get("/api/reports/cashiers-performance/", {
+          params: { branch: branchId, start, end }
+        }),
       ]);
 
       /* ================= Company Summary ================= */
@@ -123,7 +121,7 @@ console.log(topProducts[0]);
             <div className="grid grid-4" style={{ marginTop: 16 }}>
               <StatCard
                 label="Total Company Revenue"
-                value={`KES ${overview.total_revenue}`}
+                value={`KSh. ${overview.total_revenue}`}
               />
               <StatCard
                 label="Total Company Orders"
@@ -135,7 +133,7 @@ console.log(topProducts[0]);
               />
               <StatCard
                 label="Total Company Profit"
-                value={overview.company_profit}
+                value={`KES ${Number(overview.company_profit).toFixed(2)}`}
               />
             </div>
 
@@ -154,7 +152,7 @@ console.log(topProducts[0]);
               />
               <StatCard
                 label="POS Profit"
-                value={overview.pos_profit}
+                value={`KES ${Number(overview.pos_revenue).toFixed(2)}`}
               />
             </div>
             <div className="grid grid-4" style={{ marginTop: 20 }}>
@@ -172,7 +170,7 @@ console.log(topProducts[0]);
               />
               <StatCard
                 label="Ecommerce Profit"
-                value={overview.ecommerce_profit}
+                value={`KES ${Number(overview.ecommerce_profit).toFixed(2)}`}
               />
             </div>
             <div className="grid grid-4" style={{ marginTop: 20 }}>
