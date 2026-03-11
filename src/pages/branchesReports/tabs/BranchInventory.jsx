@@ -85,7 +85,7 @@ export default function AdminBranchInventory({ branchId }) {
     <>
       {/* ================= SUMMARY ================= */}
       <div className="grid grid-3" style={{ marginTop: 20 }}>
-        <StatCard label="Total Stock Units" value={data.total_stock_kg} />
+        <StatCard label="Total Stock Units in kg" value={data.total_stock_kg}  />
         <StatCard label="Low Stock Items" value={data.low_stock_items} />
         <StatCard label="Branch ID" value={data.branch_id} />
       </div>
@@ -126,7 +126,7 @@ export default function AdminBranchInventory({ branchId }) {
                 </td>
                   <td>{i.product}</td>
                   <td>{i.sku}</td>
-                  <td>{i.stock_kg}kg ({i.bag_weight_kg}bags {i.remaining_kg}kg)</td>
+                  <td>{i.stock_kg}kg ({i.full_bags}bags {i.remaining_kg}kg)</td>
 
                   {/* ===== INLINE THRESHOLD EDIT ===== */}
                   <td>

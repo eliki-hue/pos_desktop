@@ -175,14 +175,25 @@ export default function AdminBranchDetail() {
       {tab === "summary" && (
         <div className="card" style={{ marginTop: 20 }}>
           <div style={{ fontWeight: 900, marginBottom: 10 }}>Date Filter</div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 10,
+            }}
+          >
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {["day", "week", "month", "year", "custom"].map((t) => (
+                <button key={t} className="btn" onClick={() => setRangeType(t)}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </button>
+              ))}
+            </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {["day", "week", "month", "year", "custom"].map((t) => (
-              <button key={t} className="btn" onClick={() => setRangeType(t)}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
+            <StatCard label="Branch" value={branchName} />
           </div>
+           
 
           {rangeType === "custom" && (
             <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
@@ -218,12 +229,13 @@ export default function AdminBranchDetail() {
         ) : (
           <>
             <div className="grid grid-3" style={{ marginTop: 20 }}>
-              <StatCard label="Total Items Sold" value={summary.total_qty ?? 0} />
+              <StatCard label="Total Items Sold" value={summary.total_items ?? 0} />
+              <StatCard label="Total Orders" value={summary.orders_count ?? 0} />
               <StatCard
                 label="Total Revenue"
                 value={`KES ${Number(summary.total_revenue ?? 0).toFixed(2)}`}
               />
-              <StatCard label="Branch" value={branchName} />
+             
             </div>
 
             <DataTable

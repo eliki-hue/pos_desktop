@@ -29,15 +29,15 @@ export default function AdminDashboard() {
       /* ================= SAFE REPORT ENDPOINTS ================= */
 
       const [
-        companyRes,
+        // companyRes,
         topProductsRes,
         overviewRes,
         branchesRes,
         cashiersRes,
       ] = await Promise.all([
-        api.get("/api/reports/company-summary/", {
-          params: { start, end },
-        }),
+        // api.get("/api/reports/company-summary/", {
+        //   params: { start, end },
+        // }),
         api.get("/api/reports/product-performance/", {
           params: { start, end }
         }),
@@ -47,8 +47,8 @@ export default function AdminDashboard() {
       ]);
 
       /* ================= Company Summary ================= */
-      setCompany(companyRes.data || null);
-      console.log(topProductsRes)
+      // setCompany(companyRes.data || null);
+      // console.log(topProductsRes)
       setTopProducts(
         Array.isArray(topProductsRes.data)
           ? topProductsRes.data
@@ -119,15 +119,63 @@ console.log(topProducts[0]);
         <>
           {/* ================= Admin Overview ================= */}
           {overview && (
+            <>
             <div className="grid grid-4" style={{ marginTop: 16 }}>
               <StatCard
-                label="Total Revenue"
+                label="Total Company Revenue"
                 value={`KES ${overview.total_revenue}`}
               />
               <StatCard
-                label="POS Orders"
-                value={overview.orders_count}
+                label="Total Company Orders"
+                value={overview.total_orders}
               />
+              <StatCard
+                label="Total Items Sold"
+                value={overview.total_items_sold}
+              />
+              <StatCard
+                label="Total Company Profit"
+                value={overview.company_profit}
+              />
+            </div>
+
+            <div className="grid grid-4" style={{ marginTop: 20 }}>
+              <StatCard
+                label="POS Sales"
+                value={`KES ${Number(overview.pos_revenue).toFixed(2)}`}
+              />
+              <StatCard
+                label="POS Orders"
+                value={overview.pos_orders}
+              />
+              <StatCard
+                label="Items Sold"
+                value={overview.pos_items_sold}
+              />
+              <StatCard
+                label="POS Profit"
+                value={overview.pos_profit}
+              />
+            </div>
+            <div className="grid grid-4" style={{ marginTop: 20 }}>
+              <StatCard
+                label="Ecommerce Sales"
+                value={`KES ${Number(overview.ecommerce_revenue).toFixed(2)}`}
+              />
+              <StatCard
+                label="Ecommerce Orders"
+                value={overview.ecommerce_orders}
+              />
+              <StatCard
+                label="ecommerce Items Sold"
+                value={overview.ecommerce_items_sold}
+              />
+              <StatCard
+                label="Ecommerce Profit"
+                value={overview.ecommerce_profit}
+              />
+            </div>
+            <div className="grid grid-4" style={{ marginTop: 20 }}>
               <StatCard
                 label="Branches"
                 value={overview.branches}
@@ -137,24 +185,28 @@ console.log(topProducts[0]);
                 value={overview.active_products}
               />
             </div>
+            </>
           )}
 
           {/* ================= Company Summary ================= */}
           {company && (
-            <div className="grid grid-3" style={{ marginTop: 20 }}>
+            <>
+            {/* <div className="grid grid-3" style={{ marginTop: 20 }}>
               <StatCard
-                label="Company Revenue"
-                value={`KES ${Number(company.total_revenue).toFixed(2)}`}
+                label="POS Sales"
+                value={`KES ${Number(company.pos_revenue).toFixed(2)}`}
               />
               <StatCard
-                label="Orders"
+                label="POS Orders"
                 value={company.orders_count}
               />
               <StatCard
                 label="Items Sold"
                 value={company.total_items}
               />
-            </div>
+            </div> */}
+            
+            </>
           )}
 
           {/* ================= Top Products ================= */}
