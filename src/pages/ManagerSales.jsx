@@ -149,10 +149,22 @@ export default function SalesReportManager() {
       ]);
 
       if (summaryRes.status === "fulfilled") setSummary(summaryRes.value.data);
-      if (topRes.status === "fulfilled") setTopProducts(topRes.value.data.results || []);
+      // if (topRes.status === "fulfilled") setTopProducts(topRes.value.data.results || []);
       if (trendRes.status === "fulfilled") setDailySales(trendRes.value.data || []);
       if (categoryRes.status === "fulfilled") setCategoryBreakdown(categoryRes.value.data || []);
       if (paymentRes.status === "fulfilled") setPaymentMethods(paymentRes.value.data || []);
+      if (topRes.status === "fulfilled") {
+        const data = topRes.value.data;
+        // Handle both array and object with results property
+        if (Array.isArray(data)) {
+          setTopProducts(data);
+        } else if (data.results && Array.isArray(data.results)) {
+          setTopProducts(data.results);
+        } else {
+          setTopProducts([]);
+          console.warn("Unexpected top products data format:", data);
+        }
+      }
 
     } catch (err) {
       setError("Failed to load analytics data");
@@ -550,84 +562,95 @@ export default function SalesReportManager() {
         </div>
       )}
 
-      {/* Top Products Table */}
-      {topProducts.length > 0 ? (
-        <div className="card border-0 shadow-sm">
-          <div className="card-header bg-white border-0 pt-4 pb-0">
-            <h6 className="mb-0">Top Selling Products</h6>
-          </div>
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th style={{ width: "50px" }}>#</th>
-                    <th>Product</th>
-                    <th className="text-end">Quantity Sold</th>
-                    <th className="text-end">Revenue</th>
-                    <th className="text-end">% of Total</th>
-                  </tr>
-                </thead>
+          {topProducts.length > 0 ? (
+          <div className="card border-0 shadow-sm">
+            <div className="card-header bg-white border-0 pt-4 pb-0">
+              <h6 className="mb-0">Top Selling Products</h6>
+            </div>
+            <div className="card-body p-0">
+              <div className="table-responsive">
+                <table className="table align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th style={{ width: "50px" }}>#</th>
+                      <th>Product</th>
+                      <th className="text-end">Quantity Sold</th>
+                      <th className="text-end">Revenue</th>
+                      <th className="text-end">% of Total</th>
+                    </tr>
+                  </thead>
 
-                <tbody>
-                  {topProducts.map((item, index) => {
-                    const revenueShare = summary?.total_revenue
-                      ? ((item.revenue / summary.total_revenue) * 100).toFixed(1)
-                      : 0;
-                    
-                    return (
-                      <tr key={item.product_id || index}>
-                        <td>
-                          <span className="badge bg-dark">{index + 1}</span>
-                        </td>
+                  <tbody>
+                    {topProducts.map((item, index) => {
+                      // Make sure we're accessing the correct fields
+                      const productName = item.product || item.product_name || `Product ${item.product_id}`;
+                      const quantity = item.qty || item.quantity || 0;
+                      const revenue = item.revenue || 0;
+                      
+                      // Calculate percentage safely
+                      const revenueShare = summary?.total_revenue && revenue > 0
+                        ? ((revenue / summary.total_revenue) * 100).toFixed(1)
+                        : 0;
+                      
+                      return (
+                        <tr key={item.product_id || index}>
+                          <td>
+                            <span className="badge bg-dark">{index + 1}</span>
+                          </td>
 
-                        <td>
-                          <div className="fw-medium">
-                            {item.product || item.product_name || `Product ${item.product_id}`}
-                          </div>
-                          {item.product_id && (
-                            <small className="text-muted">
-                              ID: {item.product_id}
-                            </small>
-                          )}
-                        </td>
+                          <td>
+                            <div className="fw-medium">
+                              {productName}
+                            </div>
+                            {item.product_id && (
+                              <small className="text-muted">
+                                ID: {item.product_id}
+                              </small>
+                            )}
+                          </td>
 
-                        <td className="text-end fw-medium">
-                          {formatNumber(item.qty || item.quantity || 0)}
-                        </td>
+                          <td className="text-end fw-medium">
+                            {quantity.toLocaleString()}
+                          </td>
 
-                        <td className="text-end fw-medium">
-                          {formatCurrency(item.revenue || 0)}
-                        </td>
+                          <td className="text-end fw-medium">
+                            {formatCurrency(revenue)}
+                          </td>
 
-                        <td className="text-end">
-                          <div className="d-flex align-items-center justify-content-end gap-2">
-                            <span>{revenueShare}%</span>
-                            <div style={{ width: "50px" }}>
-                              <div className="progress" style={{ height: "4px" }}>
-                                <div
-                                  className="progress-bar bg-dark"
-                                  style={{ width: `${revenueShare}%` }}
-                                />
+                          <td className="text-end">
+                            <div className="d-flex align-items-center justify-content-end gap-2">
+                              <span>{revenueShare}%</span>
+                              <div style={{ width: "50px" }}>
+                                <div className="progress" style={{ height: "4px" }}>
+                                  <div
+                                    className="progress-bar bg-dark"
+                                    style={{ width: `${revenueShare}%` }}
+                                  />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="card border-0 shadow-sm p-5 text-center">
-          <p className="text-muted mb-0">
-            No top products data available for this period
-          </p>
-        </div>
-      )}
+        ) : (
+          <div className="card border-0 shadow-sm p-5 text-center">
+            <p className="text-muted mb-0">
+              No top products data available for this period
+            </p>
+            {/* Add debug info */}
+            {process.env.NODE_ENV === 'development' && (
+              <pre className="text-start mt-3 p-3 bg-light rounded">
+                {JSON.stringify(topProducts, null, 2)}
+              </pre>
+            )}
+          </div>
+        )}
 
       {/* Quick Insights */}
       {/* {summary && (
