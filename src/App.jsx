@@ -27,6 +27,7 @@ import Users from "./pages/users/Users";
 import StockIn from "./pages/inventory/stock_in";
 import StockMovementReport from "./pages/inventory/StockMovementReport";
 import Transfers from "./pages/inventory/Transfers";
+import EcommerceOrdersPage from "./pages/EcommerceOrdersPage";
 
 export default function App() {
   return (
@@ -113,6 +114,7 @@ export default function App() {
 
         <Route path="/inventory/stock-in" element={<StockIn />} />
         <Route path="/inventory/transfers" element={<Transfers />} />
+        <Route path="/admin/ecommerce-orders" element={<EcommerceOrdersPage />} />
 
         <Route
           path="manager/sales"

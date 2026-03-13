@@ -228,12 +228,14 @@ export default function AdminBranchDetail() {
           </div>
         ) : (
           <>
-            <div className="grid grid-3" style={{ marginTop: 20 }}>
-              <StatCard label="Total Items Sold" value={summary.total_items ?? 0} />
+            <div className="grid grid-4" style={{ marginTop: 20 }}>
+              <StatCard label="Total Items Sold" value={summary.total_qty ?? 0} />
               <StatCard label="Total Orders" value={summary.orders_count ?? 0} />
               <StatCard
-                label="Total Revenue"
-                value={`KES ${Number(summary.total_revenue ?? 0).toFixed(2)}`}
+                label="Total Revenue" value={`KES ${Number(summary.total_revenue ?? 0).toFixed(2)}`}
+              />
+              <StatCard
+                label="Branch Profit" value={`KES ${Number(summary.total_profit ?? 0).toFixed(2)}`}
               />
              
             </div>

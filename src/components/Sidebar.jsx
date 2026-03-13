@@ -74,22 +74,29 @@ export default function Sidebar() {
             <div style={{ marginTop: 10 }} className="muted">
               Management
             </div>
+            <NavLink to="/manager/sales" style={linkStyle}>
+              Sales Reports
+            </NavLink>
+
+            <NavLink to="/admin/ecommerce-orders" style={linkStyle}>
+              Ecommerce Orders
+            </NavLink>
+
+            
 
             <NavLink to="/manager/inventory" style={linkStyle}>
               Stocks
             </NavLink>
 
-            <NavLink to="/api/reports/movements" style={linkStyle}>
-              Reports
-            </NavLink>
-
-            <NavLink to="/manager/sales" style={linkStyle}>
-              Sales Reports
-            </NavLink>
-
             <NavLink to="/inventory/transfers" style={linkStyle}>
               Stock Transfers
             </NavLink>
+
+            <NavLink to="/api/reports/movements" style={linkStyle}>
+              Stock movement Reports
+            </NavLink>
+            
+            
           </>
         )}
 
