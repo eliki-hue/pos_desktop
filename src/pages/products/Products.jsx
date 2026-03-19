@@ -24,6 +24,11 @@ function AddToCartModal({ product, onClose, onAdded }) {
   const submit = async () => {
     setMsg("");
 
+    if (product.out_of_stock) {
+      setMsg("This product is out of stock");
+      return;
+    }
+
     if (!qty || totalKg <= 0) {
       setMsg("Enter a valid quantity");
       return;
@@ -34,8 +39,8 @@ function AddToCartModal({ product, onClose, onAdded }) {
     try {
       await api.post("/api/cart/pos/cart/add/", {
         product: product.id,
-        unit: unit,          // ✅ backend expects `unit`
-        quantity: Number(qty), // ✅ backend expects `quantity`
+        unit: unit,
+        quantity: Number(qty),
       });
 
       onAdded();
@@ -70,6 +75,17 @@ function AddToCartModal({ product, onClose, onAdded }) {
 
         <div style={{ marginTop: 10 }}>
           <div style={{ fontWeight: 800 }}>{product.name}</div>
+
+          <div className="muted" style={{ marginTop: 4 }}>
+            {product.out_of_stock ? (
+              <span style={{ color: "red" }}>Out of stock</span>
+            ) : (
+              <span>
+                Available: {Number(product.stock_kg).toFixed(2)} KG
+              </span>
+            )}
+          </div>
+
           <div className="muted">
             Price: KES {product.unit_price} / KG
           </div>
@@ -83,9 +99,7 @@ function AddToCartModal({ product, onClose, onAdded }) {
               onChange={(e) => setUnit(e.target.value)}
             >
               <option value="KG">KG</option>
-              <option value="BAG">
-                BAG ({kgPerBag} KG)
-              </option>
+              <option value="BAG">BAG ({kgPerBag} KG)</option>
             </select>
           ) : (
             <div className="muted">Sold in KG only</div>
@@ -112,7 +126,7 @@ function AddToCartModal({ product, onClose, onAdded }) {
         <button
           className="btn btn-primary"
           style={{ width: "100%", marginTop: 14 }}
-          disabled={loading || !qty || totalKg <= 0}
+          disabled={loading || !qty || totalKg <= 0 || product.out_of_stock}
           onClick={submit}
         >
           {loading ? "Adding..." : "Add to Cart"}
@@ -130,6 +144,7 @@ export default function Products() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [backendSearched, setBackendSearched] = useState(false);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -149,13 +164,48 @@ export default function Products() {
     loadProducts();
   }, []);
 
-  const filtered = useMemo(() => {
+  useEffect(() => {
+    setBackendSearched(false);
+  }, [q]);
+
+  const localResults = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return products;
+    if (!query) return [];
     return products.filter((p) =>
       String(p.name || "").toLowerCase().includes(query)
     );
   }, [products, q]);
+
+  const searchBackend = async () => {
+    if (!q.trim()) return;
+
+    setLoading(true);
+    setMsg("");
+
+    try {
+      const res = await api.get(
+        `/api/products/?search=${encodeURIComponent(q)}`
+      );
+      setProducts(res.data || []);
+      setBackendSearched(true);
+    } catch (err) {
+      setMsg("❌ Failed to search in store");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetSearch = async () => {
+    setQ("");
+    setBackendSearched(false);
+    await loadProducts();
+  };
+
+  const displayProducts = q
+    ? backendSearched
+      ? products
+      : localResults
+    : products;
 
   return (
     <AppLayout title="Products" subtitle="Search products and add to cart">
@@ -175,6 +225,12 @@ export default function Products() {
             style={{ flex: 1 }}
           />
 
+          {q && (
+            <button className="btn btn-secondary" onClick={resetSearch}>
+              Back
+            </button>
+          )}
+
           <button className="btn btn-primary" onClick={() => navigate("/cart")}>
             Go to Cart
           </button>
@@ -186,11 +242,23 @@ export default function Products() {
       <div style={{ marginTop: 16 }}>
         {loading ? (
           <div className="muted">Loading products...</div>
-        ) : filtered.length === 0 ? (
-          <div className="muted">No products found.</div>
+        ) : displayProducts.length === 0 ? (
+          <div className="card" style={{ textAlign: "center" }}>
+            <div className="muted">No products found.</div>
+
+            {q && !backendSearched && (
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: 10 }}
+                onClick={searchBackend}
+              >
+                Search in Store
+              </button>
+            )}
+          </div>
         ) : (
           <div className="grid grid-4">
-            {filtered.map((p) => (
+            {displayProducts.map((p) => (
               <div className="card" key={p.id}>
                 <div style={{ fontWeight: 900 }}>{p.name}</div>
 
@@ -204,12 +272,34 @@ export default function Products() {
                   KES {p.unit_price} / KG
                 </div>
 
+                <div style={{ marginTop: 6 }}>
+                  {p.out_of_stock ? (
+                    <span style={{ color: "red", fontWeight: 800 }}>
+                      OUT OF STOCK
+                    </span>
+                  ) : (
+                    <span style={{ color: "green", fontWeight: 800 }}>
+                      Stock: {Number(p.stock_kg).toFixed(2)} KG
+                    </span>
+                  )}
+                </div>
+
                 <button
                   className="btn btn-primary"
-                  style={{ width: "100%", marginTop: 10 }}
-                  onClick={() => setSelectedProduct(p)}
+                  style={{
+                    width: "100%",
+                    marginTop: 10,
+                    opacity: p.out_of_stock ? 0.6 : 1,
+                    cursor: p.out_of_stock ? "not-allowed" : "pointer",
+                  }}
+                  disabled={p.out_of_stock}
+                  onClick={() => {
+                    if (!p.out_of_stock) {
+                      setSelectedProduct(p);
+                    }
+                  }}
                 >
-                  Add to Cart
+                  {p.out_of_stock ? "Out of Stock" : "Add to Cart"}
                 </button>
               </div>
             ))}
