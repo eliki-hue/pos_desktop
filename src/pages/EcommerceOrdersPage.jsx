@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import AppLayout from "../components/AppLayout";
 import { api } from "../api/client";
 
-// Status badge color mapping
+/* =========================
+   STATUS CONFIG
+========================= */
+const STATUS_OPTIONS = ["PENDING", "PAID", "CANCELLED", "FULFILLED"];
+
 const STATUS_COLORS = {
   pending: { bg: "bg-warning bg-opacity-10", text: "text-warning", dot: "bg-warning" },
-  processing: { bg: "bg-info bg-opacity-10", text: "text-info", dot: "bg-info" },
-  completed: { bg: "bg-success bg-opacity-10", text: "text-success", dot: "bg-success" },
+  paid: { bg: "bg-success bg-opacity-10", text: "text-success", dot: "bg-success" },
+  fulfilled: { bg: "bg-info bg-opacity-10", text: "text-info", dot: "bg-info" },
   cancelled: { bg: "bg-danger bg-opacity-10", text: "text-danger", dot: "bg-danger" },
-  refunded: { bg: "bg-secondary bg-opacity-10", text: "text-secondary", dot: "bg-secondary" },
   default: { bg: "bg-light bg-opacity-10", text: "text-dark", dot: "bg-secondary" },
 };
 
@@ -23,12 +26,15 @@ function StatCard({ label, value }) {
 
 export default function EcommerceOrdersPage() {
   const [orders, setOrders] = useState([]);
-  const [selectedOrder, setSelectedOrder] = useState(null); // null | order
+  const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
+  /* =========================
+     LOAD
+  ========================= */
   const loadOrders = async () => {
     setLoading(true);
     try {
@@ -57,16 +63,58 @@ export default function EcommerceOrdersPage() {
     loadOrders();
   }, []);
 
-  // Format currency
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat("en-US", {
+  /* =========================
+     ACTIONS
+  ========================= */
+  const updateStatus = async (orderId, status) => {
+    try {
+      await api.patch(`/api/ecommerce/orders/${orderId}/status/`, { status });
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.order_id === orderId ? { ...o, status } : o
+        )
+      );
+
+      if (selectedOrder?.order_id === orderId) {
+        setSelectedOrder((prev) => ({ ...prev, status }));
+      }
+
+    } catch {
+      alert("Failed to update status");
+    }
+  };
+
+  const confirmAndSend = async (order) => {
+    try {
+      const res = await api.post(`/api/ecommerce/orders/${order.order_id}/confirm-send/`);
+      window.open(res.data.whatsapp_url, "_blank");
+    } catch {
+      alert("Failed to send WhatsApp");
+    }
+  };
+
+  const sendSTK = async (order) => {
+    try {
+      await api.post("/api/ecommerce/payments/stk-push/", {
+        phone: order.phone || order.guest_phone,
+      });
+      alert("STK Push sent successfully");
+    } catch {
+      alert("STK push failed");
+    }
+  };
+
+  /* =========================
+     HELPERS
+  ========================= */
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
       minimumFractionDigits: 2,
     }).format(value || 0);
-  };
 
-  // Format date
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat("en-US", {
@@ -78,43 +126,48 @@ export default function EcommerceOrdersPage() {
     }).format(date);
   };
 
-  // Get status badge style
   const getStatusStyle = (status) => {
     const key = status?.toLowerCase() || "default";
     return STATUS_COLORS[key] || STATUS_COLORS.default;
   };
 
-  // Filter orders
+  /* =========================
+     FILTER
+  ========================= */
   const filteredOrders = orders.filter((order) => {
     if (filter !== "all" && order.status?.toLowerCase() !== filter) {
       return false;
     }
-    
+
     if (search) {
-      const searchLower = search.toLowerCase();
+      const s = search.toLowerCase();
       return (
-        order.order_number?.toLowerCase().includes(searchLower) ||
-        order.customer?.toLowerCase().includes(searchLower) ||
-        order.branch?.toLowerCase().includes(searchLower)
+        order.order_number?.toLowerCase().includes(s) ||
+        order.customer?.toLowerCase().includes(s) ||
+        order.branch?.toLowerCase().includes(s) ||
+        order.phone?.toLowerCase().includes(s) ||
+        order.guest_phone?.toLowerCase().includes(s)
       );
     }
-    
+
     return true;
   });
 
-  // Calculate summary stats
-  const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+  /* =========================
+     STATS
+  ========================= */
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
   const totalOrders = orders.length;
   const pendingOrders = orders.filter(
-    (order) => order.status?.toLowerCase() === "pending"
+    (o) => o.status?.toLowerCase() === "pending"
   ).length;
   const completedOrders = orders.filter(
-    (order) => order.status?.toLowerCase() === "completed"
+    (o) => o.status?.toLowerCase() === "paid" || o.status?.toLowerCase() === "fulfilled"
   ).length;
 
   return (
     <AppLayout title="Ecommerce Orders" subtitle="Manage and track all ecommerce orders">
-      {/* Header with Add button style matching Products page */}
+      {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <strong>Orders</strong>
         <button className="btn" onClick={loadOrders} disabled={loading}>
@@ -122,7 +175,7 @@ export default function EcommerceOrdersPage() {
         </button>
       </div>
 
-      {/* Stats Cards using StatCard component */}
+      {/* STATS */}
       <div className="grid-4" style={{ marginTop: 16, marginBottom: 24 }}>
         <StatCard label="Total Orders" value={totalOrders} />
         <StatCard label="Completed" value={completedOrders} />
@@ -130,7 +183,7 @@ export default function EcommerceOrdersPage() {
         <StatCard label="Total Revenue" value={formatCurrency(totalRevenue)} />
       </div>
 
-      {/* Filters and Search */}
+      {/* FILTERS */}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 8 }}>
           <button
@@ -146,48 +199,56 @@ export default function EcommerceOrdersPage() {
             Pending
           </button>
           <button
-            className={`btn ${filter === "processing" ? "" : "outline"}`}
-            onClick={() => setFilter("processing")}
+            className={`btn ${filter === "paid" ? "" : "outline"}`}
+            onClick={() => setFilter("paid")}
           >
-            Processing
+            Paid
           </button>
           <button
-            className={`btn ${filter === "completed" ? "" : "outline"}`}
-            onClick={() => setFilter("completed")}
+            className={`btn ${filter === "fulfilled" ? "" : "outline"}`}
+            onClick={() => setFilter("fulfilled")}
           >
-            Completed
+            Fulfilled
+          </button>
+          <button
+            className={`btn ${filter === "cancelled" ? "" : "outline"}`}
+            onClick={() => setFilter("cancelled")}
+          >
+            Cancelled
           </button>
         </div>
 
         <input
           type="text"
-          placeholder="Search orders..."
+          placeholder="Search by order #, customer, branch, phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ padding: "6px 12px", border: "1px solid #ddd", borderRadius: 4 }}
+          style={{ padding: "6px 12px", border: "1px solid #ddd", borderRadius: 4, width: 300 }}
         />
       </div>
 
-      {/* Orders Table */}
-      <div className="card" style={{ marginTop: 12 }}>
-        <table className="table">
+      {/* TABLE */}
+      <div className="card" style={{ marginTop: 12, overflowX: "auto" }}>
+        <table className="table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
               <th>Order #</th>
               <th>Customer</th>
+              <th>Phone</th>
               <th>Branch</th>
               <th>Items</th>
               <th>Qty</th>
               <th>Total</th>
               <th>Status</th>
               <th>Date</th>
-              <th />
+              <th>Actions</th>
             </tr>
           </thead>
+
           <tbody>
             {loading && (
               <tr>
-                <td colSpan="9" style={{ textAlign: "center", padding: 24 }}>
+                <td colSpan="10" style={{ textAlign: "center", padding: 24 }}>
                   Loading orders...
                 </td>
               </tr>
@@ -195,7 +256,7 @@ export default function EcommerceOrdersPage() {
 
             {!loading && filteredOrders.length === 0 && (
               <tr>
-                <td colSpan="9" style={{ textAlign: "center", padding: 24 }}>
+                <td colSpan="10" style={{ textAlign: "center", padding: 24 }}>
                   {orders.length === 0 ? "No ecommerce orders found" : "No orders match your filters"}
                 </td>
               </tr>
@@ -203,17 +264,15 @@ export default function EcommerceOrdersPage() {
 
             {filteredOrders.map((order) => {
               const statusStyle = getStatusStyle(order.status);
-              
+
               return (
                 <tr key={order.order_id}>
                   <td>
                     <strong>{order.order_number}</strong>
                     <div style={{ fontSize: 12, color: "#666" }}>ID: {order.order_id}</div>
                   </td>
-                  <td>
-                    {order.customer || "Guest"}
-                    {order.email && <div style={{ fontSize: 12, color: "#666" }}>{order.email}</div>}
-                  </td>
+                  <td>{order.customer || "Guest"}</td>
+                  <td>{order.phone || order.guest_phone || "—"}</td>
                   <td>{order.branch || "—"}</td>
                   <td>{order.items || 0}</td>
                   <td>{order.quantity || 0}</td>
@@ -221,29 +280,54 @@ export default function EcommerceOrdersPage() {
                     <strong>{formatCurrency(order.total)}</strong>
                   </td>
                   <td>
-                    <span
+                    <select
+                      value={order.status}
+                      onChange={(e) => updateStatus(order.order_id, e.target.value)}
                       style={{
-                        display: "inline-block",
                         padding: "4px 8px",
                         borderRadius: 4,
+                        border: "1px solid #ddd",
+                        backgroundColor: statusStyle.bg?.replace("bg-", "").replace(" bg-opacity-10", "") || "#fff",
+                        color: statusStyle.text?.replace("text-", "") || "#000",
                         fontSize: 12,
-                        backgroundColor: statusStyle.bg.replace("bg-", "").replace(" bg-opacity-10", ""),
-                        color: statusStyle.text.replace("text-", ""),
                       }}
                     >
-                      {order.status || "Pending"}
-                    </span>
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td style={{ fontSize: 14 }}>
                     {order.created_at ? formatDate(order.created_at) : "—"}
                   </td>
                   <td>
-                    <button
-                      className="btn"
-                      onClick={() => loadOrderDetails(order.order_id)}
-                    >
-                      View
-                    </button>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        className="btn"
+                        onClick={() => loadOrderDetails(order.order_id)}
+                      >
+                        View
+                      </button>
+
+                      {order.status === "PENDING" && (
+                        <>
+                          <button
+                            className="btn"
+                            onClick={() => confirmAndSend(order)}
+                          >
+                            WhatsApp
+                          </button>
+                          <button
+                            className="btn"
+                            onClick={() => sendSTK(order)}
+                          >
+                            STK
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -252,21 +336,23 @@ export default function EcommerceOrdersPage() {
         </table>
       </div>
 
-      {/* Order Details Modal - Matching ProductFormModal style */}
+      {/* MODAL */}
       {selectedOrder && (
         <OrderDetailsModal
           order={selectedOrder}
           loading={loadingDetails}
-          onClose={() => {
-            setSelectedOrder(null);
-          }}
+          onClose={() => setSelectedOrder(null)}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
           getStatusStyle={getStatusStyle}
+          updateStatus={updateStatus}
+          confirmAndSend={confirmAndSend}
+          sendSTK={sendSTK}
+          STATUS_OPTIONS={STATUS_OPTIONS}
         />
       )}
 
-      {/* Add CSS for grid-4 */}
+      {/* CSS STYLES */}
       <style>
         {`
           .grid-4 {
@@ -300,11 +386,24 @@ export default function EcommerceOrdersPage() {
   );
 }
 
-/* ========================================
-   ORDER DETAILS MODAL - Matching ProductFormModal style
-======================================== */
-function OrderDetailsModal({ order, loading, onClose, formatCurrency, formatDate, getStatusStyle }) {
+/* =========================
+   ORDER DETAILS MODAL
+========================= */
+function OrderDetailsModal({ 
+  order, 
+  loading, 
+  onClose, 
+  formatCurrency, 
+  formatDate, 
+  getStatusStyle, 
+  updateStatus,
+  confirmAndSend,
+  sendSTK,
+  STATUS_OPTIONS 
+}) {
   if (!order) return null;
+
+  const statusStyle = getStatusStyle(order.status);
 
   return (
     <div
@@ -333,7 +432,7 @@ function OrderDetailsModal({ order, loading, onClose, formatCurrency, formatDate
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header - matching ProductFormModal */}
+        {/* Modal Header */}
         <div
           style={{
             display: "flex",
@@ -366,26 +465,35 @@ function OrderDetailsModal({ order, loading, onClose, formatCurrency, formatDate
             </div>
           ) : (
             <>
-              {/* Order Summary Stats - using StatCard style */}
+              {/* Order Summary Stats */}
               <div className="grid-4" style={{ marginBottom: 24 }}>
                 <StatCard label="Order #" value={order.order_number} />
                 <StatCard label="Customer" value={order.customer || "Guest"} />
+                <StatCard label="Phone" value={order.phone || order.guest_phone || "—"} />
                 <StatCard label="Branch" value={order.branch || "—"} />
                 <StatCard 
                   label="Status" 
                   value={
-                    <span
+                    <select
+                      value={order.status}
+                      onChange={(e) => updateStatus(order.order_id, e.target.value)}
                       style={{
-                        display: "inline-block",
-                        padding: "4px 8px",
+                        padding: "6px 12px",
                         borderRadius: 4,
+                        border: "1px solid #ddd",
+                        backgroundColor: statusStyle.bg?.replace("bg-", "").replace(" bg-opacity-10", "") || "#fff",
+                        color: statusStyle.text?.replace("text-", "") || "#000",
                         fontSize: 14,
-                        backgroundColor: getStatusStyle(order.status).bg.replace("bg-", "").replace(" bg-opacity-10", ""),
-                        color: getStatusStyle(order.status).text.replace("text-", ""),
+                        fontWeight: 500,
+                        width: "100%",
                       }}
                     >
-                      {order.status || "Pending"}
-                    </span>
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
                   } 
                 />
                 <StatCard 
@@ -450,24 +558,51 @@ function OrderDetailsModal({ order, loading, onClose, formatCurrency, formatDate
                 </p>
               )}
 
-              {/* Modal Footer with buttons matching ProductFormModal */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                  marginTop: 24,
-                  paddingTop: 16,
-                  borderTop: "1px solid #eee",
-                }}
-              >
-                <button className="btn outline" onClick={onClose}>
-                  Close
-                </button>
-                <button className="btn">
-                  🖨️ Print Invoice
-                </button>
-              </div>
+              {/* Action Buttons */}
+              {order.status === "PENDING" && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 8,
+                    marginTop: 24,
+                    paddingTop: 16,
+                    borderTop: "1px solid #eee",
+                  }}
+                >
+                  <button className="btn outline" onClick={onClose}>
+                    Close
+                  </button>
+                  <button className="btn" onClick={() => confirmAndSend(order)}>
+                    📱 Send WhatsApp
+                  </button>
+                  <button className="btn" onClick={() => sendSTK(order)}>
+                    💳 Send STK Push
+                  </button>
+                </div>
+              )}
+
+              {order.status !== "PENDING" && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 8,
+                    marginTop: 24,
+                    paddingTop: 16,
+                    borderTop: "1px solid #eee",
+                  }}
+                >
+                  <button className="btn outline" onClick={onClose}>
+                    Close
+                  </button>
+                  <button className="btn" onClick={() => {
+                    window.print();
+                  }}>
+                    🖨️ Print Invoice
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
