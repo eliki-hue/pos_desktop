@@ -12,6 +12,7 @@ const STATUS_COLORS = {
   paid: { bg: "bg-success bg-opacity-10", text: "text-success", dot: "bg-success" },
   fulfilled: { bg: "bg-info bg-opacity-10", text: "text-info", dot: "bg-info" },
   cancelled: { bg: "bg-danger bg-opacity-10", text: "text-danger", dot: "bg-danger" },
+  processing: { bg: "bg-primary bg-opacity-10", text: "text-primary", dot: "bg-primary" },
   default: { bg: "bg-light bg-opacity-10", text: "text-dark", dot: "bg-secondary" },
 };
 
@@ -24,6 +25,357 @@ function StatCard({ label, value }) {
   );
 }
 
+// Payment Details Modal Component
+function PaymentDetailsModal({ details, onClose, formatCurrency, formatDate }) {
+  const [expandedAttempt, setExpandedAttempt] = useState(null);
+  
+  if (!details) return null;
+
+  const getStatusColor = (status) => {
+    switch(status?.toUpperCase()) {
+      case 'SUCCESS':
+      case 'PAID':
+        return { bg: '#d1fae5', color: '#065f46', icon: '✅' };
+      case 'FAILED':
+        return { bg: '#fee2e2', color: '#991b1b', icon: '❌' };
+      case 'PENDING':
+        return { bg: '#fef3c7', color: '#92400e', icon: '⏳' };
+      case 'TIMEOUT':
+        return { bg: '#fed7aa', color: '#9a3412', icon: '⏰' };
+      default:
+        return { bg: '#f3f4f6', color: '#374151', icon: '❓' };
+    }
+  };
+
+  const getResultCodeMessage = (code) => {
+    const messages = {
+      '0': 'Success',
+      '1032': 'Request cancelled by user',
+      '1037': 'User cancelled the transaction (timeout)',
+      '1001': 'Insufficient funds',
+      '1003': 'Invalid account',
+      '2001': 'Invalid phone number',
+      '2002': 'Invalid amount',
+      '2003': 'Invalid reference',
+      'TIMEOUT': 'Request timed out',
+      'ERROR': 'System error'
+    };
+    return messages[code] || code;
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 2000,
+        padding: 20,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          backgroundColor: "white",
+          borderRadius: 12,
+          width: "90%",
+          maxWidth: 1000,
+          maxHeight: "90vh",
+          overflow: "auto",
+          boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ 
+          padding: "20px 24px", 
+          borderBottom: "1px solid #e5e7eb",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          backgroundColor: "#f9fafb",
+          borderRadius: "12px 12px 0 0"
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>
+              💳 Payment History
+            </h3>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
+              Order #{details.order.order_number} - {details.total_attempts} payment attempt(s)
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 24,
+              cursor: "pointer",
+              padding: "0 8px",
+              color: "#6b7280",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: 24 }}>
+          {/* Order Summary */}
+          <div style={{ marginBottom: 24 }}>
+            <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: "#374151" }}>
+              🛍️ Order Information
+            </h4>
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
+              gap: 16,
+              backgroundColor: "#f9fafb",
+              padding: 16,
+              borderRadius: 8,
+              border: "1px solid #e5e7eb"
+            }}>
+              <div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Order Number</div>
+                <div style={{ fontWeight: 600 }}>{details.order.order_number}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Status</div>
+                <span style={{
+                  display: "inline-block",
+                  padding: "4px 12px",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  backgroundColor: details.order.status === 'PAID' ? '#d1fae5' : '#fee2e2',
+                  color: details.order.status === 'PAID' ? '#065f46' : '#991b1b',
+                }}>
+                  {details.order.status}
+                </span>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Total Amount</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
+                  {formatCurrency(details.order.total)}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Customer</div>
+                <div>{details.order.customer || 'Guest'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Phone</div>
+                <div>{details.order.phone || 'N/A'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Order Date</div>
+                <div>{formatDate(details.order.created_at)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Attempts */}
+          <div>
+            <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: "#374151" }}>
+              💰 Payment Attempts ({details.total_attempts})
+            </h4>
+            
+            {details.payment_attempts.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 40, color: "#6b7280" }}>
+                No payment attempts recorded for this order
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {details.payment_attempts.map((attempt, attemptIdx) => {
+                  const attemptStyle = getStatusColor(attempt.status);
+                  const isExpanded = expandedAttempt === attempt.payment_intent_id;
+                  
+                  return (
+                    <div
+                      key={attempt.payment_intent_id}
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      {/* Attempt Header */}
+                      <div
+                        style={{
+                          padding: "16px",
+                          backgroundColor: "#f9fafb",
+                          cursor: "pointer",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          borderBottom: isExpanded ? "1px solid #e5e7eb" : "none"
+                        }}
+                        onClick={() => setExpandedAttempt(isExpanded ? null : attempt.payment_intent_id)}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <span style={{ fontSize: 20 }}>{attemptStyle.icon}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                              Attempt #{attemptIdx + 1} - {formatCurrency(attempt.amount)}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#6b7280" }}>
+                              {formatDate(attempt.created_at)}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <span style={{
+                            padding: "4px 8px",
+                            borderRadius: 4,
+                            fontSize: 12,
+                            fontWeight: 500,
+                            backgroundColor: attemptStyle.bg,
+                            color: attemptStyle.color,
+                          }}>
+                            {attempt.status}
+                          </span>
+                          <span style={{ fontSize: 16, color: "#6b7280" }}>
+                            {isExpanded ? '▼' : '▶'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Attempt Details (Expanded) */}
+                      {isExpanded && (
+                        <div style={{ padding: 16 }}>
+                          {/* Attempt Summary */}
+                          <div style={{ 
+                            display: "grid", 
+                            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
+                            gap: 12,
+                            marginBottom: 20,
+                            backgroundColor: "#fef3c7",
+                            padding: 12,
+                            borderRadius: 6
+                          }}>
+                            <div>
+                              <div style={{ fontSize: 11, color: "#6b7280" }}>Payment Intent ID</div>
+                              <code style={{ fontSize: 11 }}>{attempt.payment_intent_id}</code>
+                            </div>
+                            {attempt.receipt_number && (
+                              <div>
+                                <div style={{ fontSize: 11, color: "#6b7280" }}>Receipt Number</div>
+                                <div style={{ fontFamily: "monospace", fontSize: 12 }}>{attempt.receipt_number}</div>
+                              </div>
+                            )}
+                            {attempt.failure_reason && (
+                              <div>
+                                <div style={{ fontSize: 11, color: "#6b7280" }}>Failure Reason</div>
+                                <div style={{ fontSize: 12, color: "#dc2626" }}>⚠️ {attempt.failure_reason}</div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Transactions for this attempt */}
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12, color: "#6b7280" }}>
+                              Transaction Details
+                            </div>
+                            {attempt.transactions.map((tx) => (
+                              <div
+                                key={tx.id}
+                                style={{
+                                  marginBottom: 12,
+                                  padding: 12,
+                                  backgroundColor: "#f9fafb",
+                                  borderRadius: 6,
+                                  borderLeft: `3px solid ${tx.status === 'SUCCESS' ? '#10b981' : tx.status === 'FAILED' ? '#ef4444' : '#f59e0b'}`
+                                }}
+                              >
+                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                                  <strong style={{ fontSize: 13 }}>
+                                    {tx.type === 'STK_PUSH' ? '💳 STK Push Request' : '📞 Webhook Callback'}
+                                  </strong>
+                                  <span style={{ fontSize: 11, color: "#6b7280" }}>{formatDate(tx.created_at)}</span>
+                                </div>
+                                
+                                {tx.result_code && (
+                                  <div style={{ fontSize: 12, marginBottom: 4 }}>
+                                    <strong>Result:</strong> {tx.result_code}
+                                    {tx.result_code !== '0' && ` - ${getResultCodeMessage(tx.result_code)}`}
+                                  </div>
+                                )}
+                                
+                                {tx.result_desc && (
+                                  <div style={{ fontSize: 12, marginBottom: 8, color: "#6b7280" }}>
+                                    {tx.result_desc}
+                                  </div>
+                                )}
+                                
+                                {tx.checkout_request_id && (
+                                  <details style={{ marginTop: 8 }}>
+                                    <summary style={{ fontSize: 11, color: "#3b82f6", cursor: "pointer" }}>
+                                      View Full Details
+                                    </summary>
+                                    <pre style={{
+                                      backgroundColor: "#1e293b",
+                                      color: "#e2e8f0",
+                                      padding: 8,
+                                      borderRadius: 4,
+                                      overflow: "auto",
+                                      maxHeight: 200,
+                                      fontSize: 10,
+                                      marginTop: 8,
+                                      fontFamily: "monospace"
+                                    }}>
+                                      {JSON.stringify(tx.request_payload || tx.response_payload, null, 2)}
+                                    </pre>
+                                  </details>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ 
+          padding: "16px 24px", 
+          borderTop: "1px solid #e5e7eb",
+          backgroundColor: "#f9fafb",
+          display: "flex",
+          justifyContent: "flex-end",
+          borderRadius: "0 0 12px 12px"
+        }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "8px 24px",
+              backgroundColor: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: 500
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EcommerceOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -32,7 +384,6 @@ export default function EcommerceOrdersPage() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const whatsappWindowRef = useRef(null);
-  const whatsappTabId = useRef(null);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewMessage, setPreviewMessage] = useState("");
@@ -40,6 +391,102 @@ export default function EcommerceOrdersPage() {
   const [currentOrderForWhatsApp, setCurrentOrderForWhatsApp] = useState(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  
+  // For real-time updates
+  const [loadingOrders, setLoadingOrders] = useState({});
+  const pollingIntervals = useRef({});
+  const [toast, setToast] = useState(null);
+  
+  // For payment details modal
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState(null);
+  const [loadingPaymentDetails, setLoadingPaymentDetails] = useState(false);
+
+  /* ========================= HELPERS ========================= */
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const updateOrderStatus = (orderId, newStatus, additionalData = {}) => {
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.order_id === orderId 
+          ? { ...order, status: newStatus, ...additionalData }
+          : order
+      )
+    );
+    
+    if (selectedOrder?.order_id === orderId) {
+      setSelectedOrder(prev => ({ ...prev, status: newStatus, ...additionalData }));
+    }
+  };
+
+  const startPolling = (orderId) => {
+    if (pollingIntervals.current[orderId]) {
+      clearInterval(pollingIntervals.current[orderId]);
+    }
+    
+    console.log(`Starting polling for order ${orderId}`);
+    
+    // Set timeout to stop polling after 5 minutes
+    const timeoutId = setTimeout(() => {
+      if (pollingIntervals.current[orderId]) {
+        console.log(`Polling timeout for order ${orderId} after 5 minutes`);
+        clearInterval(pollingIntervals.current[orderId]);
+        delete pollingIntervals.current[orderId];
+        
+        const order = orders.find(o => o.order_id === orderId);
+        if (order && order.status === 'PROCESSING') {
+          updateOrderStatus(orderId, 'PENDING');
+          showToast(`Payment timeout for order ${order.order_number}. Please retry.`, 'warning');
+        }
+      }
+    }, 300000);
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await api.get(`/api/reports/${orderId}/details/`);
+        const order = response.data;
+        
+        console.log(`Polling order ${orderId}: status = ${order.status}`);
+        
+        if (order.status !== 'PENDING' && order.status !== 'PROCESSING') {
+          console.log(`Order ${orderId} status changed to ${order.status}, stopping polling`);
+          clearInterval(pollingIntervals.current[orderId]);
+          clearTimeout(timeoutId);
+          delete pollingIntervals.current[orderId];
+          
+          updateOrderStatus(orderId, order.status);
+          
+          if (order.status === 'PAID') {
+            showToast(`Order ${order.order_number} paid successfully!`, 'success');
+          } else if (order.status === 'FAILED') {
+            showToast(`Order ${order.order_number} payment failed. You can retry.`, 'error');
+          }
+        }
+      } catch (err) {
+        console.error(`Polling error for order ${orderId}:`, err);
+      }
+    }, 2000);
+    
+    pollingIntervals.current[orderId] = interval;
+    pollingIntervals.current[`${orderId}_timeout`] = timeoutId;
+  };
+
+  const viewOrderPaymentDetails = async (orderId) => {
+    setLoadingPaymentDetails(true);
+    try {
+      const response = await api.get(`/api/ecommerce/orders/${orderId}/payment-transactions/`);
+      setPaymentDetails(response.data);
+      setShowPaymentDetails(true);
+    } catch (err) {
+      console.error("Failed to load payment details:", err);
+      alert("Failed to load payment details");
+    } finally {
+      setLoadingPaymentDetails(false);
+    }
+  };
 
   /* ========================= LOAD ========================= */
   const loadOrders = async () => {
@@ -73,29 +520,32 @@ export default function EcommerceOrdersPage() {
       if (whatsappWindowRef.current && !whatsappWindowRef.current.closed) {
         whatsappWindowRef.current.close();
       }
+      Object.keys(pollingIntervals.current).forEach(key => {
+        if (key.includes('_timeout')) {
+          clearTimeout(pollingIntervals.current[key]);
+        } else {
+          clearInterval(pollingIntervals.current[key]);
+        }
+      });
     };
   }, []);
 
   /* ========================= ACTIONS ========================= */
   const updateStatus = async (orderId, status) => {
+    const originalOrder = orders.find(o => o.order_id === orderId);
+    if (!originalOrder) return;
+    
+    updateOrderStatus(orderId, status);
+    
     try {
       await api.patch(`/api/ecommerce/orders/${orderId}/status/`, { status });
-
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.order_id === orderId ? { ...o, status } : o
-        )
-      );
-
-      if (selectedOrder?.order_id === orderId) {
-        setSelectedOrder((prev) => ({ ...prev, status }));
-      }
-    } catch {
-      alert("Failed to update status");
+      showToast(`Order status updated to ${status}`, 'success');
+    } catch (err) {
+      updateOrderStatus(orderId, originalOrder.status);
+      showToast("Failed to update status", 'error');
     }
   };
 
-  // ✅ FIXED: PREVIEW ONLY (NO PAYMENT CREATION)
   const generateWhatsAppLink = async (order) => {
     setLoadingWhatsApp(true);
 
@@ -173,7 +623,6 @@ Thank you for shopping with us!`;
     }
   };
 
-  // ✅ FIXED: PAYMENT CREATED ONLY HERE
   const sendWhatsAppWithMessage = async () => {
     if (!previewUrl) {
       alert("No WhatsApp URL available");
@@ -215,15 +664,28 @@ Thank you for shopping with us!`;
   };
 
   const sendSTK = async (order) => {
+    setLoadingOrders(prev => ({ ...prev, [order.order_id]: true }));
+    updateOrderStatus(order.order_id, 'PROCESSING');
+    
     try {
       await api.post("/api/ecommerce/payments/stk-push/", {
         customer_phone: order.phone || order.guest_phone,
-        order_number: order.order_number,order_id: order.order_id,
-        customer_name :order.customer
+        order_number: order.order_number,
+        order_id: order.order_id,
+        customer_name: order.customer
       });
-      alert("STK Push sent successfully");
-    } catch {
-      alert("STK push failed");
+      
+      startPolling(order.order_id);
+      showToast("STK Push sent! Check your phone to complete payment.", 'success');
+      
+    } catch (err) {
+      console.error("STK push failed:", err);
+      updateOrderStatus(order.order_id, 'PENDING');
+      const errorMessage = err.response?.data?.detail || "STK push failed";
+      showToast(errorMessage, 'error');
+      
+    } finally {
+      setLoadingOrders(prev => ({ ...prev, [order.order_id]: false }));
     }
   };
 
@@ -289,6 +751,24 @@ Thank you for shopping with us!`;
 
   return (
     <AppLayout title="Ecommerce Orders" subtitle="Manage and track all ecommerce orders">
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: 20,
+          right: 20,
+          zIndex: 9999,
+          padding: '12px 24px',
+          borderRadius: 8,
+          backgroundColor: toast.type === 'success' ? '#10b981' : '#ef4444',
+          color: 'white',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          {toast.message}
+        </div>
+      )}
+
       {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <strong>Orders</strong>
@@ -386,6 +866,7 @@ Thank you for shopping with us!`;
 
             {filteredOrders.map((order) => {
               const statusStyle = getStatusStyle(order.status);
+              const isLoading = loadingOrders[order.order_id];
 
               return (
                 <tr key={order.order_id}>
@@ -413,6 +894,7 @@ Thank you for shopping with us!`;
                         color: statusStyle.text?.replace("text-", "") || "#000",
                         fontSize: 12,
                       }}
+                      disabled={order.status === 'PROCESSING'}
                     >
                       {STATUS_OPTIONS.map((s) => (
                         <option key={s} value={s}>
@@ -432,6 +914,22 @@ Thank you for shopping with us!`;
                       >
                         View
                       </button>
+                      
+                      <button
+                        className="btn outline"
+                        onClick={() => viewOrderPaymentDetails(order.order_id)}
+                        disabled={loadingPaymentDetails}
+                        style={{
+                          fontSize: 12,
+                          padding: "4px 8px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4
+                        }}
+                        title="View payment transaction history"
+                      >
+                        📋 Log
+                      </button>
 
                       {order.status === "PENDING" && (
                         <>
@@ -447,8 +945,14 @@ Thank you for shopping with us!`;
                           <button
                             className="btn"
                             onClick={() => sendSTK(order)}
+                            disabled={isLoading || order.status === 'PROCESSING'}
+                            style={{
+                              opacity: isLoading || order.status === 'PROCESSING' ? 0.6 : 1,
+                              cursor: isLoading || order.status === 'PROCESSING' ? 'not-allowed' : 'pointer'
+                            }}
                           >
-                            STK
+                            {isLoading ? 'Sending...' : 
+                             order.status === 'PROCESSING' ? 'Processing...' : 'STK'}
                           </button>
                         </>
                       )}
@@ -475,6 +979,7 @@ Thank you for shopping with us!`;
           sendSTK={sendSTK}
           STATUS_OPTIONS={STATUS_OPTIONS}
           loadingWhatsApp={loadingWhatsApp}
+          loadingOrders={loadingOrders}
         />
       )}
 
@@ -492,6 +997,19 @@ Thank you for shopping with us!`;
           formatCurrency={formatCurrency}
           isEditing={isEditing}
           setIsEditing={setIsEditing}
+        />
+      )}
+
+      {/* Payment Details Modal */}
+      {showPaymentDetails && (
+        <PaymentDetailsModal
+          details={paymentDetails}
+          onClose={() => {
+            setShowPaymentDetails(false);
+            setPaymentDetails(null);
+          }}
+          formatCurrency={formatCurrency}
+          formatDate={formatDate}
         />
       )}
 
@@ -523,6 +1041,17 @@ Thank you for shopping with us!`;
           .btn.outline:hover {
             background: #f5f5f5;
           }
+
+          @keyframes slideIn {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
         `}
       </style>
     </AppLayout>
@@ -543,11 +1072,13 @@ function OrderDetailsModal({
   openWhatsAppPreview,
   sendSTK,
   STATUS_OPTIONS,
-  loadingWhatsApp
+  loadingWhatsApp,
+  loadingOrders
 }) {
   if (!order) return null;
 
   const statusStyle = getStatusStyle(order.status);
+  const isLoading = loadingOrders?.[order.order_id];
 
   return (
     <div
@@ -631,6 +1162,7 @@ function OrderDetailsModal({
                         fontWeight: 500,
                         width: "100%",
                       }}
+                      disabled={order.status === 'PROCESSING'}
                     >
                       {STATUS_OPTIONS.map((s) => (
                         <option key={s} value={s}>
@@ -675,9 +1207,9 @@ function OrderDetailsModal({
                                 <div style={{ fontSize: 12, color: "#666" }}>SKU: {item.sku}</div>
                               )}
                             </td>
-                            <td>{item.quantity}</td>
-                            <td>{formatCurrency(item.price)}</td>
-                            <td>
+                             <td>{item.quantity}</td>
+                             <td>{formatCurrency(item.price)}</td>
+                             <td>
                               <strong>{formatCurrency(subtotal)}</strong>
                             </td>
                           </tr>
@@ -724,8 +1256,12 @@ function OrderDetailsModal({
                   >
                     {loadingWhatsApp ? "Loading..." : "📱 Send WhatsApp"}
                   </button>
-                  <button className="btn" onClick={() => sendSTK(order)}>
-                    💳 Send STK Push
+                  <button 
+                    className="btn" 
+                    onClick={() => sendSTK(order)}
+                    disabled={isLoading || order.status === 'PROCESSING'}
+                  >
+                    {isLoading ? 'Sending...' : order.status === 'PROCESSING' ? 'Processing...' : '💳 Send STK Push'}
                   </button>
                 </div>
               )}
@@ -840,7 +1376,7 @@ function WhatsAppPreviewModal({ message, onMessageChange, onClose, onSend, order
 
         {/* Modal Body */}
         <div style={{ padding: 16 }}>
-          {/* Message Preview - Always visible */}
+          {/* Message Preview */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <label style={{ fontWeight: 500 }}>Message Preview:</label>
@@ -910,7 +1446,7 @@ function WhatsAppPreviewModal({ message, onMessageChange, onClose, onSend, order
             </div>
           </div>
 
-          {/* Quick Insert Buttons - Only show when editing */}
+          {/* Quick Insert Buttons */}
           {isEditing && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 8 }}>
