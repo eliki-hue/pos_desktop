@@ -11,21 +11,16 @@ export default function AdminBranches() {
   const [msg, setMsg] = useState("");
   const [editingBranch, setEditingBranch] = useState(null);
   const [showForm, setShowForm] = useState(false);
-
-  // Form state for create/edit
-  const [formData, setFormData] = useState({
-    name: "",
-    branch_code: "",
-    phone: "",
-    email: "",
-    address: "",
-    county: "",
-    city: "",
-    google_maps_url: "",
-    manager_name: "",
-    is_active: true,
-    is_ecommerce_branch: false,
-    is_main_branch: false,
+  
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    type: "",
+    branchId: null,
+    branchName: "",
+    currentBranchName: "",
+    action: null,
+    impact: "",
   });
 
   const loadBranches = async () => {
@@ -92,6 +87,207 @@ export default function AdminBranches() {
     resetForm();
   };
 
+  // Confirmation handlers
+  const confirmSetAsEcommerce = (branchId, branchName) => {
+    const currentEcommerceBranch = branches.find(b => b.is_ecommerce_branch);
+    let impact = "";
+    
+    if (currentEcommerceBranch) {
+      impact = `This will switch the ecommerce branch from "${currentEcommerceBranch.name}" to "${branchName}".\n\n`;
+      impact += `⚠️ IMPORTANT:\n`;
+      impact += `• All future online orders will be assigned to "${branchName}"\n`;
+      impact += `• Existing orders will remain with their original branch\n`;
+      impact += `• Delivery fees and pickup locations will update for new orders\n`;
+      impact += `• This change takes effect immediately for new orders\n\n`;
+      impact += `Are you sure you want to proceed?`;
+    } else {
+      impact = `This will set "${branchName}" as the ecommerce branch.\n\n`;
+      impact += `⚠️ IMPORTANT:\n`;
+      impact += `• All online orders will now be handled by "${branchName}"\n`;
+      impact += `• Customers will pick up from this branch\n`;
+      impact += `• Delivery zones and fees will apply from this branch\n\n`;
+      impact += `Are you sure you want to proceed?`;
+    }
+    
+    setConfirmModal({
+      show: true,
+      type: "ecommerce",
+      branchId,
+      branchName,
+      currentBranchName: currentEcommerceBranch?.name,
+      action: () => setAsEcommerce(branchId),
+      impact,
+    });
+  };
+
+  const confirmSetAsMain = (branchId, branchName) => {
+    const currentMainBranch = branches.find(b => b.is_main_branch);
+    let impact = "";
+    
+    if (currentMainBranch) {
+      impact = `This will switch the main branch from "${currentMainBranch.name}" to "${branchName}".\n\n`;
+      impact += `⚠️ IMPORTANT:\n`;
+      impact += `• The main branch is used as fallback for ecommerce\n`;
+      impact += `• If no ecommerce branch is set, this branch will handle orders\n`;
+      impact += `• This change may affect system-wide settings\n\n`;
+      impact += `Are you sure you want to proceed?`;
+    } else {
+      impact = `This will set "${branchName}" as the main branch.\n\n`;
+      impact += `⚠️ IMPORTANT:\n`;
+      impact += `• The main branch serves as fallback for ecommerce orders\n`;
+      impact += `• This branch will be used if no ecommerce branch is set\n\n`;
+      impact += `Are you sure you want to proceed?`;
+    }
+    
+    setConfirmModal({
+      show: true,
+      type: "main",
+      branchId,
+      branchName,
+      currentBranchName: currentMainBranch?.name,
+      action: () => setAsMain(branchId),
+      impact,
+    });
+  };
+
+  const confirmDeactivate = (branchId, branchName, isActive) => {
+    let impact = "";
+    
+    if (isActive) {
+      impact = `You are about to deactivate "${branchName}".\n\n`;
+      impact += `⚠️ IMPORTANT WARNING:\n`;
+      
+      // Check if this is the ecommerce branch
+      const isEcommerce = branches.find(b => b.id === branchId)?.is_ecommerce_branch;
+      if (isEcommerce) {
+        impact += `• This is the CURRENT ECOMMERCE BRANCH!\n`;
+        impact += `• Deactivating it will affect all online orders\n`;
+        impact += `• You should set another branch as ecommerce first\n\n`;
+      }
+      
+      impact += `Effects of deactivation:\n`;
+      impact += `• This branch will NOT be available for new orders\n`;
+      impact += `• Existing orders will not be affected\n`;
+      impact += `• Staff cannot assign this branch to new carts\n`;
+      impact += `• You can reactivate it later\n\n`;
+      impact += `Are you sure you want to deactivate this branch?`;
+    } else {
+      impact = `You are about to activate "${branchName}".\n\n`;
+      impact += `✅ Effects of activation:\n`;
+      impact += `• This branch will be available for new orders\n`;
+      impact += `• Staff can assign this branch to carts\n`;
+      impact += `• You can set this as ecommerce branch if needed\n\n`;
+      impact += `Are you sure you want to activate this branch?`;
+    }
+    
+    setConfirmModal({
+      show: true,
+      type: "status",
+      branchId,
+      branchName,
+      currentStatus: isActive,
+      action: () => toggleBranchStatus(branchId, isActive),
+      impact,
+    });
+  };
+
+  const confirmDelete = (branchId, branchName) => {
+    const branch = branches.find(b => b.id === branchId);
+    let impact = "";
+    
+    impact = `⚠️ DANGEROUS ACTION: You are about to delete "${branchName}".\n\n`;
+    
+    if (branch?.is_ecommerce_branch) {
+      impact += `❌ CRITICAL: This is the CURRENT ECOMMERCE BRANCH!\n`;
+      impact += `• Deleting it will break all ecommerce functionality\n`;
+      impact += `• Please set another branch as ecommerce first\n\n`;
+    }
+    
+    if (branch?.is_main_branch) {
+      impact += `⚠️ This is the MAIN BRANCH.\n`;
+      impact += `• Deleting it may affect system settings\n\n`;
+    }
+    
+    impact += `⚠️ CONSEQUENCES:\n`;
+    impact += `• All orders associated with this branch will lose reference\n`;
+    impact += `• This action CANNOT be undone\n`;
+    impact += `• Consider deactivating instead of deleting\n\n`;
+    impact += `Are you ABSOLUTELY sure you want to delete this branch?`;
+    
+    setConfirmModal({
+      show: true,
+      type: "delete",
+      branchId,
+      branchName,
+      action: () => deleteBranch(branchId),
+      impact,
+    });
+  };
+
+  const executeAction = () => {
+    if (confirmModal.action) {
+      confirmModal.action();
+    }
+    setConfirmModal({ show: false, type: "", branchId: null, branchName: "", action: null, impact: "" });
+  };
+
+  // Actual API calls
+  const setAsEcommerce = async (branchId) => {
+    try {
+      await api.patch(`/api/branches/${branchId}/`, { is_ecommerce_branch: true });
+      setMsg("✅ Branch set as ecommerce branch");
+      await loadBranches();
+    } catch (err) {
+      setMsg(err?.response?.data?.detail || "❌ Failed to set ecommerce branch");
+    }
+  };
+
+  const setAsMain = async (branchId) => {
+    try {
+      await api.patch(`/api/branches/${branchId}/`, { is_main_branch: true });
+      setMsg("✅ Branch set as main branch");
+      await loadBranches();
+    } catch (err) {
+      setMsg(err?.response?.data?.detail || "❌ Failed to set main branch");
+    }
+  };
+
+  const toggleBranchStatus = async (branchId, currentStatus) => {
+    try {
+      await api.patch(`/api/branches/${branchId}/`, { is_active: !currentStatus });
+      setMsg(`✅ Branch ${!currentStatus ? "activated" : "deactivated"}`);
+      await loadBranches();
+    } catch (err) {
+      setMsg(err?.response?.data?.detail || "❌ Failed to update branch status");
+    }
+  };
+
+  const deleteBranch = async (branchId) => {
+    try {
+      await api.delete(`/api/branches/${branchId}/`);
+      setMsg("✅ Branch deleted successfully");
+      await loadBranches();
+    } catch (err) {
+      setMsg(err?.response?.data?.detail || "❌ Failed to delete branch");
+    }
+  };
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    branch_code: "",
+    phone: "",
+    email: "",
+    address: "",
+    county: "",
+    city: "",
+    google_maps_url: "",
+    manager_name: "",
+    is_active: true,
+    is_ecommerce_branch: false,
+    is_main_branch: false,
+  });
+
   const createBranch = async () => {
     setMsg("");
     const trimmed = formData.name.trim();
@@ -125,47 +321,6 @@ export default function AdminBranches() {
       await loadBranches();
     } catch (err) {
       setMsg(err?.response?.data?.detail || "❌ Failed to update branch");
-    }
-  };
-
-  const toggleBranchStatus = async (branchId, currentStatus) => {
-    try {
-      await api.patch(`/api/branches/${branchId}/`, { is_active: !currentStatus });
-      setMsg(`✅ Branch ${!currentStatus ? "activated" : "deactivated"}`);
-      await loadBranches();
-    } catch (err) {
-      setMsg(err?.response?.data?.detail || "❌ Failed to update branch status");
-    }
-  };
-
-  const setAsEcommerce = async (branchId) => {
-    try {
-      await api.patch(`/api/branches/${branchId}/`, { is_ecommerce_branch: true });
-      setMsg("✅ Branch set as ecommerce branch");
-      await loadBranches();
-    } catch (err) {
-      setMsg(err?.response?.data?.detail || "❌ Failed to set ecommerce branch");
-    }
-  };
-
-  const setAsMain = async (branchId) => {
-    try {
-      await api.patch(`/api/branches/${branchId}/`, { is_main_branch: true });
-      setMsg("✅ Branch set as main branch");
-      await loadBranches();
-    } catch (err) {
-      setMsg(err?.response?.data?.detail || "❌ Failed to set main branch");
-    }
-  };
-
-  const deleteBranch = async (branchId) => {
-    if (!window.confirm("Are you sure you want to delete this branch?")) return;
-    try {
-      await api.delete(`/api/branches/${branchId}/`);
-      setMsg("✅ Branch deleted successfully");
-      await loadBranches();
-    } catch (err) {
-      setMsg(err?.response?.data?.detail || "❌ Failed to delete branch");
     }
   };
 
@@ -206,7 +361,73 @@ export default function AdminBranches() {
         )}
       </div>
 
-      {/* Create/Edit Branch Form - Only shows when Add or Edit is clicked */}
+      {/* Confirmation Modal */}
+      {confirmModal.show && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 2000,
+        }} onClick={() => setConfirmModal({ ...confirmModal, show: false })}>
+          <div style={{
+            backgroundColor: "white",
+            borderRadius: 12,
+            maxWidth: 500,
+            width: "90%",
+            padding: 24,
+            boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 24, marginBottom: 12 }}>
+              {confirmModal.type === "delete" ? "⚠️" : "🔄"}
+            </div>
+            <h3 style={{ marginBottom: 12 }}>
+              {confirmModal.type === "ecommerce" && "Set Ecommerce Branch"}
+              {confirmModal.type === "main" && "Set Main Branch"}
+              {confirmModal.type === "status" && (confirmModal.currentStatus ? "Deactivate Branch" : "Activate Branch")}
+              {confirmModal.type === "delete" && "Delete Branch"}
+            </h3>
+            <div style={{ 
+              whiteSpace: "pre-line", 
+              fontSize: 14, 
+              color: "#374151",
+              lineHeight: 1.5,
+              marginBottom: 20,
+              maxHeight: 400,
+              overflow: "auto"
+            }}>
+              {confirmModal.impact}
+            </div>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <button 
+                className="btn outline" 
+                onClick={() => setConfirmModal({ ...confirmModal, show: false })}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn" 
+                onClick={executeAction}
+                style={{ 
+                  backgroundColor: confirmModal.type === "delete" ? "#dc2626" : "#3b82f6",
+                  border: "none"
+                }}
+              >
+                {confirmModal.type === "delete" ? "Yes, Delete" : 
+                 confirmModal.type === "status" && !confirmModal.currentStatus ? "Yes, Activate" : 
+                 "Yes, Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Branch Form */}
       {showForm && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -408,7 +629,7 @@ export default function AdminBranches() {
                         {!b.is_ecommerce_branch && b.is_active && (
                           <button
                             className="btn outline"
-                            onClick={() => setAsEcommerce(b.id)}
+                            onClick={() => confirmSetAsEcommerce(b.id, b.name)}
                             style={{ fontSize: 11, padding: "4px 8px", backgroundColor: "#fef3c7" }}
                             title="Set as ecommerce branch"
                           >
@@ -418,7 +639,7 @@ export default function AdminBranches() {
                         {!b.is_main_branch && b.is_active && (
                           <button
                             className="btn outline"
-                            onClick={() => setAsMain(b.id)}
+                            onClick={() => confirmSetAsMain(b.id, b.name)}
                             style={{ fontSize: 11, padding: "4px 8px" }}
                             title="Set as main branch"
                           >
@@ -427,14 +648,14 @@ export default function AdminBranches() {
                         )}
                         <button
                           className="btn outline"
-                          onClick={() => toggleBranchStatus(b.id, b.is_active)}
+                          onClick={() => confirmDeactivate(b.id, b.name, b.is_active)}
                           style={{ fontSize: 11, padding: "4px 8px" }}
                         >
                           {b.is_active ? "🔴 Deactivate" : "🟢 Activate"}
                         </button>
                         <button
                           className="btn outline"
-                          onClick={() => deleteBranch(b.id)}
+                          onClick={() => confirmDelete(b.id, b.name)}
                           style={{ fontSize: 11, padding: "4px 8px", color: "#dc2626" }}
                         >
                           🗑️ Delete
@@ -448,7 +669,7 @@ export default function AdminBranches() {
           )}
         </div>
 
-        {/* Info Box - Only show when there are branches */}
+        {/* Info Box */}
         {branches.length > 0 && (
           <div style={{ marginTop: 16, padding: 12, backgroundColor: "#fef3c7", borderRadius: 6 }}>
             <div style={{ fontWeight: 500, fontSize: 13, color: "#92400e" }}>
