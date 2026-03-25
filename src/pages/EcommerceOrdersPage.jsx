@@ -5,7 +5,7 @@ import { api } from "../api/client";
 /* =========================
    STATUS CONFIG
 ========================= */
-const STATUS_OPTIONS = ["PENDING", "PAID", "CANCELLED", "FULFILLED"];
+const STATUS_OPTIONS = ["PENDING", "PAID","PROCESSING","IN-TRANSIT","DELIVERED","CONFLICT", "CANCELLED", "COMPLETED"];
 
 const STATUS_COLORS = {
   pending: { bg: "bg-warning bg-opacity-10", text: "text-warning", dot: "bg-warning" },
@@ -571,11 +571,11 @@ export default function EcommerceOrdersPage() {
       if (phone) {
         const fallbackMessage = `Hello ${order.customer || "Customer"},
 
-Your order ${order.order_number} is confirmed.
+          Your order ${order.order_number} is confirmed.
 
-Total: ${formatCurrency(order.total)}
+          Total: ${formatCurrency(order.total)}
 
-Thank you for shopping with us!`;
+          Thank you for shopping with us!`;
 
         const encodedMessage = encodeURIComponent(fallbackMessage);
         const fallbackUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodedMessage}`;
@@ -746,7 +746,7 @@ Thank you for shopping with us!`;
     (o) => o.status?.toLowerCase() === "pending"
   ).length;
   const completedOrders = orders.filter(
-    (o) => o.status?.toLowerCase() === "paid" || o.status?.toLowerCase() === "fulfilled"
+    (o) => o.status?.toLowerCase() === "paid" || o.status?.toLowerCase() === "completed"
   ).length;
 
   return (
@@ -786,38 +786,87 @@ Thank you for shopping with us!`;
       </div>
 
       {/* FILTERS */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {/* All Orders */}
           <button
             className={`btn ${filter === "all" ? "" : "outline"}`}
             onClick={() => setFilter("all")}
           >
             All
           </button>
-          <button
-            className={`btn ${filter === "pending" ? "" : "outline"}`}
-            onClick={() => setFilter("pending")}
-          >
-            Pending
-          </button>
-          <button
-            className={`btn ${filter === "paid" ? "" : "outline"}`}
-            onClick={() => setFilter("paid")}
-          >
-            Paid
-          </button>
-          <button
-            className={`btn ${filter === "fulfilled" ? "" : "outline"}`}
-            onClick={() => setFilter("fulfilled")}
-          >
-            Fulfilled
-          </button>
-          <button
-            className={`btn ${filter === "cancelled" ? "" : "outline"}`}
-            onClick={() => setFilter("cancelled")}
-          >
-            Cancelled
-          </button>
+
+          {/* Payment Statuses */}
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "#6b7280", paddingRight: 4 }}>Payment:</span>
+            <button
+              className={`btn ${filter === "pending" ? "" : "outline"}`}
+              onClick={() => setFilter("pending")}
+              style={{ fontSize: 12, padding: "4px 12px" }}
+            >
+              Pending
+            </button>
+            
+            <button
+              className={`btn ${filter === "paid" ? "" : "outline"}`}
+              onClick={() => setFilter("paid")}
+              style={{ fontSize: 12, padding: "4px 12px" }}
+            >
+              Paid
+            </button>
+          </div>
+
+          {/* Delivery Statuses */}
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "#6b7280", paddingRight: 4 }}>Delivery:</span>
+            <button
+              className={`btn ${filter === "processing" ? "" : "outline"}`}
+              onClick={() => setFilter("processing")}
+              style={{ fontSize: 12, padding: "4px 12px" }}
+            >
+              Processing
+            </button>
+            <button
+              className={`btn ${filter === "in-transit" ? "" : "outline"}`}
+              onClick={() => setFilter("in-transit")}
+              style={{ fontSize: 12, padding: "4px 12px" }}
+            >
+              In-Transit
+            </button>
+            <button
+              className={`btn ${filter === "delivered" ? "" : "outline"}`}
+              onClick={() => setFilter("delivered")}
+              style={{ fontSize: 12, padding: "4px 12px" }}
+            >
+              Delivered
+            </button>
+            <button
+              className={`btn ${filter === "completed" ? "" : "outline"}`}
+              onClick={() => setFilter("Completed")}
+              style={{ fontSize: 12, padding: "4px 12px" }}
+            >
+              Completed
+            </button>
+          </div>
+
+          {/* Issue Statuses */}
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "#6b7280", paddingRight: 4 }}>Issues:</span>
+            <button
+              className={`btn ${filter === "conflict" ? "" : "outline"}`}
+              onClick={() => setFilter("conflict")}
+              style={{ fontSize: 12, padding: "4px 12px", color: "#dc2626" }}
+            >
+              Conflict
+            </button>
+            <button
+              className={`btn ${filter === "cancelled" ? "" : "outline"}`}
+              onClick={() => setFilter("cancelled")}
+              style={{ fontSize: 12, padding: "4px 12px", color: "#6b7280" }}
+            >
+              Cancelled
+            </button>
+          </div>
         </div>
 
         <input
