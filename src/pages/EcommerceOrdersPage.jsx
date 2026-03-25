@@ -13,6 +13,10 @@ const STATUS_COLORS = {
   fulfilled: { bg: "bg-info bg-opacity-10", text: "text-info", dot: "bg-info" },
   cancelled: { bg: "bg-danger bg-opacity-10", text: "text-danger", dot: "bg-danger" },
   processing: { bg: "bg-primary bg-opacity-10", text: "text-primary", dot: "bg-primary" },
+  "in-transit": { bg: "bg-info bg-opacity-10", text: "text-info", dot: "bg-info" },
+  delivered: { bg: "bg-success bg-opacity-10", text: "text-success", dot: "bg-success" },
+  completed: { bg: "bg-success bg-opacity-10", text: "text-success", dot: "bg-success" },
+  conflict: { bg: "bg-danger bg-opacity-10", text: "text-danger", dot: "bg-danger" },
   default: { bg: "bg-light bg-opacity-10", text: "text-dark", dot: "bg-secondary" },
 };
 
@@ -21,6 +25,167 @@ function StatCard({ label, value }) {
     <div className="card">
       <div className="muted">{label}</div>
       <div style={{ fontSize: 22, fontWeight: 900 }}>{value}</div>
+    </div>
+  );
+}
+
+// Transport Charge Modal Component
+function TransportChargeModal({ order, onClose, onUpdate, formatCurrency }) {
+  const [transportCharge, setTransportCharge] = useState(order.transport_charge || 0);
+  const [notes, setNotes] = useState(order.transport_charge_notes || '');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      const response = await api.post(
+        `/api/ecommerce/orders/${order.order_id}/transport-charge/`,
+        { transport_charge: transportCharge, notes: notes }
+      );
+      
+      alert('Transport charge added successfully!');
+      onUpdate(response.data.order);
+      onClose();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to add transport charge');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', zIndex: 2100
+    }} onClick={onClose}>
+      <div style={{
+        backgroundColor: 'white', borderRadius: 12, width: '90%', maxWidth: 500,
+        padding: 24
+      }} onClick={(e) => e.stopPropagation()}>
+        <h3>🚚 Add Transport Charge</h3>
+        <p style={{ color: "#666", marginBottom: 16 }}>Order: {order.order_number}</p>
+        
+        <div style={{ marginBottom: 16 }}>
+          <label>Transport Amount (KES)</label>
+          <input
+            type="number"
+            value={transportCharge}
+            onChange={(e) => setTransportCharge(parseFloat(e.target.value) || 0)}
+            style={{ width: '100%', padding: 8, marginTop: 4, border: '1px solid #ddd', borderRadius: 4 }}
+            min="0"
+            step="50"
+          />
+        </div>
+        
+        <div style={{ marginBottom: 20 }}>
+          <label>Notes (Required)</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            style={{ width: '100%', padding: 8, marginTop: 4, border: '1px solid #ddd', borderRadius: 4, minHeight: 80 }}
+            placeholder="E.g., Delivery to Westlands - 5km distance"
+            required
+          />
+        </div>
+        
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+          <button className="btn outline" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={handleSubmit} disabled={loading || !notes}>
+            {loading ? 'Adding...' : 'Add Transport Charge'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Driver Assignment Modal Component
+function DriverAssignmentModal({ order, onClose, onAssign, formatCurrency }) {
+  const [driverName, setDriverName] = useState('');
+  const [driverPhone, setDriverPhone] = useState('');
+  const [estimatedTime, setEstimatedTime] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleAssign = async () => {
+    if (!driverName || !driverPhone) {
+      alert('Please fill driver name and phone');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await api.post(
+        `/api/ecommerce/orders/${order.order_id}/assign-driver/`,
+        { 
+          driver_name: driverName, 
+          driver_phone: driverPhone, 
+          estimated_delivery_time: estimatedTime 
+        }
+      );
+      
+      alert('Driver assigned successfully!');
+      onAssign(response.data.order);
+      onClose();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to assign driver');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', zIndex: 2100
+    }} onClick={onClose}>
+      <div style={{
+        backgroundColor: 'white', borderRadius: 12, width: '90%', maxWidth: 500,
+        padding: 24
+      }} onClick={(e) => e.stopPropagation()}>
+        <h3>👨‍✈️ Assign Driver</h3>
+        <p style={{ color: "#666", marginBottom: 16 }}>Order: {order.order_number}</p>
+        
+        <div style={{ marginBottom: 12 }}>
+          <label>Driver Name *</label>
+          <input
+            type="text"
+            value={driverName}
+            onChange={(e) => setDriverName(e.target.value)}
+            style={{ width: '100%', padding: 8, marginTop: 4, border: '1px solid #ddd', borderRadius: 4 }}
+            placeholder="Enter driver name"
+          />
+        </div>
+        
+        <div style={{ marginBottom: 12 }}>
+          <label>Driver Phone *</label>
+          <input
+            type="tel"
+            value={driverPhone}
+            onChange={(e) => setDriverPhone(e.target.value)}
+            style={{ width: '100%', padding: 8, marginTop: 4, border: '1px solid #ddd', borderRadius: 4 }}
+            placeholder="Enter driver phone number"
+          />
+        </div>
+        
+        <div style={{ marginBottom: 20 }}>
+          <label>Estimated Delivery Time</label>
+          <input
+            type="datetime-local"
+            value={estimatedTime}
+            onChange={(e) => setEstimatedTime(e.target.value)}
+            style={{ width: '100%', padding: 8, marginTop: 4, border: '1px solid #ddd', borderRadius: 4 }}
+          />
+        </div>
+        
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+          <button className="btn outline" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={handleAssign} disabled={loading}>
+            {loading ? 'Assigning...' : 'Assign Driver'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -401,6 +566,11 @@ export default function EcommerceOrdersPage() {
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState(null);
   const [loadingPaymentDetails, setLoadingPaymentDetails] = useState(false);
+  
+  // NEW: For transport and driver modals
+  const [showTransportModal, setShowTransportModal] = useState(false);
+  const [showDriverModal, setShowDriverModal] = useState(false);
+  const [selectedOrderForModal, setSelectedOrderForModal] = useState(null);
 
   /* ========================= HELPERS ========================= */
   const showToast = (message, type = 'success') => {
@@ -429,7 +599,6 @@ export default function EcommerceOrdersPage() {
     
     console.log(`Starting polling for order ${orderId}`);
     
-    // Set timeout to stop polling after 5 minutes
     const timeoutId = setTimeout(() => {
       if (pollingIntervals.current[orderId]) {
         console.log(`Polling timeout for order ${orderId} after 5 minutes`);
@@ -485,6 +654,86 @@ export default function EcommerceOrdersPage() {
       alert("Failed to load payment details");
     } finally {
       setLoadingPaymentDetails(false);
+    }
+  };
+
+  // NEW: Transport Charge Functions
+  const openTransportModal = (order) => {
+    setSelectedOrderForModal(order);
+    setShowTransportModal(true);
+  };
+  
+  const handleTransportUpdate = (updatedOrder) => {
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.order_id === updatedOrder.id 
+          ? { 
+              ...order, 
+              transport_charge: updatedOrder.transport_charge,
+              total: updatedOrder.total,
+              transport_charge_notes: updatedOrder.transport_charge_notes
+            }
+          : order
+      )
+    );
+    
+    if (selectedOrder?.order_id === updatedOrder.id) {
+      setSelectedOrder(prev => ({ 
+        ...prev, 
+        transport_charge: updatedOrder.transport_charge,
+        total: updatedOrder.total,
+        transport_charge_notes: updatedOrder.transport_charge_notes
+      }));
+    }
+    
+    showToast(`Transport charge updated to ${formatCurrency(updatedOrder.transport_charge)}`, 'success');
+  };
+  
+  // NEW: Driver Assignment Functions
+  const openDriverModal = (order) => {
+    setSelectedOrderForModal(order);
+    setShowDriverModal(true);
+  };
+  
+  const handleDriverAssign = (updatedOrder) => {
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.order_id === updatedOrder.id 
+          ? { 
+              ...order, 
+              driver_name: updatedOrder.driver_name,
+              driver_phone: updatedOrder.driver_phone,
+              status: updatedOrder.status,
+              estimated_delivery_time: updatedOrder.estimated_delivery_time
+            }
+          : order
+      )
+    );
+    
+    if (selectedOrder?.order_id === updatedOrder.id) {
+      setSelectedOrder(prev => ({ 
+        ...prev, 
+        driver_name: updatedOrder.driver_name,
+        driver_phone: updatedOrder.driver_phone,
+        status: updatedOrder.status,
+        estimated_delivery_time: updatedOrder.estimated_delivery_time
+      }));
+    }
+    
+    showToast(`Driver ${updatedOrder.driver_name} assigned`, 'success');
+  };
+  
+  // NEW: Driver Receipt Function
+  const generateDriverReceipt = async (orderId) => {
+    try {
+      const response = await api.get(`/api/ecommerce/orders/${orderId}/driver-receipt/print/`);
+      // Open receipt in new window
+      const receiptWindow = window.open('', '_blank');
+      receiptWindow.document.write(response.data);
+      receiptWindow.document.close();
+    } catch (err) {
+      console.error("Failed to generate driver receipt:", err);
+      showToast(err.response?.data?.error || "Failed to generate driver receipt", 'error');
     }
   };
 
@@ -571,11 +820,11 @@ export default function EcommerceOrdersPage() {
       if (phone) {
         const fallbackMessage = `Hello ${order.customer || "Customer"},
 
-          Your order ${order.order_number} is confirmed.
+Your order ${order.order_number} is confirmed.
 
-          Total: ${formatCurrency(order.total)}
+Total: ${formatCurrency(order.total)}
 
-          Thank you for shopping with us!`;
+Thank you for shopping with us!`;
 
         const encodedMessage = encodeURIComponent(fallbackMessage);
         const fallbackUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodedMessage}`;
@@ -788,84 +1037,26 @@ export default function EcommerceOrdersPage() {
       {/* FILTERS */}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {/* All Orders */}
-          <button
-            className={`btn ${filter === "all" ? "" : "outline"}`}
-            onClick={() => setFilter("all")}
-          >
-            All
-          </button>
-
-          {/* Payment Statuses */}
+          <button className={`btn ${filter === "all" ? "" : "outline"}`} onClick={() => setFilter("all")}>All</button>
+          
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <span style={{ fontSize: 12, color: "#6b7280", paddingRight: 4 }}>Payment:</span>
-            <button
-              className={`btn ${filter === "pending" ? "" : "outline"}`}
-              onClick={() => setFilter("pending")}
-              style={{ fontSize: 12, padding: "4px 12px" }}
-            >
-              Pending
-            </button>
-            
-            <button
-              className={`btn ${filter === "paid" ? "" : "outline"}`}
-              onClick={() => setFilter("paid")}
-              style={{ fontSize: 12, padding: "4px 12px" }}
-            >
-              Paid
-            </button>
+            <button className={`btn ${filter === "pending" ? "" : "outline"}`} onClick={() => setFilter("pending")} style={{ fontSize: 12, padding: "4px 12px" }}>Pending</button>
+            <button className={`btn ${filter === "paid" ? "" : "outline"}`} onClick={() => setFilter("paid")} style={{ fontSize: 12, padding: "4px 12px" }}>Paid</button>
           </div>
 
-          {/* Delivery Statuses */}
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <span style={{ fontSize: 12, color: "#6b7280", paddingRight: 4 }}>Delivery:</span>
-            <button
-              className={`btn ${filter === "processing" ? "" : "outline"}`}
-              onClick={() => setFilter("processing")}
-              style={{ fontSize: 12, padding: "4px 12px" }}
-            >
-              Processing
-            </button>
-            <button
-              className={`btn ${filter === "in-transit" ? "" : "outline"}`}
-              onClick={() => setFilter("in-transit")}
-              style={{ fontSize: 12, padding: "4px 12px" }}
-            >
-              In-Transit
-            </button>
-            <button
-              className={`btn ${filter === "delivered" ? "" : "outline"}`}
-              onClick={() => setFilter("delivered")}
-              style={{ fontSize: 12, padding: "4px 12px" }}
-            >
-              Delivered
-            </button>
-            <button
-              className={`btn ${filter === "completed" ? "" : "outline"}`}
-              onClick={() => setFilter("Completed")}
-              style={{ fontSize: 12, padding: "4px 12px" }}
-            >
-              Completed
-            </button>
+            <button className={`btn ${filter === "processing" ? "" : "outline"}`} onClick={() => setFilter("processing")} style={{ fontSize: 12, padding: "4px 12px" }}>Processing</button>
+            <button className={`btn ${filter === "in-transit" ? "" : "outline"}`} onClick={() => setFilter("in-transit")} style={{ fontSize: 12, padding: "4px 12px" }}>In-Transit</button>
+            <button className={`btn ${filter === "delivered" ? "" : "outline"}`} onClick={() => setFilter("delivered")} style={{ fontSize: 12, padding: "4px 12px" }}>Delivered</button>
+            <button className={`btn ${filter === "completed" ? "" : "outline"}`} onClick={() => setFilter("completed")} style={{ fontSize: 12, padding: "4px 12px" }}>Completed</button>
           </div>
 
-          {/* Issue Statuses */}
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <span style={{ fontSize: 12, color: "#6b7280", paddingRight: 4 }}>Issues:</span>
-            <button
-              className={`btn ${filter === "conflict" ? "" : "outline"}`}
-              onClick={() => setFilter("conflict")}
-              style={{ fontSize: 12, padding: "4px 12px", color: "#dc2626" }}
-            >
-              Conflict
-            </button>
-            <button
-              className={`btn ${filter === "cancelled" ? "" : "outline"}`}
-              onClick={() => setFilter("cancelled")}
-              style={{ fontSize: 12, padding: "4px 12px", color: "#6b7280" }}
-            >
-              Cancelled
-            </button>
+            <button className={`btn ${filter === "conflict" ? "" : "outline"}`} onClick={() => setFilter("conflict")} style={{ fontSize: 12, padding: "4px 12px", color: "#dc2626" }}>Conflict</button>
+            <button className={`btn ${filter === "cancelled" ? "" : "outline"}`} onClick={() => setFilter("cancelled")} style={{ fontSize: 12, padding: "4px 12px", color: "#6b7280" }}>Cancelled</button>
           </div>
         </div>
 
@@ -880,17 +1071,18 @@ export default function EcommerceOrdersPage() {
 
       {/* TABLE */}
       <div className="card" style={{ marginTop: 12, overflowX: "auto" }}>
-        <table className="table" style={{ minWidth: 1000 }}>
+        <table className="table" style={{ minWidth: 1200 }}>
           <thead>
             <tr>
               <th>Order #</th>
               <th>Customer</th>
               <th>Phone</th>
-              <th>Branch</th>
+              {/* <th>Branch</th> */}
               <th>Items</th>
-              <th>Qty</th>
+              <th>Delivery</th>
               <th>Total</th>
               <th>Status</th>
+              <th>Driver</th>
               <th>Date</th>
               <th>Actions</th>
             </tr>
@@ -898,19 +1090,11 @@ export default function EcommerceOrdersPage() {
 
           <tbody>
             {loading && (
-              <tr>
-                <td colSpan="10" style={{ textAlign: "center", padding: 24 }}>
-                  Loading orders...
-                </td>
-              </tr>
+              <tr><td colSpan="11" style={{ textAlign: "center", padding: 24 }}>Loading orders...</td></tr>
             )}
 
             {!loading && filteredOrders.length === 0 && (
-              <tr>
-                <td colSpan="10" style={{ textAlign: "center", padding: 24 }}>
-                  {orders.length === 0 ? "No ecommerce orders found" : "No orders match your filters"}
-                </td>
-              </tr>
+              <tr><td colSpan="11" style={{ textAlign: "center", padding: 24 }}>No orders match your filters</td></tr>
             )}
 
             {filteredOrders.map((order) => {
@@ -925,12 +1109,16 @@ export default function EcommerceOrdersPage() {
                   </td>
                   <td>{order.customer || "Guest"}</td>
                   <td>{order.phone || order.guest_phone || "—"}</td>
-                  <td>{order.branch || "—"}</td>
-                  <td>{order.items || 0}</td>
-                  <td>{order.quantity || 0}</td>
+                  {/* <td>{order.branch || "—"}</td> */}
+                  <td>{order.items || 0} items ({order.quantity || 0} qty)</td>
                   <td>
-                    <strong>{formatCurrency(order.total)}</strong>
+                    {order.transport_charge ? formatCurrency(order.transport_charge) : '—'}
+                    {order.transport_charge_notes && (
+                      <div style={{ fontSize: 10, color: "#6b7280" }}>{order.transport_charge_notes.substring(0, 20)}...</div>
+                    )}
                   </td>
+                  <td><strong>{formatCurrency(order.total)}</strong></td>
+                  
                   <td>
                     <select
                       value={order.status}
@@ -946,62 +1134,54 @@ export default function EcommerceOrdersPage() {
                       disabled={order.status === 'PROCESSING'}
                     >
                       {STATUS_OPTIONS.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
+                        <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
                   </td>
-                  <td style={{ fontSize: 14 }}>
-                    {order.created_at ? formatDate(order.created_at) : "—"}
+                  <td>
+                    {order.driver_name ? (
+                      <div>
+                        <div>{order.driver_name}</div>
+                        <div style={{ fontSize: 11, color: "#666" }}>{order.driver_phone}</div>
+                      </div>
+                    ) : (
+                      <span style={{ color: "#999" }}>Not assigned</span>
+                    )}
                   </td>
+                  <td style={{ fontSize: 14 }}>{order.created_at ? formatDate(order.created_at) : "—"}</td>
                   <td>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button
-                        className="btn"
-                        onClick={() => loadOrderDetails(order.order_id)}
-                      >
-                        View
-                      </button>
+                      <button className="btn" onClick={() => loadOrderDetails(order.order_id)}>View</button>
                       
-                      <button
-                        className="btn outline"
-                        onClick={() => viewOrderPaymentDetails(order.order_id)}
-                        disabled={loadingPaymentDetails}
-                        style={{
-                          fontSize: 12,
-                          padding: "4px 8px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4
-                        }}
-                        title="View payment transaction history"
-                      >
+                      <button className="btn outline" onClick={() => viewOrderPaymentDetails(order.order_id)} disabled={loadingPaymentDetails} style={{ fontSize: 12, padding: "4px 8px" }} title="Payment History">
                         📋 Log
                       </button>
-
+                      
+                      {order.status === "PENDING" && (
+                        <button className="btn outline" onClick={() => openTransportModal(order)} style={{ fontSize: 12, padding: "4px 8px", backgroundColor: "#fef3c7" }} title="Add Transport Charge">
+                          🚚 Add Delivery
+                        </button>
+                      )}
+                      
+                      {order.status === "PAID" && (
+                        <button className="btn outline" onClick={() => openDriverModal(order)} style={{ fontSize: 12, padding: "4px 8px", backgroundColor: "#dbeafe" }} title="Assign Driver">
+                          👨‍✈️ Assign Driver
+                        </button>
+                      )}
+                      
+                      {order.driver_name && (
+                        <button className="btn outline" onClick={() => generateDriverReceipt(order.order_id)} style={{ fontSize: 12, padding: "4px 8px" }} title="Driver Receipt">
+                          🧾 Receipt
+                        </button>
+                      )}
+                      
                       {order.status === "PENDING" && (
                         <>
-                          <button
-                            className="btn"
-                            onClick={() => openWhatsAppPreview(order)}
-                            disabled={loadingWhatsApp}
-                          >
-                            {loadingWhatsApp && currentOrderForWhatsApp?.order_id === order.order_id 
-                              ? "Loading..." 
-                              : "WhatsApp"}
+                          <button className="btn" onClick={() => openWhatsAppPreview(order)} disabled={loadingWhatsApp}>
+                            {loadingWhatsApp && currentOrderForWhatsApp?.order_id === order.order_id ? "Loading..." : "WhatsApp"}
                           </button>
-                          <button
-                            className="btn"
-                            onClick={() => sendSTK(order)}
-                            disabled={isLoading || order.status === 'PROCESSING'}
-                            style={{
-                              opacity: isLoading || order.status === 'PROCESSING' ? 0.6 : 1,
-                              cursor: isLoading || order.status === 'PROCESSING' ? 'not-allowed' : 'pointer'
-                            }}
-                          >
-                            {isLoading ? 'Sending...' : 
-                             order.status === 'PROCESSING' ? 'Processing...' : 'STK'}
+                          <button className="btn" onClick={() => sendSTK(order)} disabled={isLoading || order.status === 'PROCESSING'} style={{ opacity: isLoading || order.status === 'PROCESSING' ? 0.6 : 1 }}>
+                            {isLoading ? 'Sending...' : order.status === 'PROCESSING' ? 'Processing...' : 'STK'}
                           </button>
                         </>
                       )}
@@ -1014,7 +1194,7 @@ export default function EcommerceOrdersPage() {
         </table>
       </div>
 
-      {/* MODAL */}
+      {/* MODALS */}
       {selectedOrder && (
         <OrderDetailsModal
           order={selectedOrder}
@@ -1029,18 +1209,17 @@ export default function EcommerceOrdersPage() {
           STATUS_OPTIONS={STATUS_OPTIONS}
           loadingWhatsApp={loadingWhatsApp}
           loadingOrders={loadingOrders}
+          openTransportModal={openTransportModal}
+          openDriverModal={openDriverModal}
+          generateDriverReceipt={generateDriverReceipt}
         />
       )}
 
-      {/* WhatsApp Preview Modal */}
       {previewOpen && (
         <WhatsAppPreviewModal
           message={previewMessage}
           onMessageChange={setPreviewMessage}
-          onClose={() => {
-            setPreviewOpen(false);
-            setIsEditing(false);
-          }}
+          onClose={() => { setPreviewOpen(false); setIsEditing(false); }}
           onSend={sendWhatsAppWithMessage}
           order={currentOrderForWhatsApp}
           formatCurrency={formatCurrency}
@@ -1049,58 +1228,41 @@ export default function EcommerceOrdersPage() {
         />
       )}
 
-      {/* Payment Details Modal */}
       {showPaymentDetails && (
         <PaymentDetailsModal
           details={paymentDetails}
-          onClose={() => {
-            setShowPaymentDetails(false);
-            setPaymentDetails(null);
-          }}
+          onClose={() => { setShowPaymentDetails(false); setPaymentDetails(null); }}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
         />
       )}
 
-      {/* CSS STYLES */}
+      {showTransportModal && selectedOrderForModal && (
+        <TransportChargeModal
+          order={selectedOrderForModal}
+          onClose={() => { setShowTransportModal(false); setSelectedOrderForModal(null); }}
+          onUpdate={handleTransportUpdate}
+          formatCurrency={formatCurrency}
+        />
+      )}
+
+      {showDriverModal && selectedOrderForModal && (
+        <DriverAssignmentModal
+          order={selectedOrderForModal}
+          onClose={() => { setShowDriverModal(false); setSelectedOrderForModal(null); }}
+          onAssign={handleDriverAssign}
+          formatCurrency={formatCurrency}
+        />
+      )}
+
       <style>
         {`
-          .grid-4 {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-          }
-          
-          @media (max-width: 768px) {
-            .grid-4 {
-              grid-template-columns: repeat(2, 1fr);
-            }
-          }
-          
-          @media (max-width: 480px) {
-            .grid-4 {
-              grid-template-columns: 1fr;
-            }
-          }
-
-          .btn.outline {
-            background: white;
-            border: 1px solid #ddd;
-          }
-          .btn.outline:hover {
-            background: #f5f5f5;
-          }
-
-          @keyframes slideIn {
-            from {
-              transform: translateX(100%);
-              opacity: 0;
-            }
-            to {
-              transform: translateX(0);
-              opacity: 1;
-            }
-          }
+          .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+          @media (max-width: 768px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+          @media (max-width: 480px) { .grid-4 { grid-template-columns: 1fr; } }
+          .btn.outline { background: white; border: 1px solid #ddd; }
+          .btn.outline:hover { background: #f5f5f5; }
+          @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         `}
       </style>
     </AppLayout>
