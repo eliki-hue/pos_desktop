@@ -868,153 +868,151 @@ Thank you for shopping with us!`;
     }
   };
 
+  // ==============================
+  // ✅ FIXED: WhatsApp Send Function
+  // ==============================
   const sendWhatsAppWithMessage = async () => {
-    if (!previewUrl) {
+    // Check if we have a URL to send
+    if (!previewUrl && !currentOrderForWhatsApp) {
       alert("No WhatsApp URL available");
       return;
     }
 
     try {
-      await api.post(
-        `/api/ecommerce/orders/${currentOrderForWhatsApp.order_id}/confirm-send/`,
-        {
-          message: previewMessage,
-        }
-      );
+      // Optional: Confirm with backend that message was sent
+      if (currentOrderForWhatsApp?.order_id) {
+        await api.post(
+          `/api/ecommerce/orders/${currentOrderForWhatsApp.order_id}/confirm-send/`,
+          {
+            message: previewMessage,
+          }
+        ).catch(err => console.error("Failed to confirm order:", err));
+      }
     } catch (err) {
       console.error("Failed to confirm order:", err);
-      alert("Failed to confirm order");
-      return;
+      // Continue anyway - don't block WhatsApp
     }
 
-    // ==============================
-    //  UTIL: Phone Normalization
-   // ==============================
+    // Normalize phone number function
     const normalizePhone = (phone) => {
       if (!phone) return null;
-
+      // Remove all non-digit characters
       let cleaned = phone.replace(/[^0-9]/g, '');
-
+      // Convert 07... to 2547...
       if (cleaned.startsWith('0')) {
         return '254' + cleaned.slice(1);
       }
-
+      // If already has 254, keep it
       if (cleaned.startsWith('254')) {
         return cleaned;
       }
-
       return cleaned;
     };
 
+    // Get phone number from order
+    const phone = currentOrderForWhatsApp?.phone || currentOrderForWhatsApp?.guest_phone;
+    const normalizedPhone = normalizePhone(phone);
+    
+    let finalUrl;
 
-    // ==============================
-    //  WHATSAPP SEND FUNCTION
-    // ==============================
-    const sendToWhatsApp = () => {
-      const order = currentOrderForWhatsApp;
+    if (normalizedPhone) {
+      // Use the edited message from the preview
+      const messageToSend = previewMessage;
+      const encodedMessage = encodeURIComponent(messageToSend);
+      finalUrl = `https://wa.me/${normalizedPhone}?text=${encodedMessage}`;
+      console.log("Sending to WhatsApp:", finalUrl);
+    } else {
+      // Fallback to preview URL if no phone
+      finalUrl = previewUrl;
+    }
 
-      if (!order) return;
+    // Open WhatsApp in new tab
+    if (whatsappWindowRef.current && !whatsappWindowRef.current.closed) {
+      whatsappWindowRef.current.location.href = finalUrl;
+      whatsappWindowRef.current.focus();
+    } else {
+      whatsappWindowRef.current = window.open(finalUrl, "whatsapp_tab");
+    }
 
-      const phoneRaw = order.phone || order.guest_phone;
-      const phone = normalizePhone(phoneRaw);
+    // Close the preview modal
+    setPreviewOpen(false);
+    setIsEditing(false);
+    
+    // Show success toast
+    showToast("Opening WhatsApp...", "success");
+  };
 
-      // Message with transport included
-      const message = `
-        Hello ${order.customer || order.guest_name || "Customer"},
+  // ==============================
+  // Phone Normalization Helper
+  // ==============================
+  const normalizePhone = (phone) => {
+    if (!phone) return null;
+    let cleaned = phone.replace(/[^0-9]/g, '');
+    if (cleaned.startsWith('0')) {
+      return '254' + cleaned.slice(1);
+    }
+    if (cleaned.startsWith('254')) {
+      return cleaned;
+    }
+    return cleaned;
+  };
 
-        Your order ${order.order_number} is confirmed.
+  // ==============================
+  // STK PUSH FUNCTION
+  // ==============================
+  const sendSTK = async (order) => {
+    // Prevent duplicate clicks
+    if (loadingOrders[order.order_id]) return;
 
-        Order Summary:
-        Subtotal: KES ${order.subtotal}
-        Transport: KES ${order.transport_fee}
-        Total: KES ${order.total}
+    const phone = normalizePhone(order.phone || order.guest_phone);
 
-        Pay here:
-        ${order.payment_link}
+    if (!phone) {
+      showToast("Invalid phone number", "error");
+      return;
+    }
 
-        Or wait for M-Pesa prompt.
-        `;
-
-      let finalUrl;
-
-      if (phone) {
-        const encodedMessage = encodeURIComponent(message);
-        finalUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
-      } else {
-        // fallback
-        finalUrl = order.payment_link;
-      }
-
-      // Safe tab handling
-      if (whatsappWindowRef.current && !whatsappWindowRef.current.closed) {
-        whatsappWindowRef.current.location.replace(finalUrl);
-        whatsappWindowRef.current.focus();
-      } else {
-        whatsappWindowRef.current = window.open(finalUrl, "_blank");
-      }
-
-      setPreviewOpen(false);
-      setIsEditing(false);
-    };
-  }  
-
-// ==============================
-// STK PUSH FUNCTION
-// ==============================
-const sendSTK = async (order) => {
-  //  Prevent duplicate clicks
-  if (loadingOrders[order.order_id]) return;
-
-  const phone = normalizePhone(order.phone || order.guest_phone);
-
-  if (!phone) {
-    showToast("Invalid phone number", "error");
-    return;
-  }
-
-  setLoadingOrders(prev => ({
-    ...prev,
-    [order.order_id]: true
-  }));
-
-  updateOrderStatus(order.order_id, 'PROCESSING');
-
-  try {
-    await api.post("/api/ecommerce/payments/stk-push/", {
-      customer_phone: phone,
-      order_number: order.order_number,
-      order_id: order.order_id,
-      customer_name: order.customer || order.guest_name,
-      amount: order.total   // includes transport
-    });
-
-    startPolling(order.order_id);
-
-    showToast(
-      `STK Push sent for KES ${order.total}. Check your phone.`,
-      "success"
-    );
-
-  } catch (err) {
-    console.error("STK push failed:", err);
-
-    updateOrderStatus(order.order_id, 'PENDING');
-
-    const errorMessage =
-      err.response?.data?.detail ||
-      err.response?.data?.error ||
-      "STK push failed";
-
-    showToast(errorMessage, "error");
-
-  } finally {
     setLoadingOrders(prev => ({
       ...prev,
-      [order.order_id]: false
+      [order.order_id]: true
     }));
-  }
-};
 
+    updateOrderStatus(order.order_id, 'PROCESSING');
+
+    try {
+      await api.post("/api/ecommerce/payments/stk-push/", {
+        customer_phone: phone,
+        order_number: order.order_number,
+        order_id: order.order_id,
+        customer_name: order.customer || order.guest_name,
+        amount: order.total
+      });
+
+      startPolling(order.order_id);
+
+      showToast(
+        `STK Push sent for KES ${order.total}. Check your phone.`,
+        "success"
+      );
+
+    } catch (err) {
+      console.error("STK push failed:", err);
+
+      updateOrderStatus(order.order_id, 'PENDING');
+
+      const errorMessage =
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        "STK push failed";
+
+      showToast(errorMessage, "error");
+
+    } finally {
+      setLoadingOrders(prev => ({
+        ...prev,
+        [order.order_id]: false
+      }));
+    }
+  };
 
   /* =========================
      HELPERS
@@ -1183,18 +1181,18 @@ const sendSTK = async (order) => {
                   <td>
                     <strong>{order.order_number}</strong>
                     <div style={{ fontSize: 12, color: "#666" }}>ID: {order.order_id}</div>
-                  </td>
-                  <td>{order.customer || "Guest"}</td>
-                  <td>{order.phone || order.guest_phone || "—"}</td>
-                  <td>{order.items || 0} items ({order.quantity || 0} qty)</td>
-                  <td>
+                   </td>
+                   <td>{order.customer || "Guest"}</td>
+                   <td>{order.phone || order.guest_phone || "—"}</td>
+                   <td>{order.items || 0} items ({order.quantity || 0} qty)</td>
+                   <td>
                     {order.transport_charge ? formatCurrency(order.transport_charge) : '—'}
                     {order.transport_charge_notes && (
                       <div style={{ fontSize: 10, color: "#6b7280" }}>{order.transport_charge_notes.substring(0, 20)}...</div>
                     )}
-                  </td>
-                  <td><strong>{formatCurrency(order.total)}</strong></td>
-                  <td>
+                   </td>
+                   <td><strong>{formatCurrency(order.total)}</strong></td>
+                   <td>
                     <select
                       value={order.status}
                       onChange={(e) => updateStatus(order.order_id, e.target.value)}
@@ -1212,17 +1210,17 @@ const sendSTK = async (order) => {
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
-                  </td>
-                  <td>
-                    {order.driver.name ? (
+                   </td>
+                   <td>
+                    {order.driver_name ? (
                       <div>
-                        <div>{order.driver.name}</div>
-                        <div style={{ fontSize: 11, color: "#666" }}>{order.driver.phone}</div>
+                        <div>{order.driver_name}</div>
+                        <div style={{ fontSize: 11, color: "#666" }}>{order.driver_phone}</div>
                       </div>
                     ) : (
                       <span style={{ color: "#999" }}>Not assigned</span>
                     )}
-                  </td>
+                   </td>
                   <td style={{ fontSize: 14 }}>{order.created_at ? formatDate(order.created_at) : "—"}</td>
                   <td>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
