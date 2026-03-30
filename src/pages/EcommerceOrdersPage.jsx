@@ -5,18 +5,17 @@ import { api } from "../api/client";
 /* =========================
    STATUS CONFIG
 ========================= */
-const STATUS_OPTIONS = ["PENDING", "PAID","PROCESSING","IN-TRANSIT","DELIVERED","CONFLICT", "CANCELLED", "COMPLETED"];
+const STATUS_OPTIONS = ["PENDING", "PAID", "PROCESSING", "IN_TRANSIT", "DELIVERED", "CONFLICT", "CANCELLED", "COMPLETED"];
 
 const STATUS_COLORS = {
   pending: { bg: "bg-warning bg-opacity-10", text: "text-warning", dot: "bg-warning" },
   paid: { bg: "bg-success bg-opacity-10", text: "text-success", dot: "bg-success" },
-  fulfilled: { bg: "bg-info bg-opacity-10", text: "text-info", dot: "bg-info" },
-  cancelled: { bg: "bg-danger bg-opacity-10", text: "text-danger", dot: "bg-danger" },
   processing: { bg: "bg-primary bg-opacity-10", text: "text-primary", dot: "bg-primary" },
   "in-transit": { bg: "bg-info bg-opacity-10", text: "text-info", dot: "bg-info" },
   delivered: { bg: "bg-success bg-opacity-10", text: "text-success", dot: "bg-success" },
   completed: { bg: "bg-success bg-opacity-10", text: "text-success", dot: "bg-success" },
   conflict: { bg: "bg-danger bg-opacity-10", text: "text-danger", dot: "bg-danger" },
+  cancelled: { bg: "bg-secondary bg-opacity-10", text: "text-secondary", dot: "bg-secondary" },
   default: { bg: "bg-light bg-opacity-10", text: "text-dark", dot: "bg-secondary" },
 };
 
@@ -567,7 +566,7 @@ export default function EcommerceOrdersPage() {
   const [paymentDetails, setPaymentDetails] = useState(null);
   const [loadingPaymentDetails, setLoadingPaymentDetails] = useState(false);
   
-  // NEW: For transport and driver modals
+  // For transport and driver modals
   const [showTransportModal, setShowTransportModal] = useState(false);
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [selectedOrderForModal, setSelectedOrderForModal] = useState(null);
@@ -657,7 +656,7 @@ export default function EcommerceOrdersPage() {
     }
   };
 
-  // NEW: Transport Charge Functions
+  // Transport Charge Functions
   const openTransportModal = (order) => {
     setSelectedOrderForModal(order);
     setShowTransportModal(true);
@@ -689,7 +688,7 @@ export default function EcommerceOrdersPage() {
     showToast(`Transport charge updated to ${formatCurrency(updatedOrder.transport_charge)}`, 'success');
   };
   
-  // NEW: Driver Assignment Functions
+  // Driver Assignment Functions
   const openDriverModal = (order) => {
     setSelectedOrderForModal(order);
     setShowDriverModal(true);
@@ -703,7 +702,6 @@ export default function EcommerceOrdersPage() {
               ...order, 
               driver_name: updatedOrder.driver_name,
               driver_phone: updatedOrder.driver_phone,
-              status: updatedOrder.status,
               estimated_delivery_time: updatedOrder.estimated_delivery_time
             }
           : order
@@ -715,7 +713,6 @@ export default function EcommerceOrdersPage() {
         ...prev, 
         driver_name: updatedOrder.driver_name,
         driver_phone: updatedOrder.driver_phone,
-        status: updatedOrder.status,
         estimated_delivery_time: updatedOrder.estimated_delivery_time
       }));
     }
@@ -723,11 +720,10 @@ export default function EcommerceOrdersPage() {
     showToast(`Driver ${updatedOrder.driver_name} assigned`, 'success');
   };
   
-  // NEW: Driver Receipt Function
+  // Driver Receipt Function
   const generateDriverReceipt = async (orderId) => {
     try {
       const response = await api.get(`/api/ecommerce/orders/${orderId}/driver-receipt/print/`);
-      // Open receipt in new window
       const receiptWindow = window.open('', '_blank');
       receiptWindow.document.write(response.data);
       receiptWindow.document.close();
@@ -891,52 +887,134 @@ Thank you for shopping with us!`;
       return;
     }
 
-    const phone = currentOrderForWhatsApp?.phone || currentOrderForWhatsApp?.guest_phone;
-    let finalUrl;
+    // ==============================
+    //  UTIL: Phone Normalization
+   // ==============================
+    const normalizePhone = (phone) => {
+      if (!phone) return null;
 
-    if (phone) {
-      const encodedMessage = encodeURIComponent(previewMessage);
-      finalUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodedMessage}`;
-    } else {
-      finalUrl = previewUrl;
-    }
+      let cleaned = phone.replace(/[^0-9]/g, '');
 
-    if (whatsappWindowRef.current && !whatsappWindowRef.current.closed) {
-      whatsappWindowRef.current.location.href = finalUrl;
-      whatsappWindowRef.current.focus();
-    } else {
-      whatsappWindowRef.current = window.open(finalUrl, "whatsapp_tab");
-    }
+      if (cleaned.startsWith('0')) {
+        return '254' + cleaned.slice(1);
+      }
 
-    setPreviewOpen(false);
-    setIsEditing(false);
-  };
+      if (cleaned.startsWith('254')) {
+        return cleaned;
+      }
 
-  const sendSTK = async (order) => {
-    setLoadingOrders(prev => ({ ...prev, [order.order_id]: true }));
-    updateOrderStatus(order.order_id, 'PROCESSING');
-    
-    try {
-      await api.post("/api/ecommerce/payments/stk-push/", {
-        customer_phone: order.phone || order.guest_phone,
-        order_number: order.order_number,
-        order_id: order.order_id,
-        customer_name: order.customer
-      });
-      
-      startPolling(order.order_id);
-      showToast("STK Push sent! Check your phone to complete payment.", 'success');
-      
-    } catch (err) {
-      console.error("STK push failed:", err);
-      updateOrderStatus(order.order_id, 'PENDING');
-      const errorMessage = err.response?.data?.detail || "STK push failed";
-      showToast(errorMessage, 'error');
-      
-    } finally {
-      setLoadingOrders(prev => ({ ...prev, [order.order_id]: false }));
-    }
-  };
+      return cleaned;
+    };
+
+
+    // ==============================
+    //  WHATSAPP SEND FUNCTION
+    // ==============================
+    const sendToWhatsApp = () => {
+      const order = currentOrderForWhatsApp;
+
+      if (!order) return;
+
+      const phoneRaw = order.phone || order.guest_phone;
+      const phone = normalizePhone(phoneRaw);
+
+      // Message with transport included
+      const message = `
+        Hello ${order.customer || order.guest_name || "Customer"},
+
+        Your order ${order.order_number} is confirmed.
+
+        Order Summary:
+        Subtotal: KES ${order.subtotal}
+        Transport: KES ${order.transport_fee}
+        Total: KES ${order.total}
+
+        Pay here:
+        ${order.payment_link}
+
+        Or wait for M-Pesa prompt.
+        `;
+
+      let finalUrl;
+
+      if (phone) {
+        const encodedMessage = encodeURIComponent(message);
+        finalUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+      } else {
+        // fallback
+        finalUrl = order.payment_link;
+      }
+
+      // Safe tab handling
+      if (whatsappWindowRef.current && !whatsappWindowRef.current.closed) {
+        whatsappWindowRef.current.location.replace(finalUrl);
+        whatsappWindowRef.current.focus();
+      } else {
+        whatsappWindowRef.current = window.open(finalUrl, "_blank");
+      }
+
+      setPreviewOpen(false);
+      setIsEditing(false);
+    };
+  }  
+
+// ==============================
+// STK PUSH FUNCTION
+// ==============================
+const sendSTK = async (order) => {
+  //  Prevent duplicate clicks
+  if (loadingOrders[order.order_id]) return;
+
+  const phone = normalizePhone(order.phone || order.guest_phone);
+
+  if (!phone) {
+    showToast("Invalid phone number", "error");
+    return;
+  }
+
+  setLoadingOrders(prev => ({
+    ...prev,
+    [order.order_id]: true
+  }));
+
+  updateOrderStatus(order.order_id, 'PROCESSING');
+
+  try {
+    await api.post("/api/ecommerce/payments/stk-push/", {
+      customer_phone: phone,
+      order_number: order.order_number,
+      order_id: order.order_id,
+      customer_name: order.customer || order.guest_name,
+      amount: order.total   // includes transport
+    });
+
+    startPolling(order.order_id);
+
+    showToast(
+      `STK Push sent for KES ${order.total}. Check your phone.`,
+      "success"
+    );
+
+  } catch (err) {
+    console.error("STK push failed:", err);
+
+    updateOrderStatus(order.order_id, 'PENDING');
+
+    const errorMessage =
+      err.response?.data?.detail ||
+      err.response?.data?.error ||
+      "STK push failed";
+
+    showToast(errorMessage, "error");
+
+  } finally {
+    setLoadingOrders(prev => ({
+      ...prev,
+      [order.order_id]: false
+    }));
+  }
+};
+
 
   /* =========================
      HELPERS
@@ -1077,7 +1155,6 @@ Thank you for shopping with us!`;
               <th>Order #</th>
               <th>Customer</th>
               <th>Phone</th>
-              {/* <th>Branch</th> */}
               <th>Items</th>
               <th>Delivery</th>
               <th>Total</th>
@@ -1090,11 +1167,11 @@ Thank you for shopping with us!`;
 
           <tbody>
             {loading && (
-              <tr><td colSpan="11" style={{ textAlign: "center", padding: 24 }}>Loading orders...</td></tr>
+              <tr><td colSpan="10" style={{ textAlign: "center", padding: 24 }}>Loading orders...</td></tr>
             )}
 
             {!loading && filteredOrders.length === 0 && (
-              <tr><td colSpan="11" style={{ textAlign: "center", padding: 24 }}>No orders match your filters</td></tr>
+              <tr><td colSpan="10" style={{ textAlign: "center", padding: 24 }}>No orders match your filters</td></tr>
             )}
 
             {filteredOrders.map((order) => {
@@ -1109,7 +1186,6 @@ Thank you for shopping with us!`;
                   </td>
                   <td>{order.customer || "Guest"}</td>
                   <td>{order.phone || order.guest_phone || "—"}</td>
-                  {/* <td>{order.branch || "—"}</td> */}
                   <td>{order.items || 0} items ({order.quantity || 0} qty)</td>
                   <td>
                     {order.transport_charge ? formatCurrency(order.transport_charge) : '—'}
@@ -1118,7 +1194,6 @@ Thank you for shopping with us!`;
                     )}
                   </td>
                   <td><strong>{formatCurrency(order.total)}</strong></td>
-                  
                   <td>
                     <select
                       value={order.status}
@@ -1139,10 +1214,10 @@ Thank you for shopping with us!`;
                     </select>
                   </td>
                   <td>
-                    {order.driver_name ? (
+                    {order.driver.name ? (
                       <div>
-                        <div>{order.driver_name}</div>
-                        <div style={{ fontSize: 11, color: "#666" }}>{order.driver_phone}</div>
+                        <div>{order.driver.name}</div>
+                        <div style={{ fontSize: 11, color: "#666" }}>{order.driver.phone}</div>
                       </div>
                     ) : (
                       <span style={{ color: "#999" }}>Not assigned</span>
@@ -1163,7 +1238,7 @@ Thank you for shopping with us!`;
                         </button>
                       )}
                       
-                      {order.status === "PAID" && (
+                      {(order.status === "PAID" || order.status === "PROCESSING") && (
                         <button className="btn outline" onClick={() => openDriverModal(order)} style={{ fontSize: 12, padding: "4px 8px", backgroundColor: "#dbeafe" }} title="Assign Driver">
                           👨‍✈️ Assign Driver
                         </button>
@@ -1418,9 +1493,9 @@ function OrderDetailsModal({
                                 <div style={{ fontSize: 12, color: "#666" }}>SKU: {item.sku}</div>
                               )}
                             </td>
-                             <td>{item.quantity}</td>
-                             <td>{formatCurrency(item.price)}</td>
-                             <td>
+                            <td>{item.quantity}</td>
+                            <td>{formatCurrency(item.price)}</td>
+                            <td>
                               <strong>{formatCurrency(subtotal)}</strong>
                             </td>
                           </tr>
