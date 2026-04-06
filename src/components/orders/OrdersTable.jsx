@@ -1,6 +1,19 @@
 // components/orders/OrdersTable.js
 import { getStatusStyle } from "../../constants/orderStatus";
 
+// Define allowed transitions for each status
+const STATUS_TRANSITIONS = {
+  "PENDING": ["PAID", "PROCESSING", "CANCELLED", "CONFLICT"],
+  "PENDING_PAYMENT": ["PAID", "PROCESSING", "CANCELLED", "CONFLICT"],
+  "PAID": ["PROCESSING", "IN_TRANSIT", "CANCELLED", "CONFLICT"],
+  "PROCESSING": ["IN_TRANSIT", "DELIVERED", "CANCELLED", "CONFLICT"],
+  "IN_TRANSIT": ["DELIVERED", "COMPLETED", "CONFLICT"],
+  "DELIVERED": ["COMPLETED", "CONFLICT"],
+  "COMPLETED": ["CONFLICT"],
+  "CONFLICT": ["PENDING", "PAID", "PROCESSING", "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"],
+  "CANCELLED": []
+};
+
 function OrdersTable({ 
   orders, 
   loading, 
@@ -19,21 +32,37 @@ function OrdersTable({
   STATUS_OPTIONS,
   updateStatus
 }) {
+  
+  // Get allowed next statuses for current status
+  const getAllowedStatuses = (currentStatus) => {
+    return STATUS_TRANSITIONS[currentStatus] || [currentStatus];
+  };
+
   return (
-    <div className="card" style={{ marginTop: 12, overflowX: "auto" }}>
-      <table className="table" style={{ minWidth: 1200 }}>
+    <div className="card" style={{ 
+      marginTop: 12, 
+      overflowX: "auto",      // Enables horizontal scroll on the container
+      overflowY: "visible",
+      width: "100%",
+      position: "relative"
+    }}>
+      <table className="table" style={{ 
+        minWidth: 1200,        // Forces horizontal scroll when screen is smaller
+        width: "100%",
+        borderCollapse: "collapse"
+      }}>
         <thead>
           <tr>
-            <th>Order #</th>
-            <th>Customer</th>
-            <th>Phone</th>
-            <th>Items</th>
-            <th>Delivery</th>
-            <th>Total</th>
-            <th>Status</th>
-            <th>Driver</th>
-            <th>Date</th>
-            <th>Actions</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Order #</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Customer</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Phone</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Items</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Delivery</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Total</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Status</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Driver</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Date</th>
+            <th style={{ padding: "12px", textAlign: "left" }}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -54,25 +83,33 @@ function OrdersTable({
           {orders.map((order) => {
             const statusStyle = getStatusStyle(order.status);
             const isLoading = loadingOrders[order.order_id];
-
+            const allowedStatuses = getAllowedStatuses(order.status);
+            
+            // Get customer name safely from nested structure
+            const customerName = order.customer?.username || order.customer?.full_name || order.customer?.guest_name || "Guest";
+            const customerPhone = order.customer?.phone || order.customer?.guest_phone || order.phone || "—";
+            
+            // Get financial data safely
+            const transportCharge = order.financial?.transport_charge || order.transport_charge || 0;
+            const total = order.financial?.total || order.total || 0;
+            
+            // Get driver info safely - FIXED: use optional chaining
+            const driverName = order.driver?.name || order.driver_name;
+            const driverPhone = order.driver?.phone || order.driver_phone;
+            
             return (
               <tr key={order.order_id}>
                 <td>
                   <strong>{order.order_number}</strong>
                   <div style={{ fontSize: 12, color: "#666" }}>ID: {order.order_id}</div>
                 </td>
-                <td>{order.customer || "Guest"}</td>
-                <td>{order.phone || order.guest_phone || "—"}</td>
+                <td>{customerName}</td>
+                <td>{customerPhone}</td>
                 <td>{order.items || 0} items ({order.quantity || 0} qty)</td>
                 <td>
-                  {order.transport_charge ? formatCurrency(order.transport_charge) : '—'}
-                  {order.transport_charge_notes && (
-                    <div style={{ fontSize: 10, color: "#6b7280" }}>
-                      {order.transport_charge_notes.substring(0, 20)}...
-                    </div>
-                  )}
+                  {transportCharge ? formatCurrency(transportCharge) : '—'}
                 </td>
-                <td><strong>{formatCurrency(order.total)}</strong></td>
+                <td><strong>{formatCurrency(total)}</strong></td>
                 <td>
                   <select
                     value={order.status}
@@ -84,19 +121,29 @@ function OrdersTable({
                       backgroundColor: statusStyle.bg?.replace("bg-", "").replace(" bg-opacity-10", "") || "#fff",
                       color: statusStyle.text?.replace("text-", "") || "#000",
                       fontSize: 12,
+                      cursor: "pointer",
                     }}
-                    disabled={order.status === 'PROCESSING'}
                   >
                     {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                      <option 
+                        key={s} 
+                        value={s}
+                        disabled={!allowedStatuses.includes(s)}
+                        style={{
+                          opacity: allowedStatuses.includes(s) ? 1 : 0.5,
+                          backgroundColor: allowedStatuses.includes(s) ? "white" : "#f3f4f6"
+                        }}
+                      >
+                        {s}
+                      </option>
                     ))}
                   </select>
                 </td>
                 <td>
-                  {order.driver.name ? (
+                  {driverName ? (
                     <div>
-                      <div>{order.driver.name}</div>
-                      <div style={{ fontSize: 11, color: "#666" }}>{order.driver.phone}</div>
+                      <div>{driverName}</div>
+                      <div style={{ fontSize: 11, color: "#666" }}>{driverPhone || "—"}</div>
                     </div>
                   ) : (
                     <span style={{ color: "#999" }}>Not assigned</span>
@@ -107,19 +154,13 @@ function OrdersTable({
                 </td>
                 <td>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button 
-                      className="btn" 
-                      onClick={() => onViewOrder(order.order_id)}
-                      title="View Order Details"
-                    >
+                    <button className="btn" onClick={() => onViewOrder(order.order_id)}>
                       View
                     </button>
-                    
                     <button 
                       className="btn outline" 
                       onClick={() => onViewPaymentLog(order.order_id)} 
                       style={{ fontSize: 12, padding: "4px 8px" }}
-                      title="View Payment History"
                     >
                       📋 Log
                     </button>
@@ -129,7 +170,6 @@ function OrdersTable({
                         className="btn outline" 
                         onClick={() => onAddTransport(order)} 
                         style={{ fontSize: 12, padding: "4px 8px", backgroundColor: "#fef3c7" }}
-                        title="Add Transport/Delivery Charge"
                       >
                         🚚 Add Delivery
                       </button>
@@ -140,18 +180,16 @@ function OrdersTable({
                         className="btn outline" 
                         onClick={() => onAssignDriver(order)} 
                         style={{ fontSize: 12, padding: "4px 8px", backgroundColor: "#dbeafe" }}
-                        title="Assign Driver to Order"
                       >
                         👨‍✈️ Assign Driver
                       </button>
                     )}
                     
-                    {order.driver.name && (
+                    {driverName && (
                       <button 
                         className="btn" 
                         onClick={() => onPrintReceipt(order.order_id)} 
                         style={{ fontSize: 12, padding: "4px 8px", backgroundColor: "#10b981", color: "white", border: "none" }}
-                        title="Print Driver Receipt/Waybill"
                       >
                         🧾 Receipt
                       </button>
@@ -163,7 +201,6 @@ function OrdersTable({
                           className="btn" 
                           onClick={() => onOpenWhatsApp(order)} 
                           disabled={loadingWhatsApp}
-                          title="Send WhatsApp Message"
                         >
                           {loadingWhatsApp && currentOrderForWhatsApp?.order_id === order.order_id ? "Loading..." : "WhatsApp"}
                         </button>
@@ -172,7 +209,6 @@ function OrdersTable({
                           onClick={() => onSendSTK(order)} 
                           disabled={isLoading || order.status === 'PROCESSING'} 
                           style={{ opacity: isLoading || order.status === 'PROCESSING' ? 0.6 : 1 }}
-                          title="Send STK Push for Payment"
                         >
                           {isLoading ? 'Sending...' : order.status === 'PROCESSING' ? 'Processing...' : 'STK'}
                         </button>
