@@ -4,12 +4,12 @@ import { getStatusStyle } from "../../constants/orderStatus";
 // Define allowed transitions for each status
 const STATUS_TRANSITIONS = {
   "PENDING": ["PAID", "PROCESSING", "CANCELLED", "CONFLICT"],
-  "PENDING_PAYMENT": ["PAID", "PROCESSING", "CANCELLED", "CONFLICT"],
-  "PAID": ["PROCESSING", "IN_TRANSIT", "CANCELLED", "CONFLICT"],
+  // "PENDING_PAYMENT": ["PAID", "PROCESSING", "CANCELLED", "CONFLICT"],
+  "PAID": ["PENDING","PROCESSING", "IN_TRANSIT", "CANCELLED", "CONFLICT"],
   "PROCESSING": ["IN_TRANSIT", "DELIVERED", "CANCELLED", "CONFLICT"],
-  "IN_TRANSIT": ["DELIVERED", "COMPLETED", "CONFLICT"],
-  "DELIVERED": ["COMPLETED", "CONFLICT"],
-  "COMPLETED": ["CONFLICT"],
+  "IN_TRANSIT": ["DELIVERED", "COMPLETED","CONFLICT"],
+  "DELIVERED": ["COMPLETED","CONFLICT"],
+  "COMPLETED": ["IN_TRANSIT", "DELIVERED","CONFLICT"],
   "CONFLICT": ["PENDING", "PAID", "PROCESSING", "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"],
   "CANCELLED": []
 };
@@ -39,30 +39,20 @@ function OrdersTable({
   };
 
   return (
-    <div className="card" style={{ 
-      marginTop: 12, 
-      overflowX: "auto",      // Enables horizontal scroll on the container
-      overflowY: "visible",
-      width: "100%",
-      position: "relative"
-    }}>
-      <table className="table" style={{ 
-        minWidth: 1200,        // Forces horizontal scroll when screen is smaller
-        width: "100%",
-        borderCollapse: "collapse"
-      }}>
+    <div className="card" style={{ marginTop: 12, overflowX: "auto" }}>
+      <table className="table" style={{ minWidth: 1200 }}>
         <thead>
           <tr>
-            <th style={{ padding: "12px", textAlign: "left" }}>Order #</th>
-            <th style={{ padding: "12px", textAlign: "left" }}>Customer</th>
-            <th style={{ padding: "12px", textAlign: "left" }}>Phone</th>
-            <th style={{ padding: "12px", textAlign: "left" }}>Items</th>
-            <th style={{ padding: "12px", textAlign: "left" }}>Delivery</th>
-            <th style={{ padding: "12px", textAlign: "left" }}>Total</th>
-            <th style={{ padding: "12px", textAlign: "left" }}>Status</th>
-            <th style={{ padding: "12px", textAlign: "left" }}>Driver</th>
-            <th style={{ padding: "12px", textAlign: "left" }}>Date</th>
-            <th style={{ padding: "12px", textAlign: "left" }}>Actions</th>
+            <th>Order #</th>
+            <th>Customer</th>
+            <th>Phone</th>
+            <th>Items</th>
+            <th>Delivery</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Driver</th>
+            <th>Date</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -86,16 +76,17 @@ function OrdersTable({
             const allowedStatuses = getAllowedStatuses(order.status);
             
             // Get customer name safely from nested structure
-            const customerName = order.customer?.username || order.customer?.full_name || order.customer?.guest_name || "Guest";
-            const customerPhone = order.customer?.phone || order.customer?.guest_phone || order.phone || "—";
+            const customerName = order.customer || "Guest";
+            const customerPhone = order.phone || order.guest_phone || "—";
             
             // Get financial data safely
             const transportCharge = order.financial?.transport_charge || order.transport_charge || 0;
+            // const transportNotes = order.financial?.transport_charge_notes || order.address;
             const total = order.financial?.total || order.total || 0;
             
-            // Get driver info safely - FIXED: use optional chaining
-            const driverName = order.driver?.name || order.driver_name;
-            const driverPhone = order.driver?.phone || order.driver_phone;
+            // Get driver info safely
+            const driverName = order.driver.name || "-"
+            const driverPhone = order.driver.phone || "-"
             
             return (
               <tr key={order.order_id}>
@@ -108,6 +99,11 @@ function OrdersTable({
                 <td>{order.items || 0} items ({order.quantity || 0} qty)</td>
                 <td>
                   {transportCharge ? formatCurrency(transportCharge) : '—'}
+                  {/* {transportNotes && (
+                    <div style={{ fontSize: 10, color: "#6b7280" }}>
+                      {transportNotes.substring(0, 20)}...
+                    </div>
+                  )} */}
                 </td>
                 <td><strong>{formatCurrency(total)}</strong></td>
                 <td>
@@ -134,7 +130,7 @@ function OrdersTable({
                           backgroundColor: allowedStatuses.includes(s) ? "white" : "#f3f4f6"
                         }}
                       >
-                        {s}
+                        {s} {!allowedStatuses.includes(s)}
                       </option>
                     ))}
                   </select>
@@ -143,7 +139,7 @@ function OrdersTable({
                   {driverName ? (
                     <div>
                       <div>{driverName}</div>
-                      <div style={{ fontSize: 11, color: "#666" }}>{driverPhone || "—"}</div>
+                      <div style={{ fontSize: 11, color: "#666" }}>{driverPhone}</div>
                     </div>
                   ) : (
                     <span style={{ color: "#999" }}>Not assigned</span>
@@ -165,7 +161,7 @@ function OrdersTable({
                       📋 Log
                     </button>
                     
-                    {order.status === "PENDING" && (
+                    {order.status === "PENDING"  && (
                       <button 
                         className="btn outline" 
                         onClick={() => onAddTransport(order)} 

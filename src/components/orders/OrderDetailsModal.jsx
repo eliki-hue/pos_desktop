@@ -112,12 +112,12 @@ function OrderDetailsModal({
   if (!order) return null;
   
   // Safe extraction of nested data
-  const status = order.status || "PENDING_PAYMENT";
+  const status = order.status || "PENDING";
   const statusStyle = getStatusStyle(status);
   const isLoading = loadingOrders?.[order.order_id];
   
   // Check order states
-  const isPendingPayment = status === "PENDING_PAYMENT";
+  const isPendingPayment = status === "PENDING";
   const isPaidOrProcessing = status === "PAID" || status === "PROCESSING" || status === "IN_TRANSIT";
   
   // Safe items list
