@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import transferService from '../services/transferService';
+import transferService from './transferService';
 
 function ReceiveTransfer({ transfer, onSuccess, onCancel }) {
     const [items, setItems] = useState(

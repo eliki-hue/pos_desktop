@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import transferService from '../services/transferService';
+import transferService from './transferService';
 
 function DispatchTransfer({ transfer, onSuccess, onCancel }) {
     const [driverData, setDriverData] = useState({

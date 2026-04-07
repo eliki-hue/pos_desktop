@@ -1,23 +1,25 @@
+// frontend/components/stock-transfer/EditTransfer.js
 import React, { useState, useEffect } from 'react';
-import { api } from '../api/client';
-import transferService from '../services/transferService';
+import { api } from '../../api/client';
+import transferService from './transferService';
 
-function CreateTransfer({ onSuccess, onCancel }) {
+function EditTransfer({ transfer, onSuccess, onCancel }) {
     const [branches, setBranches] = useState([]);
     const [products, setProducts] = useState([]);
     const [formData, setFormData] = useState({
-        from_branch: '',
-        to_branch: '',
-        notes: '',
+        from_branch: transfer.from_branch?.id || '',
+        to_branch: transfer.to_branch?.id || '',
+        notes: transfer.notes || '',
         items: []
     });
-    const [selectedProduct, setSelectedProduct] = useState({ product_id: '', quantity: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [loadingTransfer, setLoadingTransfer] = useState(true);
 
     useEffect(() => {
         loadBranches();
         loadProducts();
+        loadTransferItems();
     }, []);
 
     const loadBranches = async () => {
@@ -38,25 +40,29 @@ function CreateTransfer({ onSuccess, onCancel }) {
         }
     };
 
-    const addItem = () => {
-        if (!selectedProduct.product_id || !selectedProduct.quantity) {
-            setError('Please select product and enter quantity');
-            return;
+    const loadTransferItems = async () => {
+        try {
+            const response = await api.get(`/api/stock-transfers/transfers/${transfer.id}/detail/`);
+            const items = response.data.items.map(item => ({
+                product_id: item.product,
+                product_name: item.product_name,
+                quantity: item.quantity_sent,
+                unit: item.unit,
+                kg_equivalent: item.unit === 'KG' ? item.quantity_sent : item.quantity_sent * (item.bag_weight_kg || 1)
+            }));
+            setFormData(prev => ({ ...prev, items }));
+        } catch (err) {
+            console.error('Failed to load transfer items', err);
+        } finally {
+            setLoadingTransfer(false);
         }
-        
-        const product = products.find(p => p.id === parseInt(selectedProduct.product_id));
-        
+    };
+
+    const addItem = (item) => {
         setFormData(prev => ({
             ...prev,
-            items: [...prev.items, {
-                product_id: parseInt(selectedProduct.product_id),
-                product_name: product.name,
-                quantity: parseFloat(selectedProduct.quantity)
-            }]
+            items: [...prev.items, item]
         }));
-        
-        setSelectedProduct({ product_id: '', quantity: '' });
-        setError('');
     };
 
     const removeItem = (index) => {
@@ -83,32 +89,38 @@ function CreateTransfer({ onSuccess, onCancel }) {
                 to_branch: parseInt(formData.to_branch),
                 items: formData.items.map(item => ({
                     product_id: item.product_id,
-                    quantity: item.quantity
+                    quantity: item.quantity,
+                    unit: item.unit
                 })),
                 notes: formData.notes
             };
             
-            await transferService.createTransfer(payload);
+            await transferService.updateTransfer(transfer.id, payload);
             onSuccess();
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to create transfer');
+            setError(err.response?.data?.error || 'Failed to update transfer');
         } finally {
             setLoading(false);
         }
     };
 
+    if (loadingTransfer) {
+        return <div className="card" style={{ textAlign: 'center', padding: 40 }}>Loading transfer details...</div>;
+    }
+
     return (
-        <div className="card">
-            <h3>Create Stock Transfer</h3>
+        <div className="card" style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}>
+            <h2>Edit Transfer #{transfer.transfer_number}</h2>
             
             <form onSubmit={handleSubmit}>
                 <div className="grid-2">
                     <div>
-                        <label>From Branch *</label>
+                        <label>Source Branch *</label>
                         <select
                             value={formData.from_branch}
                             onChange={(e) => setFormData({...formData, from_branch: e.target.value})}
                             required
+                            className="input"
                         >
                             <option value="">Select Branch</option>
                             {branches.map(b => (
@@ -116,13 +128,13 @@ function CreateTransfer({ onSuccess, onCancel }) {
                             ))}
                         </select>
                     </div>
-                    
                     <div>
-                        <label>To Branch *</label>
+                        <label>Destination Branch *</label>
                         <select
                             value={formData.to_branch}
                             onChange={(e) => setFormData({...formData, to_branch: e.target.value})}
                             required
+                            className="input"
                         >
                             <option value="">Select Branch</option>
                             {branches.map(b => (
@@ -131,67 +143,39 @@ function CreateTransfer({ onSuccess, onCancel }) {
                         </select>
                     </div>
                 </div>
-                
+
+                {/* Items List - Simplified for edit */}
                 <div>
-                    <label>Add Items</label>
-                    <div className="flex gap-2">
-                        <select
-                            value={selectedProduct.product_id}
-                            onChange={(e) => setSelectedProduct({...selectedProduct, product_id: e.target.value})}
-                            style={{ flex: 2 }}
-                        >
-                            <option value="">Select Product</option>
-                            {products.map(p => (
-                                <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock} {p.unit})</option>
-                            ))}
-                        </select>
-                        <input
-                            type="number"
-                            step="0.01"
-                            placeholder="Quantity"
-                            value={selectedProduct.quantity}
-                            onChange={(e) => setSelectedProduct({...selectedProduct, quantity: e.target.value})}
-                            style={{ flex: 1 }}
-                        />
-                        <button type="button" className="btn" onClick={addItem}>Add</button>
+                    <label>Items to Transfer</label>
+                    <div className="card" style={{ marginTop: 8, padding: 16 }}>
+                        {formData.items.map((item, idx) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                <span>{item.product_name} - {item.quantity} {item.unit === 'KG' ? 'kg' : 'bags'}</span>
+                                <button type="button" className="btn-danger" onClick={() => removeItem(idx)}>Remove</button>
+                            </div>
+                        ))}
+                        <button type="button" className="btn btn-primary" onClick={() => alert('Add item functionality - implement similar to CreateTransfer')}>
+                            + Add Item
+                        </button>
                     </div>
                 </div>
-                
-                {formData.items.length > 0 && (
-                    <div className="card">
-                        <h4>Items to Transfer</h4>
-                        <table className="table">
-                            <thead>
-                                <tr><th>Product</th><th>Quantity</th><th></th></tr>
-                            </thead>
-                            <tbody>
-                                {formData.items.map((item, idx) => (
-                                    <tr key={idx}>
-                                        <td>{item.product_name}</td>
-                                        <td>{item.quantity}</td>
-                                        <td><button type="button" className="btn-danger" onClick={() => removeItem(idx)}>Remove</button></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-                
+
                 <div>
-                    <label>Notes (Optional)</label>
+                    <label>Notes</label>
                     <textarea
                         value={formData.notes}
                         onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                        rows="2"
+                        rows="3"
+                        className="input"
                     />
                 </div>
-                
+
                 {error && <div className="error">{error}</div>}
-                
-                <div className="flex gap-2">
+
+                <div className="flex gap-2" style={{ marginTop: 20 }}>
                     <button type="button" className="btn outline" onClick={onCancel}>Cancel</button>
                     <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? 'Creating...' : 'Create Transfer'}
+                        {loading ? 'Updating...' : 'Update Transfer'}
                     </button>
                 </div>
             </form>
@@ -199,4 +183,4 @@ function CreateTransfer({ onSuccess, onCancel }) {
     );
 }
 
-export default CreateTransfer;
+export default EditTransfer;
