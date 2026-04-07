@@ -28,6 +28,7 @@ import StockIn from "./pages/inventory/stock_in";
 import StockMovementReport from "./pages/inventory/StockMovementReport";
 import Transfers from "./pages/inventory/Transfers";
 import EcommerceOrdersPage from "./pages/EcommerceOrdersPage";
+import StockTransfersPage from "./pages/StockTransfersPage";
 
 export default function App() {
   return (
@@ -112,8 +113,9 @@ export default function App() {
           }
         />
 
-        <Route path="/inventory/stock-in" element={<StockIn />} />
-        <Route path="/inventory/transfers" element={<Transfers />} />
+        {/* <Route path="/inventory/stock-in" element={<StockIn />} />
+        <Route path="/inventory/transfers" element={<Transfers />} /> */}
+        <Route path="/stock-transfers" element={<StockTransfersPage />} />
         <Route path="/admin/ecommerce-orders" element={<EcommerceOrdersPage />} />
 
         <Route
