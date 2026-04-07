@@ -46,21 +46,33 @@ function TransferList({ userBranch, transferType, onTransferSelect }) {
 
     const getStatusBadge = (status) => {
         const config = {
-            'DRAFT': { class: 'badge-secondary', text: 'Draft', icon: '📝', color: '#6b7280', bg: '#f3f4f6' },
-            'PENDING': { class: 'badge-warning', text: 'Pending', icon: '⏳', color: '#f59e0b', bg: '#fef3c7' },
-            'APPROVED': { class: 'badge-info', text: 'Approved', icon: '✅', color: '#3b82f6', bg: '#dbeafe' },
-            'IN_TRANSIT': { class: 'badge-info', text: 'In Transit', icon: '🚚', color: '#8b5cf6', bg: '#ede9fe' },
-            'RECEIVED': { class: 'badge-success', text: 'Received', icon: '✓', color: '#10b981', bg: '#d1fae5' },
-            'PARTIAL': { class: 'badge-warning', text: 'Partial', icon: '⚠️', color: '#f59e0b', bg: '#fef3c7' },
-            'DISPUTED': { class: 'badge-danger', text: 'Disputed', icon: '❗', color: '#ef4444', bg: '#fee2e2' },
-            'CANCELLED': { class: 'badge-danger', text: 'Cancelled', icon: '✗', color: '#6b7280', bg: '#f3f4f6' }
+            'DRAFT': { icon: '📝', text: 'Draft', color: '#6b7280', bg: '#f3f4f6' },
+            'APPROVED': { icon: '✅', text: 'Approved', color: '#3b82f6', bg: '#dbeafe' },
+            'IN_TRANSIT': { icon: '🚚', text: 'In Transit', color: '#8b5cf6', bg: '#ede9fe' },
+            'DISPUTED': { icon: '❗', text: 'Disputed', color: '#ef4444', bg: '#fee2e2' },
+            'RESOLVED': { icon: '✓', text: 'Resolved', color: '#10b981', bg: '#d1fae5' },
+            'RECEIVED': { icon: '📦', text: 'Received', color: '#065f46', bg: '#d1fae5' },
+            'CANCELLED': { icon: '✗', text: 'Cancelled', color: '#6b7280', bg: '#f3f4f6' }
         };
-        return config[status] || { class: 'badge-secondary', text: status, icon: '❓', color: '#6b7280', bg: '#f3f4f6' };
+        return config[status] || { icon: '❓', text: status, color: '#6b7280', bg: '#f3f4f6' };
     };
 
-    const handleEdit = (transfer) => {
-        onTransferSelect(transfer, 'edit');
+    const handleEdit = (transfer) => onTransferSelect(transfer, 'edit');
+    const handleApprove = async (transferId) => {
+        if (window.confirm('Approve this transfer?')) {
+            try {
+                await transferService.approveTransfer(transferId);
+                loadTransfers();
+                loadSummary();
+            } catch (err) {
+                alert('Failed to approve transfer');
+            }
+        }
     };
+    const handleDispatch = (transfer) => onTransferSelect(transfer, 'dispatch');
+    const handleReceive = (transfer) => onTransferSelect(transfer, 'receive');
+    const handleDispute = (transfer) => onTransferSelect(transfer, 'dispute');
+    const handleResolve = (transfer) => onTransferSelect(transfer, 'resolve');
 
     const handleCancelTransfer = async (transferId, reason) => {
         setCancelling(true);
@@ -90,171 +102,152 @@ function TransferList({ userBranch, transferType, onTransferSelect }) {
         }
     };
 
-    const getActionButtons = (transfer) => {
-        const isSender = userBranch?.id === transfer.from_branch?.id;
-        const isReceiver = userBranch?.id === transfer.to_branch?.id;
-        const buttons = [];
+    // ============================================================
+    // SENDER ACTIONS - Only for the branch that initiated the transfer
+    // ============================================================
+    const getSenderActions = (transfer) => {
+        const actions = [];
 
-        // View Details button
-        buttons.push(
+        switch (transfer.status) {
+            case 'DRAFT':
+                actions.push(
+                    <button key="edit" className="btn-sm btn-primary" onClick={() => handleEdit(transfer)}>
+                        ✏️ Edit
+                    </button>,
+                    <button key="approve" className="btn-sm btn-success" onClick={() => handleApprove(transfer.id)}>
+                        ✅ Approve
+                    </button>,
+                    <button key="delete" className="btn-sm btn-danger" onClick={() => setShowDeleteModal(transfer)}>
+                        🗑️ Delete
+                    </button>
+                );
+                break;
+
+            case 'APPROVED':
+                actions.push(
+                    <button key="dispatch" className="btn-sm btn-primary" onClick={() => onTransferSelect(transfer, 'dispatch')}>
+                        🚚 Dispatch
+                    </button>
+                );
+                break;
+
+            case 'DISPUTED':
+                actions.push(
+                    <button key="resolve" className="btn-sm btn-warning" onClick={() => onTransferSelect(transfer, 'resolve')}>
+                        ⚖️ Resolve Dispute
+                    </button>
+                );
+                break;
+
+            default:
+                // No actions for IN_TRANSIT, RESOLVED, RECEIVED, CANCELLED
+                break;
+        }
+
+        return actions;
+    };
+
+    // ============================================================
+    // RECEIVER ACTIONS - Only for the branch receiving the transfer
+    // ============================================================
+    const getReceiverActions = (transfer) => {
+        const actions = [];
+
+        switch (transfer.status) {
+            case 'IN_TRANSIT':
+                actions.push(
+                    <button key="receive" className="btn-sm btn-success" onClick={() => onTransferSelect(transfer, 'receive')}>
+                        📦 Receive
+                    </button>,
+                    <button key="dispute" className="btn-sm btn-danger" onClick={() => onTransferSelect(transfer, 'dispute')}>
+                        ❗ Raise Dispute
+                    </button>
+                );
+                break;
+
+            case 'DISPUTED':
+                actions.push(
+                    <button key="resolve" className="btn-sm btn-warning" onClick={() => onTransferSelect(transfer, 'resolve')}>
+                        ⚖️ Respond to Dispute
+                    </button>
+                );
+                break;
+
+            case 'RESOLVED':
+                actions.push(
+                    <button key="confirm" className="btn-sm btn-success" onClick={() => onTransferSelect(transfer, 'receive')}>
+                        ✅ Confirm Receipt
+                    </button>
+                );
+                break;
+
+            default:
+                // No actions for DRAFT, APPROVED, RECEIVED, CANCELLED
+                break;
+        }
+
+        return actions;
+    };
+
+    // ============================================================
+    // COMMON ACTIONS - Visible to both sender and receiver
+    // ============================================================
+    const getCommonActions = (transfer) => {
+        const actions = [
             <button key="view" className="btn-sm btn-outline" onClick={() => onTransferSelect(transfer, 'view')}>
                 👁️ View
             </button>
-        );
+        ];
 
-        // Edit button - only for DRAFT status and sender branch
-        if (isSender && transfer.status === 'DRAFT') {
-            buttons.push(
-                <button key="edit" className="btn-sm btn-primary" onClick={() => handleEdit(transfer)}>
-                    ✏️ Edit
-                </button>
-            );
-        }
-
-        // Submit for Approval button - only for DRAFT status and sender branch
-        if (isSender && transfer.status === 'DRAFT') {
-            buttons.push(
-                <button key="submit" className="btn-sm btn-success" onClick={() => handleApprove(transfer.id)}>
-                    📤 Submit
-                </button>
-            );
-        }
-
-        // Approve button - only for PENDING status and sender branch
-        if (isSender && transfer.status === 'PENDING') {
-            buttons.push(
-                <button key="approve" className="btn-sm btn-success" onClick={() => handleApprove(transfer.id)}>
-                    ✅ Approve
-                </button>
-            );
-        }
-
-        // Dispatch button - only for APPROVED status and sender branch
-        if (isSender && transfer.status === 'APPROVED') {
-            buttons.push(
-                <button key="dispatch" className="btn-sm btn-primary" onClick={() => onTransferSelect(transfer, 'dispatch')}>
-                    🚚 Dispatch
-                </button>
-            );
-        }
-
-        // Receive button - only for IN_TRANSIT or PARTIAL status and receiver branch
-        if (isReceiver && (transfer.status === 'IN_TRANSIT' || transfer.status === 'PARTIAL')) {
-            buttons.push(
-                <button key="receive" className="btn-sm btn-success" onClick={() => onTransferSelect(transfer, 'receive')}>
-                    📦 Receive
-                </button>
-            );
-        }
-
-        // Dispute button - only for IN_TRANSIT or PARTIAL status and receiver branch
-        if (isReceiver && (transfer.status === 'IN_TRANSIT' || transfer.status === 'PARTIAL')) {
-            buttons.push(
-                <button key="dispute" className="btn-sm btn-danger" onClick={() => onTransferSelect(transfer, 'dispute')}>
-                    ❗ Dispute
-                </button>
-            );
-        }
-
-        // Resolve button - only for DISPUTED status
-        if (transfer.status === 'DISPUTED' && (isSender || isReceiver)) {
-            buttons.push(
-                <button key="resolve" className="btn-sm btn-warning" onClick={() => onTransferSelect(transfer, 'resolve')}>
-                    ⚖️ Resolve
-                </button>
-            );
-        }
-
-        // Cancel button - only for DRAFT or PENDING status and sender branch
-        if (isSender && (transfer.status === 'DRAFT' || transfer.status === 'PENDING')) {
-            buttons.push(
-                <button key="cancel" className="btn-sm btn-danger" onClick={() => setShowCancelModal(transfer)}>
-                    ❌ Cancel
-                </button>
-            );
-        }
-
-        // Delete button - only for DRAFT status and sender branch (no items transferred yet)
-        if (isSender && transfer.status === 'DRAFT') {
-            buttons.push(
-                <button key="delete" className="btn-sm btn-danger" onClick={() => setShowDeleteModal(transfer)}>
-                    🗑️ Delete
-                </button>
-            );
-        }
-
-        // Waybill button - if waybill exists
         if (transfer.waybill_number) {
-            buttons.push(
+            actions.push(
                 <button key="waybill" className="btn-sm btn-outline" onClick={() => window.open(transferService.getWaybill(transfer.id), '_blank')}>
                     📄 Waybill
                 </button>
             );
         }
 
-        return buttons;
+        return actions;
     };
 
-    const handleApprove = async (transferId) => {
-        if (window.confirm('Submit this transfer for approval?')) {
-            try {
-                await transferService.approveTransfer(transferId);
-                loadTransfers();
-                loadSummary();
-            } catch (err) {
-                alert('Failed to approve transfer');
-            }
+    // ============================================================
+    // MAIN ACTION DISPATCHER - Role-based rendering
+    // ============================================================
+    const getActionButtons = (transfer) => {
+        const userBranchId = userBranch?.id ? parseInt(userBranch.id) : null;
+        const isSender = userBranchId && transfer.from_branch && userBranchId === transfer.from_branch;
+        const isReceiver = userBranchId && transfer.to_branch && userBranchId === transfer.to_branch;
+
+        const buttons = [...getCommonActions(transfer)];
+
+        if (isSender && !isReceiver) {
+            buttons.push(...getSenderActions(transfer));
+        } else if (isReceiver && !isSender) {
+            buttons.push(...getReceiverActions(transfer));
         }
+
+        return buttons;
     };
 
     const CancelModal = ({ transfer, onClose }) => {
         const [reason, setReason] = useState('');
-
         return (
             <div style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 2000
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', zIndex: 2000
             }} onClick={onClose}>
-                <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: 12,
-                    width: '90%',
-                    maxWidth: 450,
-                    padding: 24
-                }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ backgroundColor: 'white', borderRadius: 12, width: '90%', maxWidth: 450, padding: 24 }} onClick={(e) => e.stopPropagation()}>
                     <h3 style={{ marginTop: 0 }}>Cancel Transfer</h3>
-                    <p>Are you sure you want to cancel transfer <strong>{transfer.transfer_number}</strong>?</p>
+                    <p>Cancel transfer <strong>{transfer.transfer_number}</strong>?</p>
                     <div style={{ marginBottom: 16 }}>
                         <label>Reason (Optional)</label>
-                        <textarea
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                            rows="3"
-                            placeholder="Reason for cancellation..."
-                            style={{
-                                width: '100%',
-                                padding: '8px 12px',
-                                border: '1px solid #d1d5db',
-                                borderRadius: 6,
-                                marginTop: 4
-                            }}
-                        />
+                        <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows="3"
+                            placeholder="Reason for cancellation..." style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, marginTop: 4 }} />
                     </div>
                     <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                        <button className="btn outline" onClick={onClose}>No, Keep</button>
-                        <button 
-                            className="btn btn-danger" 
-                            onClick={() => handleCancelTransfer(transfer.id, reason)}
-                            disabled={cancelling}
-                        >
+                        <button className="btn outline" onClick={onClose}>No</button>
+                        <button className="btn btn-danger" onClick={() => handleCancelTransfer(transfer.id, reason)} disabled={cancelling}>
                             {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
                         </button>
                     </div>
@@ -263,72 +256,56 @@ function TransferList({ userBranch, transferType, onTransferSelect }) {
         );
     };
 
-    const DeleteModal = ({ transfer, onClose }) => {
-        return (
-            <div style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 2000
-            }} onClick={onClose}>
-                <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: 12,
-                    width: '90%',
-                    maxWidth: 450,
-                    padding: 24
-                }} onClick={(e) => e.stopPropagation()}>
-                    <h3 style={{ marginTop: 0, color: '#dc2626' }}>⚠️ Delete Transfer</h3>
-                    <p>Are you sure you want to permanently delete transfer <strong>{transfer.transfer_number}</strong>?</p>
-                    <p style={{ color: '#dc2626', fontSize: 13 }}>This action cannot be undone. All items will be removed.</p>
-                    <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
-                        <button className="btn outline" onClick={onClose}>No, Keep</button>
-                        <button 
-                            className="btn btn-danger" 
-                            onClick={() => handleDeleteTransfer(transfer.id)}
-                            disabled={deleting}
-                        >
-                            {deleting ? 'Deleting...' : 'Yes, Delete Permanently'}
-                        </button>
-                    </div>
+    const DeleteModal = ({ transfer, onClose }) => (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', zIndex: 2000
+        }} onClick={onClose}>
+            <div style={{ backgroundColor: 'white', borderRadius: 12, width: '90%', maxWidth: 450, padding: 24 }} onClick={(e) => e.stopPropagation()}>
+                <h3 style={{ marginTop: 0, color: '#dc2626' }}>⚠️ Delete Transfer</h3>
+                <p>Permanently delete <strong>{transfer.transfer_number}</strong>?</p>
+                <p style={{ color: '#dc2626', fontSize: 13 }}>This cannot be undone.</p>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
+                    <button className="btn outline" onClick={onClose}>No</button>
+                    <button className="btn btn-danger" onClick={() => handleDeleteTransfer(transfer.id)} disabled={deleting}>
+                        {deleting ? 'Deleting...' : 'Yes, Delete'}
+                    </button>
                 </div>
             </div>
-        );
-    };
+        </div>
+    );
 
     return (
         <div>
             {/* Summary Cards */}
             {summary && (
-                <div className="grid-5" style={{ marginBottom: 20, display:'flex', justifyContent:'space-around' }}>
-                    <div className="card" style={{ textAlign: 'center', padding: 12 }}>
-                        <div style={{ fontSize: 24, fontWeight: 'bold' }}>{summary.total_transfers}</div>
-                        <div className="muted">Total</div>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
+                    <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: 16 }}>
+                        <div style={{ fontSize: 28, fontWeight: 'bold', color: '#3b82f6' }}>{summary.total_transfers}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>Total</div>
                     </div>
-                    <div className="card" style={{ textAlign: 'center', padding: 12, backgroundColor: '#fef3c7' }}>
-                        <div style={{ fontSize: 24, fontWeight: 'bold', color: '#92400e' }}>{summary.by_status?.PENDING || 0}</div>
-                        <div className="muted">Pending</div>
+                    <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: 16, backgroundColor: '#f3f4f6' }}>
+                        <div style={{ fontSize: 28, fontWeight: 'bold', color: '#6b7280' }}>{summary.by_status?.DRAFT || 0}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>Draft</div>
                     </div>
-                    <div className="card" style={{ textAlign: 'center', padding: 12, backgroundColor: '#dbeafe' }}>
-                        <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1e40af' }}>{summary.by_status?.IN_TRANSIT || 0}</div>
-                        <div className="muted">In Transit</div>
+                    <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: 16, backgroundColor: '#dbeafe' }}>
+                        <div style={{ fontSize: 28, fontWeight: 'bold', color: '#1e40af' }}>{summary.by_status?.APPROVED || 0}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>Approved</div>
                     </div>
-                    <div className="card" style={{ textAlign: 'center', padding: 12, backgroundColor: '#d1fae5' }}>
-                        <div style={{ fontSize: 24, fontWeight: 'bold', color: '#065f46' }}>{summary.by_status?.RECEIVED || 0}</div>
-                        <div className="muted">Received</div>
+                    <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: 16, backgroundColor: '#ede9fe' }}>
+                        <div style={{ fontSize: 28, fontWeight: 'bold', color: '#6d28d9' }}>{summary.by_status?.IN_TRANSIT || 0}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>In Transit</div>
                     </div>
-                    <div className="card" style={{ textAlign: 'center', padding: 12, backgroundColor: '#fee2e2' }}>
-                        <div style={{ fontSize: 24, fontWeight: 'bold', color: '#991b1b' }}>{summary.by_status?.DISPUTED || 0}</div>
-                        <div className="muted">Disputed</div>
+                    <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: 16, backgroundColor: '#d1fae5' }}>
+                        <div style={{ fontSize: 28, fontWeight: 'bold', color: '#065f46' }}>{summary.by_status?.RECEIVED || 0}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>Received</div>
+                    </div>
+                    <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: 16, backgroundColor: '#fee2e2' }}>
+                        <div style={{ fontSize: 28, fontWeight: 'bold', color: '#991b1b' }}>{summary.by_status?.DISPUTED || 0}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>Disputed</div>
                     </div>
                 </div>
-                
             )}
 
             {/* Status Filters */}
@@ -336,10 +313,9 @@ function TransferList({ userBranch, transferType, onTransferSelect }) {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className={`btn-sm ${filter === 'all' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('all')}>All</button>
                     <button className={`btn-sm ${filter === 'draft' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('draft')}>📝 Draft</button>
-                    <button className={`btn-sm ${filter === 'pending' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('pending')}>⏳ Pending</button>
+                    <button className={`btn-sm ${filter === 'approved' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('approved')}>✅ Approved</button>
                     <button className={`btn-sm ${filter === 'in_transit' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('in_transit')}>🚚 In Transit</button>
-                    <button className={`btn-sm ${filter === 'received' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('received')}>✓ Received</button>
-                    <button className={`btn-sm ${filter === 'partial' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('partial')}>⚠️ Partial</button>
+                    <button className={`btn-sm ${filter === 'received' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('received')}>📦 Received</button>
                     <button className={`btn-sm ${filter === 'disputed' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('disputed')}>❗ Disputed</button>
                     <button className={`btn-sm ${filter === 'cancelled' ? 'btn-primary' : 'outline'}`} onClick={() => setFilter('cancelled')}>✗ Cancelled</button>
                 </div>
@@ -354,7 +330,7 @@ function TransferList({ userBranch, transferType, onTransferSelect }) {
                         No transfers found
                         <div style={{ marginTop: 12 }}>
                             <button className="btn btn-primary" onClick={() => window.location.href = '/stock-transfers/create'}>
-                                Create your first transfer
+                                Create Transfer
                             </button>
                         </div>
                     </div>
@@ -374,6 +350,17 @@ function TransferList({ userBranch, transferType, onTransferSelect }) {
                         <tbody>
                             {transfers.map(t => {
                                 const status = getStatusBadge(t.status);
+                                const userBranchId = userBranch?.id ? parseInt(userBranch.id) : null;
+                                const isSender = userBranchId && t.from_branch && userBranchId === t.from_branch;
+                                const isReceiver = userBranchId && t.to_branch && userBranchId === t.to_branch;
+
+                                let roleIndicator = null;
+                                if (isSender && !isReceiver) {
+                                    roleIndicator = <div style={{ fontSize: 10, color: '#3b82f6', marginTop: 4 }}>📤 Sender</div>;
+                                } else if (isReceiver && !isSender) {
+                                    roleIndicator = <div style={{ fontSize: 10, color: '#10b981', marginTop: 4 }}>📥 Receiver</div>;
+                                }
+
                                 return (
                                     <tr key={t.id}>
                                         <td>
@@ -384,6 +371,7 @@ function TransferList({ userBranch, transferType, onTransferSelect }) {
                                             <div>{t.from_branch_name}</div>
                                             <div style={{ fontSize: 12, color: '#666' }}>↓</div>
                                             <div>{t.to_branch_name}</div>
+                                            {roleIndicator}
                                         </td>
                                         <td>
                                             {t.total_items} items
@@ -391,43 +379,26 @@ function TransferList({ userBranch, transferType, onTransferSelect }) {
                                         </td>
                                         <td>
                                             {t.driver_name ? (
-                                                <>
-                                                    <div>{t.driver_name}</div>
-                                                    <div style={{ fontSize: 11, color: '#666' }}>{t.driver_phone}</div>
-                                                </>
-                                            ) : (
-                                                <span style={{ color: '#999' }}>—</span>
-                                            )}
+                                                <><div>{t.driver_name}</div><div style={{ fontSize: 11, color: '#666' }}>{t.driver_phone}</div></>
+                                            ) : <span style={{ color: '#999' }}>—</span>}
                                         </td>
                                         <td>
-                                            <span className={`badge`} style={{ backgroundColor: status.bg, color: status.color }}>
+                                            <span className="badge" style={{ backgroundColor: status.bg, color: status.color, padding: '4px 10px', borderRadius: 20, fontSize: 11 }}>
                                                 {status.icon} {status.text}
                                             </span>
                                         </td>
                                         <td>{new Date(t.created_at).toLocaleDateString()}</td>
-                                        <td>
-                                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                                {getActionButtons(t)}
-                                            </div>
-                                        </td>
+                                        <td><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{getActionButtons(t)}</div></td>
                                     </tr>
                                 );
                             })}
                         </tbody>
                     </table>
-                )};
-                
+                )}
             </div>
 
-            {/* Cancel Modal */}
-            {showCancelModal && (
-                <CancelModal transfer={showCancelModal} onClose={() => setShowCancelModal(null)} />
-            )}
-
-            {/* Delete Modal */}
-            {showDeleteModal && (
-                <DeleteModal transfer={showDeleteModal} onClose={() => setShowDeleteModal(null)} />
-            )}
+            {showCancelModal && <CancelModal transfer={showCancelModal} onClose={() => setShowCancelModal(null)} />}
+            {showDeleteModal && <DeleteModal transfer={showDeleteModal} onClose={() => setShowDeleteModal(null)} />}
         </div>
     );
 }

@@ -27,192 +27,289 @@ function TransferDetail({ transfer, onBack }) {
         return new Date(dateString).toLocaleString();
     };
 
-    const formatCurrency = (value) => {
-        return `KES ${parseFloat(value || 0).toLocaleString()}`;
+    const getStatusConfig = (status) => {
+        const config = {
+            'DRAFT': { color: '#6b7280', bg: '#f3f4f6', icon: '📝', text: 'Draft' },
+            'PENDING': { color: '#f59e0b', bg: '#fef3c7', icon: '⏳', text: 'Pending Approval' },
+            'APPROVED': { color: '#3b82f6', bg: '#dbeafe', icon: '✅', text: 'Approved' },
+            'IN_TRANSIT': { color: '#8b5cf6', bg: '#ede9fe', icon: '🚚', text: 'In Transit' },
+            'RECEIVED': { color: '#10b981', bg: '#d1fae5', icon: '✓', text: 'Received' },
+            'PARTIAL': { color: '#f59e0b', bg: '#fef3c7', icon: '⚠️', text: 'Partially Received' },
+            'DISPUTED': { color: '#ef4444', bg: '#fee2e2', icon: '❗', text: 'Disputed' },
+            'CANCELLED': { color: '#6b7280', bg: '#f3f4f6', icon: '✗', text: 'Cancelled' }
+        };
+        return config[status] || config['DRAFT'];
     };
 
     if (loading) {
-        return <div className="card" style={{ textAlign: 'center', padding: 40 }}>Loading transfer details...</div>;
+        return (
+            <div className="card" style={{ textAlign: 'center', padding: 60 }}>
+                <div style={{ fontSize: 20, color: '#6b7280' }}>Loading transfer details...</div>
+            </div>
+        );
     }
 
     if (!details) {
-        return <div className="card" style={{ textAlign: 'center', padding: 40 }}>Failed to load transfer details</div>;
+        return (
+            <div className="card" style={{ textAlign: 'center', padding: 60 }}>
+                <div style={{ fontSize: 20, color: '#dc2626' }}>Failed to load transfer details</div>
+                <button className="btn btn-primary" onClick={onBack} style={{ marginTop: 20 }}>← Back</button>
+            </div>
+        );
     }
 
+    const statusConfig = getStatusConfig(details.status);
+
     return (
-        <div>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             {/* Header with Back Button */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: 24,
+                flexWrap: 'wrap',
+                gap: 16
+            }}>
                 <div>
-                    <h2 style={{ margin: 0 }}>Transfer #{details.transfer_number}</h2>
-                    <p style={{ margin: '4px 0 0', color: '#6b7280' }}>Waybill: {details.waybill_number || 'Not generated'}</p>
+                    <h1 style={{ margin: 0, fontSize: 28, fontWeight: 600 }}>Transfer #{details.transfer_number}</h1>
+                    <div style={{ marginTop: 8, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span className="badge" style={{ backgroundColor: statusConfig.bg, color: statusConfig.color, padding: '4px 12px', borderRadius: 20 }}>
+                            {statusConfig.icon} {statusConfig.text}
+                        </span>
+                        {details.waybill_number && (
+                            <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#6b7280' }}>
+                                Waybill: {details.waybill_number}
+                            </span>
+                        )}
+                    </div>
                 </div>
-                <button className="btn outline" onClick={onBack}>← Back</button>
+                <button className="btn outline" onClick={onBack} style={{ padding: '8px 20px' }}>← Back to List</button>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid-4" style={{ marginBottom: 24 }}>
-                <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-                    <div style={{ fontSize: 28, fontWeight: 'bold' }}>{details.summary?.total_items || 0}</div>
-                    <div className="muted">Total Items</div>
+            {/* Summary Cards Row */}
+            <div style={{ 
+                display: 'flex', 
+                gap: 16, 
+                marginBottom: 24,
+                flexWrap: 'wrap'
+            }}>
+                <div className="card" style={{ flex: 1, minWidth: 150, padding: 20, textAlign: 'center' }}>
+                    <div style={{ fontSize: 32, fontWeight: 'bold', color: '#3b82f6' }}>{details.summary?.total_items || 0}</div>
+                    <div className="muted" style={{ fontSize: 13 }}>Total Items</div>
                 </div>
-                <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-                    <div style={{ fontSize: 28, fontWeight: 'bold' }}>{details.summary?.total_quantity_sent?.toFixed(2) || 0}</div>
-                    <div className="muted">Units Sent</div>
+                <div className="card" style={{ flex: 1, minWidth: 150, padding: 20, textAlign: 'center' }}>
+                    <div style={{ fontSize: 32, fontWeight: 'bold', color: '#f59e0b' }}>{details.summary?.total_quantity_sent?.toFixed(2) || 0}</div>
+                    <div className="muted" style={{ fontSize: 13 }}>Units Sent</div>
                 </div>
-                <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-                    <div style={{ fontSize: 28, fontWeight: 'bold' }}>{details.summary?.total_quantity_received?.toFixed(2) || 0}</div>
-                    <div className="muted">Units Received</div>
+                <div className="card" style={{ flex: 1, minWidth: 150, padding: 20, textAlign: 'center', backgroundColor: '#d1fae5' }}>
+                    <div style={{ fontSize: 32, fontWeight: 'bold', color: '#065f46' }}>{details.summary?.total_quantity_received?.toFixed(2) || 0}</div>
+                    <div className="muted" style={{ fontSize: 13 }}>Units Received</div>
                 </div>
-                <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-                    <div style={{ fontSize: 28, fontWeight: 'bold' }}>{details.summary?.total_kg_sent?.toFixed(2) || 0}</div>
-                    <div className="muted">KG Sent</div>
+                <div className="card" style={{ flex: 1, minWidth: 150, padding: 20, textAlign: 'center' }}>
+                    <div style={{ fontSize: 32, fontWeight: 'bold', color: '#8b5cf6' }}>{details.summary?.total_kg_sent?.toFixed(2) || 0}</div>
+                    <div className="muted" style={{ fontSize: 13 }}>Total KG Sent</div>
+                </div>
+                <div className="card" style={{ flex: 1, minWidth: 150, padding: 20, textAlign: 'center', backgroundColor: details.status === 'PARTIAL' ? '#fef3c7' : '#f3f4f6' }}>
+                    <div style={{ fontSize: 32, fontWeight: 'bold', color: '#92400e' }}>{details.summary?.total_kg_received?.toFixed(2) || 0}</div>
+                    <div className="muted" style={{ fontSize: 13 }}>Total KG Received</div>
                 </div>
             </div>
 
-            {/* Transfer Information */}
-            <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-                <h3 style={{ marginTop: 0, marginBottom: 20 }}>Transfer Information</h3>
-                <div className="grid-2">
-                    <div>
-                        <label>From Branch</label>
-                        <div><strong>{details.from_branch_name}</strong></div>
+            {/* Two Column Layout */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                {/* Left Column - Transfer Information */}
+                <div className="card" style={{ padding: 24 }}>
+                    <h3 style={{ margin: '0 0 20px 0', fontSize: 18, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        📋 Transfer Information
+                    </h3>
+                    <div style={{ display: 'grid', gap: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                            <span style={{ color: '#6b7280' }}>From Branch</span>
+                            <span style={{ fontWeight: 500 }}>{details.from_branch_name}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                            <span style={{ color: '#6b7280' }}>To Branch</span>
+                            <span style={{ fontWeight: 500 }}>{details.to_branch_name}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                            <span style={{ color: '#6b7280' }}>Created By</span>
+                            <span style={{ fontWeight: 500 }}>{details.created_by_name}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                            <span style={{ color: '#6b7280' }}>Created At</span>
+                            <span style={{ fontWeight: 500 }}>{formatDate(details.created_at)}</span>
+                        </div>
+                        {details.approved_at && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                                <span style={{ color: '#6b7280' }}>Approved By</span>
+                                <span style={{ fontWeight: 500 }}>{details.approved_by_name} on {formatDate(details.approved_at)}</span>
+                            </div>
+                        )}
+                        {details.dispatched_at && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                                <span style={{ color: '#6b7280' }}>Dispatched At</span>
+                                <span style={{ fontWeight: 500 }}>{formatDate(details.dispatched_at)}</span>
+                            </div>
+                        )}
+                        {details.received_at && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                                <span style={{ color: '#6b7280' }}>Received At</span>
+                                <span style={{ fontWeight: 500 }}>{formatDate(details.received_at)}</span>
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <label>To Branch</label>
-                        <div><strong>{details.to_branch_name}</strong></div>
-                    </div>
-                    <div>
-                        <label>Status</label>
-                        <div><strong>{details.status_display}</strong></div>
-                    </div>
-                    <div>
-                        <label>Created</label>
-                        <div>{formatDate(details.created_at)} by {details.created_by_name}</div>
-                    </div>
-                    {details.approved_at && (
-                        <div>
-                            <label>Approved</label>
-                            <div>{formatDate(details.approved_at)} by {details.approved_by_name}</div>
+                    {details.notes && (
+                        <div style={{ marginTop: 20, padding: 12, backgroundColor: '#f9fafb', borderRadius: 8 }}>
+                            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Notes</div>
+                            <div style={{ fontSize: 14 }}>{details.notes}</div>
                         </div>
                     )}
-                    {details.dispatched_at && (
-                        <div>
-                            <label>Dispatched</label>
-                            <div>{formatDate(details.dispatched_at)}</div>
-                        </div>
-                    )}
-                    {details.driver_name && (
-                        <>
-                            <div>
-                                <label>Driver Name</label>
-                                <div>{details.driver_name}</div>
-                            </div>
-                            <div>
-                                <label>Driver Phone</label>
-                                <div>{details.driver_phone}</div>
-                            </div>
-                        </>
-                    )}
-                    {details.received_at && (
-                        <div>
-                            <label>Received</label>
-                            <div>{formatDate(details.received_at)}</div>
+                    {details.dispute_reason && (
+                        <div style={{ marginTop: 20, padding: 12, backgroundColor: '#fee2e2', borderRadius: 8, borderLeft: '3px solid #dc2626' }}>
+                            <div style={{ fontSize: 12, color: '#991b1b', marginBottom: 4 }}>⚠️ Dispute Reason</div>
+                            <div style={{ fontSize: 14 }}>{details.dispute_reason}</div>
                         </div>
                     )}
                 </div>
-                {details.notes && (
-                    <div style={{ marginTop: 16 }}>
-                        <label>Notes</label>
-                        <div style={{ backgroundColor: '#f9fafb', padding: 12, borderRadius: 6 }}>{details.notes}</div>
-                    </div>
-                )}
-                {details.dispute_reason && (
-                    <div style={{ marginTop: 16, backgroundColor: '#fee2e2', padding: 12, borderRadius: 6 }}>
-                        <label style={{ color: '#dc2626' }}>Dispute Reason</label>
-                        <div>{details.dispute_reason}</div>
-                    </div>
-                )}
+
+                {/* Right Column - Driver Information */}
+                <div className="card" style={{ padding: 24 }}>
+                    <h3 style={{ margin: '0 0 20px 0', fontSize: 18, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        👨‍✈️ Driver Information
+                    </h3>
+                    {details.driver_name ? (
+                        <div style={{ display: 'grid', gap: 16 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                                <span style={{ color: '#6b7280' }}>Driver Name</span>
+                                <span style={{ fontWeight: 500 }}>{details.driver_name}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                                <span style={{ color: '#6b7280' }}>Driver Phone</span>
+                                <span style={{ fontWeight: 500 }}>{details.driver_phone}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f3f4f6' }}>
+                                <span style={{ color: '#6b7280' }}>Waybill Number</span>
+                                <span style={{ fontWeight: 500, fontFamily: 'monospace' }}>{details.waybill_number || 'Not generated'}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: 40, color: '#6b7280' }}>
+                            No driver assigned yet
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Items Table */}
-            <div className="card" style={{ padding: 24 }}>
-                <h3 style={{ marginTop: 0, marginBottom: 20 }}>Transfer Items</h3>
+            <div className="card" style={{ marginTop: 24, padding: 24 }}>
+                <h3 style={{ margin: '0 0 20px 0', fontSize: 18, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    📦 Transfer Items
+                </h3>
                 <div style={{ overflowX: 'auto' }}>
-                    <table className="table">
+                    <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Unit</th>
-                                <th>Quantity Sent</th>
-                                <th>Quantity Received</th>
-                                <th>Status</th>
-                                <th>Notes</th>
+                            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                                <th style={{ padding: '12px', textAlign: 'left' }}>Product</th>
+                                <th style={{ padding: '12px', textAlign: 'center' }}>Unit</th>
+                                <th style={{ padding: '12px', textAlign: 'right' }}>Quantity Sent</th>
+                                <th style={{ padding: '12px', textAlign: 'right' }}>Quantity Received</th>
+                                <th style={{ padding: '12px', textAlign: 'center' }}>Status</th>
+                                <th style={{ padding: '12px', textAlign: 'left' }}>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {details.items?.map(item => (
-                                <tr key={item.id}>
-                                    <td>{item.product_name} <div style={{ fontSize: 11, color: '#666' }}>SKU: {item.product_sku}</div></td>
-                                    <td>{item.unit_display}</td>
-                                    <td>{item.quantity_sent} {item.unit === 'KG' ? 'kg' : 'bags'}</td>
-                                    <td>
-                                        {item.quantity_received > 0 ? (
-                                            <strong>{item.quantity_received} {item.unit === 'KG' ? 'kg' : 'bags'}</strong>
-                                        ) : '—'}
-                                    </td>
-                                    <td>
-                                        <span className="badge" style={{
-                                            backgroundColor: item.status === 'RECEIVED' ? '#d1fae5' : 
-                                                           item.status === 'PARTIAL' ? '#fef3c7' :
-                                                           item.status === 'DISPUTED' ? '#fee2e2' : '#f3f4f6',
-                                            color: item.status === 'RECEIVED' ? '#065f46' : 
-                                                   item.status === 'PARTIAL' ? '#92400e' :
-                                                   item.status === 'DISPUTED' ? '#991b1b' : '#374151'
-                                        }}>
-                                            {item.status_display}
-                                        </span>
-                                    </td>
-                                    <td>{item.notes || '—'}</td>
-                                </tr>
-                            ))}
+                            {details.items?.map(item => {
+                                const itemStatusConfig = getStatusConfig(item.status);
+                                return (
+                                    <tr key={item.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                        <td style={{ padding: '12px' }}>
+                                            <div style={{ fontWeight: 500 }}>{item.product_name}</div>
+                                            <div style={{ fontSize: 11, color: '#6b7280' }}>SKU: {item.product_sku}</div>
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>{item.unit_display}</td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            <strong>{item.quantity_sent}</strong> {item.unit === 'KG' ? 'kg' : 'bags'}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            {item.quantity_received > 0 ? (
+                                                <span style={{ color: '#10b981', fontWeight: 500 }}>
+                                                    {item.quantity_received} {item.unit === 'KG' ? 'kg' : 'bags'}
+                                                </span>
+                                            ) : '—'}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <span className="badge" style={{
+                                                backgroundColor: itemStatusConfig.bg,
+                                                color: itemStatusConfig.color,
+                                                padding: '4px 10px',
+                                                borderRadius: 20,
+                                                fontSize: 11
+                                            }}>
+                                                {itemStatusConfig.icon} {itemStatusConfig.text}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px', color: '#6b7280' }}>{item.notes || '—'}</td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
+                        <tfoot style={{ backgroundColor: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
+                            <tr>
+                                <td colSpan="2" style={{ padding: '12px', fontWeight: 600 }}>Totals</td>
+                                <td style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>
+                                    {details.summary?.total_quantity_sent?.toFixed(2)} units
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right', fontWeight: 600, color: '#10b981' }}>
+                                    {details.summary?.total_quantity_received?.toFixed(2)} units
+                                </td>
+                                <td colSpan="2"></td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
 
-            {/* Timeline */}
-            <div className="card" style={{ padding: 24, marginTop: 24 }}>
-                <h3 style={{ marginTop: 0, marginBottom: 20 }}>Timeline</h3>
+            {/* Timeline Section */}
+            <div className="card" style={{ marginTop: 24, padding: 24 }}>
+                <h3 style={{ margin: '0 0 20px 0', fontSize: 18, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    📅 Timeline
+                </h3>
                 <div style={{ position: 'relative', paddingLeft: 30 }}>
                     {details.timeline?.created && (
                         <div style={{ marginBottom: 20, position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: -20, top: 0, width: 10, height: 10, borderRadius: '50%', backgroundColor: '#3b82f6' }}></div>
-                            <div><strong>Created</strong> - {formatDate(details.timeline.created.at)} by {details.timeline.created.by}</div>
+                            <div style={{ position: 'absolute', left: -20, top: 0, width: 12, height: 12, borderRadius: '50%', backgroundColor: '#3b82f6', border: '2px solid white', boxShadow: '0 0 0 2px #3b82f6' }}></div>
+                            <div><strong style={{ color: '#3b82f6' }}>Created</strong></div>
+                            <div>{formatDate(details.timeline.created.at)} by {details.timeline.created.by}</div>
                         </div>
                     )}
                     {details.timeline?.approved && (
                         <div style={{ marginBottom: 20, position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: -20, top: 0, width: 10, height: 10, borderRadius: '50%', backgroundColor: '#10b981' }}></div>
-                            <div><strong>Approved</strong> - {formatDate(details.timeline.approved.at)} by {details.timeline.approved.by}</div>
+                            <div style={{ position: 'absolute', left: -20, top: 0, width: 12, height: 12, borderRadius: '50%', backgroundColor: '#10b981', border: '2px solid white', boxShadow: '0 0 0 2px #10b981' }}></div>
+                            <div><strong style={{ color: '#10b981' }}>Approved</strong></div>
+                            <div>{formatDate(details.timeline.approved.at)} by {details.timeline.approved.by}</div>
                         </div>
                     )}
                     {details.timeline?.dispatched && (
                         <div style={{ marginBottom: 20, position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: -20, top: 0, width: 10, height: 10, borderRadius: '50%', backgroundColor: '#8b5cf6' }}></div>
-                            <div><strong>Dispatched</strong> - {formatDate(details.timeline.dispatched.at)} by {details.timeline.dispatched.by}</div>
+                            <div style={{ position: 'absolute', left: -20, top: 0, width: 12, height: 12, borderRadius: '50%', backgroundColor: '#8b5cf6', border: '2px solid white', boxShadow: '0 0 0 2px #8b5cf6' }}></div>
+                            <div><strong style={{ color: '#8b5cf6' }}>Dispatched</strong></div>
+                            <div>{formatDate(details.timeline.dispatched.at)} by {details.timeline.dispatched.by}</div>
                         </div>
                     )}
                     {details.timeline?.received && (
                         <div style={{ marginBottom: 20, position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: -20, top: 0, width: 10, height: 10, borderRadius: '50%', backgroundColor: '#10b981' }}></div>
-                            <div><strong>Received</strong> - {formatDate(details.timeline.received.at)}</div>
+                            <div style={{ position: 'absolute', left: -20, top: 0, width: 12, height: 12, borderRadius: '50%', backgroundColor: '#10b981', border: '2px solid white', boxShadow: '0 0 0 2px #10b981' }}></div>
+                            <div><strong style={{ color: '#10b981' }}>Received</strong></div>
+                            <div>{formatDate(details.timeline.received.at)}</div>
                         </div>
                     )}
                     {details.timeline?.resolved && (
                         <div style={{ marginBottom: 20, position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: -20, top: 0, width: 10, height: 10, borderRadius: '50%', backgroundColor: '#f59e0b' }}></div>
-                            <div><strong>Resolved</strong> - {formatDate(details.timeline.resolved.at)} by {details.timeline.resolved.by}</div>
+                            <div style={{ position: 'absolute', left: -20, top: 0, width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f59e0b', border: '2px solid white', boxShadow: '0 0 0 2px #f59e0b' }}></div>
+                            <div><strong style={{ color: '#f59e0b' }}>Dispute Resolved</strong></div>
+                            <div>{formatDate(details.timeline.resolved.at)} by {details.timeline.resolved.by}</div>
+                            {details.resolution_notes && <div style={{ marginTop: 4, fontSize: 13, color: '#6b7280' }}>Note: {details.resolution_notes}</div>}
                         </div>
                     )}
                 </div>

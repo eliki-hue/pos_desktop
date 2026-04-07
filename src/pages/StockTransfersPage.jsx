@@ -24,7 +24,7 @@ export default function StockTransfersPage() {
 
     const loadUserBranch = async () => {
         try {
-            const res = await api.get('/api/auth/user-profile/');
+            const res = await api.get('/api/auth/me/');
             if (res.data.branch) {
                 setUserBranch(res.data.branch);
             }
