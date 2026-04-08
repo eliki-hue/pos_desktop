@@ -10,6 +10,7 @@ import ReceiveTransfer from '../components/stock-transfer/ReceiveTransfer';
 import TransferDetail from '../components/stock-transfer/TransferDetails';
 import DisputeTransfer from '../components/stock-transfer/DisputeTransfer';
 import ResolveDispute from '../components/stock-transfer/ResolveDispute';
+import EditTransfer from '../components/stock-transfer/EditTransfer';
 
 export default function StockTransfersPage() {
     const [view, setView] = useState('list'); // list, create, dispatch, receive, detail, dispute, resolve
@@ -41,6 +42,7 @@ export default function StockTransfersPage() {
         else if (action === 'view') setView('detail');
         else if (action === 'dispute') setView('dispute');
         else if (action === 'resolve') setView('resolve');
+        else if (action === 'edit') setView('edit');
     };
 
     const handleSuccess = () => {
@@ -100,6 +102,14 @@ export default function StockTransfersPage() {
         return (
             <AppLayout title="Stock Transfers" subtitle={`Resolve Dispute: ${selectedTransfer.transfer_number}`}>
                 <ResolveDispute transfer={selectedTransfer} onSuccess={handleSuccess} onCancel={handleCancel} />
+            </AppLayout>
+        );
+    }
+
+    if (view === 'edit' && selectedTransfer) {
+        return (
+            <AppLayout title="Stock Transfers" subtitle={`Resolve Dispute: ${selectedTransfer.transfer_number}`}>
+                <EditTransfer transfer={selectedTransfer} onSuccess={handleSuccess} onCancel={handleCancel} />
             </AppLayout>
         );
     }
