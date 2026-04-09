@@ -30,6 +30,8 @@ import Transfers from "./pages/inventory/Transfers";
 import EcommerceOrdersPage from "./pages/EcommerceOrdersPage";
 import StockTransfersPage from "./pages/StockTransfersPage";
 
+import { Purchases } from "./components/purchases";
+
 export default function App() {
   return (
     <BrowserRouter basename="/pos">
@@ -129,7 +131,13 @@ export default function App() {
 
         <Route
          path="/api/reports/movements" 
-         element={<StockMovementReport />} />
+         element={<StockMovementReport />}
+          />
+
+        <Route path="/purchases/*" element={<Purchases />} />
+
+
+
         {/* ================= Admin ================= */}
         <Route
           path="admin/branches"
@@ -170,6 +178,8 @@ export default function App() {
             </RequireAuth>
           }
         />
+
+          <Route path="/purchases/*" element={<Purchases />} />
 
         <Route
           path="admin/users"

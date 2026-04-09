@@ -100,6 +100,10 @@ export default function Sidebar() {
             <NavLink to="/api/reports/movements" style={linkStyle}>
               Stock movement Reports
             </NavLink>
+
+             <NavLink to="/purchases" style={linkStyle}>
+              Purchases 
+            </NavLink>
             
             
           </>
@@ -138,7 +142,9 @@ export default function Sidebar() {
               user sessions
             </NavLink>
             
-
+            <NavLink to="/purchases" style={linkStyle}>
+              Purchases 
+            </NavLink>
           </>
         )}
 
