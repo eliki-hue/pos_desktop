@@ -30,7 +30,11 @@ import Transfers from "./pages/inventory/Transfers";
 import EcommerceOrdersPage from "./pages/EcommerceOrdersPage";
 import StockTransfersPage from "./pages/StockTransfersPage";
 
-import { Purchases } from "./components/purchases";
+// Purchase imports - using the correct components
+import PurchaseList from './components/purchases/PurchaseList';
+import PurchaseDetail from './components/purchases/PurchaseDetail';
+import PurchaseForm from './components/purchases/PurchaseForm';
+import Purchases from './components/purchases/Purchases'; // This should be the wrapper component
 
 export default function App() {
   return (
@@ -115,8 +119,6 @@ export default function App() {
           }
         />
 
-        {/* <Route path="/inventory/stock-in" element={<StockIn />} />
-        <Route path="/inventory/transfers" element={<Transfers />} /> */}
         <Route path="/stock-transfers" element={<StockTransfersPage />} />
         <Route path="/admin/ecommerce-orders" element={<EcommerceOrdersPage />} />
 
@@ -130,13 +132,25 @@ export default function App() {
         />
 
         <Route
-         path="/api/reports/movements" 
-         element={<StockMovementReport />}
-          />
+          path="/api/reports/movements" 
+          element={<StockMovementReport />}
+        />
 
-        <Route path="/purchases/*" element={<Purchases />} />
-
-
+        {/* ================= Purchases Module ================= */}
+        {/* Single purchase route with nested routes */}
+        <Route
+          path="purchases/*"
+          element={
+            <RequireRole allowedRoles={["MANAGER", "ADMIN"]}>
+              <Purchases />
+            </RequireRole>
+          }
+        >
+          <Route index element={<PurchaseList />} />
+          <Route path="new" element={<PurchaseForm />} />
+          <Route path=":id" element={<PurchaseDetail />} />
+          <Route path=":id/edit" element={<PurchaseForm isEdit={true} />} />
+        </Route>
 
         {/* ================= Admin ================= */}
         <Route
@@ -178,8 +192,6 @@ export default function App() {
             </RequireAuth>
           }
         />
-
-          <Route path="/purchases/*" element={<Purchases />} />
 
         <Route
           path="admin/users"

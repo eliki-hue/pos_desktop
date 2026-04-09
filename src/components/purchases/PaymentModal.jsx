@@ -1,3 +1,4 @@
+// src/components/purchases/PaymentModal.jsx
 import React, { useState } from 'react';
 import { X, CreditCard } from 'lucide-react';
 import { purchaseAPI } from '../../services/api';
@@ -24,8 +25,19 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
       return;
     }
 
+    if (formData.amount <= 0) {
+      setError('Amount must be greater than 0');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await purchaseAPI.addPayment(purchase.id, formData);
+      await purchaseAPI.addPayment(purchase.id, {
+        amount: formData.amount,
+        payment_method: formData.payment_method,
+        reference: formData.reference,
+        notes: formData.notes
+      });
       onSuccess();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to process payment');
@@ -35,42 +47,109 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-md">
-        <div className="flex justify-between items-center p-6 border-b">
-          <div className="flex items-center gap-2">
-            <CreditCard className="text-blue-600" />
-            <h2 className="text-xl font-semibold">Add Payment</h2>
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2100,
+        padding: '20px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          backgroundColor: 'white',
+          borderRadius: 12,
+          width: '90%',
+          maxWidth: 500,
+          maxHeight: '90vh',
+          overflow: 'auto',
+          padding: 24,
+          boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CreditCard style={{ width: 20, height: 20, color: '#3b82f6' }} />
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Add Payment</h3>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={24} />
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: 24,
+              cursor: 'pointer',
+              padding: '0 8px',
+              color: '#6b7280',
+            }}
+          >
+            ×
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600">Purchase Total:</span>
-              <span className="font-semibold">{formatCurrency(purchase.total_amount)}</span>
-            </div>
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600">Already Paid:</span>
-              <span className="font-semibold text-green-600">{formatCurrency(purchase.amount_paid)}</span>
-            </div>
-            <div className="flex justify-between pt-2 border-t">
-              <span className="font-medium">Remaining Balance:</span>
-              <span className="font-bold text-red-600">{formatCurrency(purchase.balance)}</span>
-            </div>
+        <p style={{ color: '#666', marginBottom: 16, fontSize: 13 }}>
+          Purchase: <strong>{purchase.purchase_number}</strong>
+        </p>
+
+        {/* Payment Summary */}
+        <div style={{ 
+          backgroundColor: '#f9fafb', 
+          padding: 16, 
+          borderRadius: 8, 
+          marginBottom: 20,
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ color: '#6b7280' }}>Purchase Total:</span>
+            <span style={{ fontWeight: 600 }}>{formatCurrency(purchase.total_amount)}</span>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ color: '#6b7280' }}>Already Paid:</span>
+            <span style={{ fontWeight: 600, color: '#10b981' }}>{formatCurrency(purchase.amount_paid)}</span>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            marginTop: 8, 
+            paddingTop: 8, 
+            borderTop: '1px solid #e5e7eb',
+            fontWeight: 600
+          }}>
+            <span>Remaining Balance:</span>
+            <span style={{ color: '#dc2626' }}>{formatCurrency(purchase.balance)}</span>
+          </div>
+        </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div style={{
+            backgroundColor: '#fee2e2',
+            color: '#dc2626',
+            padding: 10,
+            borderRadius: 6,
+            marginBottom: 16,
+            fontSize: 13,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <span>❌</span> {error}
+          </div>
+        )}
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+        <form onSubmit={handleSubmit}>
+          {/* Amount */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: 13 }}>
               Amount *
             </label>
             <input
@@ -79,19 +158,34 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
               required
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 14,
+              }}
+              placeholder="Enter amount"
             />
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          {/* Payment Method */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: 13 }}>
               Payment Method *
             </label>
             <select
               required
               value={formData.payment_method}
               onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 14,
+                backgroundColor: 'white'
+              }}
             >
               <option value="CASH">Cash</option>
               <option value="BANK">Bank Transfer</option>
@@ -101,45 +195,71 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
             </select>
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          {/* Reference */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: 13 }}>
               Reference (Optional)
             </label>
             <input
               type="text"
               value={formData.reference}
               onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 14,
+              }}
               placeholder="Transaction reference number"
             />
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          {/* Notes */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: 13 }}>
               Notes (Optional)
             </label>
             <textarea
               rows="2"
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 14,
+                resize: 'vertical'
+              }}
               placeholder="Additional notes..."
             />
           </div>
 
-          <div className="flex gap-3">
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
             <button
               type="button"
+              className="btn outline"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              disabled={loading}
+              style={{ padding: '10px 20px', cursor: 'pointer' }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="btn btn-primary"
+              style={{
+                padding: '10px 20px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
             >
+              <CreditCard style={{ width: 16, height: 16 }} />
               {loading ? 'Processing...' : 'Confirm Payment'}
             </button>
           </div>

@@ -1,30 +1,31 @@
+// src/components/purchases/PurchaseDetail.jsx
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, CreditCard, Printer } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { 
+  ArrowLeft, 
+  Edit, 
+  CreditCard, 
+  Printer, 
+  CheckCircle, 
+  Truck,
+  Calendar,
+  DollarSign,
+  AlertCircle,
+  Package,
+  User,
+  Building2,
+  FileText
+} from 'lucide-react';
 import { purchaseAPI } from '../../services/api';
-import StatusBadge from '../Common/StatusBadge';
-import LoadingSpinner from '../Common/LoadingSpinner';
-import ErrorAlert from '../Common/ErrorAlert';
-import ConfirmDialog from '../Common/ConfirmDialog';
-import PaymentModal from './PaymentModal';
-import PurchaseItemsTable from './PurchaseItemsTable';
-import PaymentHistory from './PaymentHistory';
-import PurchaseActions from './PurchaseActions';
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
 
-const PurchaseDetail = ({ onDataChange }) => {
+const PurchaseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const [purchase, setPurchase] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('items');
   const [error, setError] = useState(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState(() => {
-    const params = new URLSearchParams(location.search);
-    return params.get('tab') || 'items';
-  });
 
   useEffect(() => {
     fetchPurchaseDetail();
@@ -36,8 +37,9 @@ const PurchaseDetail = ({ onDataChange }) => {
     try {
       const response = await purchaseAPI.getDetail(id);
       setPurchase(response.data);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load purchase details');
+    } catch (error) {
+      console.error('Failed to load purchase:', error);
+      setError('Failed to load purchase details');
     } finally {
       setLoading(false);
     }
@@ -47,284 +49,455 @@ const PurchaseDetail = ({ onDataChange }) => {
     try {
       await purchaseAPI.confirm(id);
       await fetchPurchaseDetail();
-      onDataChange();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to confirm purchase');
+    } catch (error) {
+      console.error('Failed to confirm:', error);
+      setError('Failed to confirm purchase');
     }
   };
 
-  const handleCancel = async () => {
-    try {
-      await purchaseAPI.cancel(id);
-      await fetchPurchaseDetail();
-      onDataChange();
-      setShowCancelDialog(false);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to cancel purchase');
-    }
+  // Status badge component
+  const StatusBadge = ({ status }) => {
+    const getStatusStyle = () => {
+      const s = status?.toUpperCase();
+      switch (s) {
+        case 'DRAFT':
+          return { bg: '#fef3c7', color: '#92400e', icon: '📝' };
+        case 'CONFIRMED':
+          return { bg: '#dbeafe', color: '#1e40af', icon: '✅' };
+        case 'PARTIALLY_PAID':
+          return { bg: '#fef3c7', color: '#92400e', icon: '💰' };
+        case 'PAID':
+          return { bg: '#d1fae5', color: '#065f46', icon: '💳' };
+        case 'CANCELLED':
+          return { bg: '#fee2e2', color: '#991b1b', icon: '❌' };
+        default:
+          return { bg: '#f3f4f6', color: '#374151', icon: '❓' };
+      }
+    };
+
+    const style = getStatusStyle();
+    
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 14px',
+        borderRadius: 20,
+        fontSize: 12,
+        fontWeight: 500,
+        backgroundColor: style.bg,
+        color: style.color
+      }}>
+        <span style={{ fontSize: 14 }}>{style.icon}</span>
+        {status?.replace('_', ' ') || 'UNKNOWN'}
+      </span>
+    );
   };
 
-  const handlePaymentSuccess = async () => {
-    setShowPaymentModal(false);
-    await fetchPurchaseDetail();
-    onDataChange();
-  };
+  // Info card component
+  const InfoCard = ({ icon: Icon, label, value, color }) => (
+    <div className="card" style={{ padding: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div style={{ 
+          padding: 10, 
+          backgroundColor: `${color}20`, 
+          borderRadius: 10,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <Icon style={{ width: 20, height: 20, color: color }} />
+        </div>
+      </div>
+      <div>
+        <div className="muted" style={{ marginBottom: 4, fontSize: 12 }}>{label}</div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: '#111827' }}>{value}</div>
+      </div>
+    </div>
+  );
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Purchase Order ${purchase.purchase_number}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .details { margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            .total { text-align: right; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Purchase Order</h1>
-            <p>${purchase.purchase_number}</p>
-          </div>
-          <div class="details">
-            <p><strong>Supplier:</strong> ${purchase.supplier.name}</p>
-            <p><strong>Date:</strong> ${formatDate(purchase.purchase_date)}</p>
-            <p><strong>Status:</strong> ${purchase.status}</p>
-          </div>
-          <table>
-            <thead>
-              <tr><th>Product</th><th>Unit</th><th>Quantity</th><th>Unit Price</th><th>Total</th></tr>
-            </thead>
-            <tbody>
-              ${purchase.items.map(item => `
-                <tr>
-                  <td>${item.product_name}</td>
-                  <td>${item.unit}</td>
-                  <td>${item.quantity}</td>
-                  <td>${formatCurrency(item.unit_price)}</td>
-                  <td>${formatCurrency(item.total_price)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div class="total">
-            <h3>Total: ${formatCurrency(purchase.total_amount)}</h3>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
-  };
+  if (loading) {
+    return <div className="card" style={{ textAlign: 'center', padding: 60, color: '#6b7280' }}>Loading purchase details...</div>;
+  }
 
-  if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorAlert message={error} onRetry={fetchPurchaseDetail} />;
-  if (!purchase) return null;
+  if (error || !purchase) {
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: 60 }}>
+        <div style={{ 
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          width: 80,
+          height: 80,
+          backgroundColor: '#fee2e2',
+          borderRadius: 16,
+          marginBottom: 16
+        }}>
+          <AlertCircle style={{ width: 40, height: 40, color: '#dc2626' }} />
+        </div>
+        <h3 style={{ fontSize: 18, fontWeight: 500, color: '#374151', marginBottom: 8 }}>{error || 'Purchase not found'}</h3>
+        <p style={{ color: '#6b7280', marginBottom: 20 }}>The purchase order you're looking for doesn't exist or has been removed.</p>
+        <button
+          className="btn btn-primary"
+          onClick={() => navigate('/purchases')}
+        >
+          Back to Purchases
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div>
       {/* Header */}
-      <div className="border-b px-6 py-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/purchases')}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft size={24} />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">
-                Purchase {purchase.purchase_number}
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Created {formatDateTime(purchase.created_at)} by {purchase.created_by_name}
-              </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <button
+            onClick={() => navigate('/purchases')}
+            className="btn outline"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px' }}
+          >
+            <ArrowLeft style={{ width: 18, height: 18 }} />
+            Back
+          </button>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ fontWeight: 900, fontSize: 24 }}>{purchase.purchase_number}</div>
+              <StatusBadge status={purchase.status} />
+            </div>
+            <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
+              Created {formatDateTime(purchase.created_at)} by {purchase.created_by_name || 'System'}
             </div>
           </div>
-          <div className="flex gap-2">
-            {purchase.status === 'DRAFT' && (
-              <>
-                <button
-                  onClick={() => navigate(`/purchases/${id}/edit`)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <Edit size={16} />
-                  Edit
-                </button>
-                <button
-                  onClick={handleConfirm}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  Confirm Purchase
-                </button>
-              </>
-            )}
-            {purchase.can_add_payment && (
+        </div>
+        
+        <div style={{ display: 'flex', gap: 12 }}>
+          {purchase.status === 'DRAFT' && (
+            <>
               <button
-                onClick={() => setShowPaymentModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                onClick={() => navigate(`/purchases/${id}/edit`)}
+                className="btn outline"
+                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
               >
-                <CreditCard size={16} />
-                Add Payment
+                <Edit style={{ width: 16, height: 16 }} />
+                Edit
               </button>
-            )}
-            {purchase.can_cancel && (
               <button
-                onClick={() => setShowCancelDialog(true)}
-                className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 flex items-center gap-2"
+                onClick={handleConfirm}
+                className="btn"
+                style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: '#10b981', color: 'white', border: 'none' }}
               >
-                <Trash2 size={16} />
-                Cancel
+                <CheckCircle style={{ width: 16, height: 16 }} />
+                Confirm Purchase
               </button>
-            )}
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-            >
-              <Printer size={16} />
-              Print
-            </button>
-          </div>
+            </>
+          )}
+          <button className="btn outline" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Printer style={{ width: 16, height: 16 }} />
+            Print
+          </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6 border-b">
-        <div className="bg-gray-50 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Total Amount</p>
-          <p className="text-2xl font-bold text-gray-800">{formatCurrency(purchase.total_amount)}</p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Amount Paid</p>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(purchase.amount_paid)}</p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Balance</p>
-          <p className={`text-2xl font-bold ${purchase.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {formatCurrency(purchase.balance)}
-          </p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Status</p>
-          <div className="mt-1">
-            <StatusBadge status={purchase.status} size="lg" />
-          </div>
-        </div>
+      {/* Info Cards */}
+      <div className="grid-4" style={{ marginBottom: 24 }}>
+        <InfoCard 
+          icon={Truck}
+          label="Supplier"
+          value={purchase.supplier?.name || 'N/A'}
+          color="#3b82f6"
+        />
+        <InfoCard 
+          icon={Calendar}
+          label="Purchase Date"
+          value={formatDate(purchase.purchase_date)}
+          color="#8b5cf6"
+        />
+        <InfoCard 
+          icon={DollarSign}
+          label="Total Amount"
+          value={formatCurrency(purchase.total_amount)}
+          color="#10b981"
+        />
+        <InfoCard 
+          icon={AlertCircle}
+          label="Balance"
+          value={formatCurrency(purchase.balance)}
+          color={purchase.balance > 0 ? "#ef4444" : "#10b981"}
+        />
       </div>
 
       {/* Tabs */}
-      <div className="border-b">
-        <div className="flex px-6">
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: 24, padding: '0 20px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
           <button
             onClick={() => setActiveTab('items')}
-            className={`px-4 py-3 font-medium transition-colors ${
-              activeTab === 'items'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            style={{
+              padding: '14px 0',
+              borderBottom: activeTab === 'items' ? '2px solid #3b82f6' : '2px solid transparent',
+              fontWeight: 500,
+              fontSize: 14,
+              color: activeTab === 'items' ? '#3b82f6' : '#6b7280',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer'
+            }}
           >
             Items
           </button>
           <button
             onClick={() => setActiveTab('payments')}
-            className={`px-4 py-3 font-medium transition-colors ${
-              activeTab === 'payments'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            style={{
+              padding: '14px 0',
+              borderBottom: activeTab === 'payments' ? '2px solid #3b82f6' : '2px solid transparent',
+              fontWeight: 500,
+              fontSize: 14,
+              color: activeTab === 'payments' ? '#3b82f6' : '#6b7280',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer'
+            }}
           >
             Payment History
           </button>
           <button
             onClick={() => setActiveTab('info')}
-            className={`px-4 py-3 font-medium transition-colors ${
-              activeTab === 'info'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            style={{
+              padding: '14px 0',
+              borderBottom: activeTab === 'info' ? '2px solid #3b82f6' : '2px solid transparent',
+              fontWeight: 500,
+              fontSize: 14,
+              color: activeTab === 'info' ? '#3b82f6' : '#6b7280',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer'
+            }}
           >
             Additional Info
           </button>
         </div>
-      </div>
 
-      {/* Tab Content */}
-      <div className="p-6">
-        {activeTab === 'items' && (
-          <PurchaseItemsTable items={purchase.items} />
-        )}
-        
-        {activeTab === 'payments' && (
-          <PaymentHistory payments={purchase.payments} />
-        )}
-        
-        {activeTab === 'info' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Supplier</p>
-                <p className="font-medium">{purchase.supplier.name}</p>
-                <p className="text-sm">{purchase.supplier.phone}</p>
-                <p className="text-sm">{purchase.supplier.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Branch</p>
-                <p className="font-medium">{purchase.branch_name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Purchase Date</p>
-                <p className="font-medium">{formatDate(purchase.purchase_date)}</p>
-              </div>
-              {purchase.due_date && (
-                <div>
-                  <p className="text-sm text-gray-600">Due Date</p>
-                  <p className="font-medium">{formatDate(purchase.due_date)}</p>
+        <div style={{ padding: 24 }}>
+          {/* Items Tab */}
+          {activeTab === 'items' && (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table" style={{ minWidth: 600, width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '12px', textAlign: 'left' }}>Product</th>
+                    <th style={{ padding: '12px', textAlign: 'center' }}>Unit</th>
+                    <th style={{ padding: '12px', textAlign: 'right' }}>Quantity</th>
+                    <th style={{ padding: '12px', textAlign: 'right' }}>Unit Price</th>
+                    <th style={{ padding: '12px', textAlign: 'right' }}>Total</th>
+                    <th style={{ padding: '12px', textAlign: 'center' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {purchase.items?.map((item, idx) => (
+                    <tr key={idx}>
+                      <td style={{ padding: '12px', fontWeight: 500 }}>{item.product_name}</td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>
+                        {item.unit}
+                        {item.unit === 'BAG' && item.bag_weight_kg && (
+                          <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 4 }}>({item.bag_weight_kg}kg)</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'right' }}>{item.quantity}</td>
+                      <td style={{ padding: '12px', textAlign: 'right' }}>{formatCurrency(item.unit_price)}</td>
+                      <td style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>{formatCurrency(item.total_price)}</td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>
+                        <ItemStatusBadge status={item.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot style={{ backgroundColor: '#f9fafb' }}>
+                  <tr>
+                    <td colSpan="4" style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Total:</td>
+                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, fontSize: 16 }}>
+                      {formatCurrency(purchase.total_amount)}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          {/* Payments Tab */}
+          {activeTab === 'payments' && (
+            <div>
+              {purchase.payments && purchase.payments.length > 0 ? (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="table" style={{ minWidth: 600, width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '12px', textAlign: 'left' }}>Date</th>
+                        <th style={{ padding: '12px', textAlign: 'left' }}>Method</th>
+                        <th style={{ padding: '12px', textAlign: 'right' }}>Amount</th>
+                        <th style={{ padding: '12px', textAlign: 'left' }}>Reference</th>
+                        <th style={{ padding: '12px', textAlign: 'left' }}>Recorded By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {purchase.payments.map((payment, idx) => (
+                        <tr key={idx}>
+                          <td style={{ padding: '12px' }}>{formatDateTime(payment.created_at)}</td>
+                          <td style={{ padding: '12px' }}>{payment.payment_method}</td>
+                          <td style={{ padding: '12px', textAlign: 'right', color: '#10b981', fontWeight: 500 }}>
+                            {formatCurrency(payment.amount)}
+                          </td>
+                          <td style={{ padding: '12px' }}>{payment.reference || '-'}</td>
+                          <td style={{ padding: '12px' }}>{payment.created_by_name || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot style={{ backgroundColor: '#f9fafb' }}>
+                      <tr>
+                        <td colSpan="2" style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Total Paid:</td>
+                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, fontSize: 16, color: '#10b981' }}>
+                          {formatCurrency(purchase.amount_paid)}
+                        </td>
+                        <td colSpan="2"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: 60 }}>
+                  <div style={{ 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    width: 60,
+                    height: 60,
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: 12,
+                    marginBottom: 12
+                  }}>
+                    <CreditCard style={{ width: 30, height: 30, color: '#9ca3af' }} />
+                  </div>
+                  <p style={{ color: '#6b7280' }}>No payments recorded yet</p>
                 </div>
               )}
-              {purchase.approved_by_name && (
-                <div>
-                  <p className="text-sm text-gray-600">Approved By</p>
-                  <p className="font-medium">{purchase.approved_by_name}</p>
+              
+              {purchase.can_add_payment && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                  <button
+                    onClick={() => navigate(`/purchases/${id}/pay`)}
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                  >
+                    <CreditCard style={{ width: 16, height: 16 }} />
+                    Add Payment
+                  </button>
                 </div>
               )}
             </div>
-            {purchase.notes && (
+          )}
+
+          {/* Additional Info Tab */}
+          {activeTab === 'info' && (
+            <div className="grid-2" style={{ gap: 24 }}>
               <div>
-                <p className="text-sm text-gray-600">Notes</p>
-                <p className="mt-1 text-gray-800">{purchase.notes}</p>
+                <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#374151' }}>Supplier Information</h4>
+                <div style={{ backgroundColor: '#f9fafb', padding: 16, borderRadius: 8 }}>
+                  <div style={{ marginBottom: 8 }}><strong>Name:</strong> {purchase.supplier?.name || 'N/A'}</div>
+                  <div style={{ marginBottom: 8 }}><strong>Phone:</strong> {purchase.supplier?.phone || 'N/A'}</div>
+                  {purchase.supplier?.email && <div style={{ marginBottom: 8 }}><strong>Email:</strong> {purchase.supplier.email}</div>}
+                  {purchase.supplier?.address && <div><strong>Address:</strong> {purchase.supplier.address}</div>}
+                </div>
               </div>
-            )}
-          </div>
-        )}
+              
+              <div>
+                <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#374151' }}>Purchase Information</h4>
+                <div style={{ backgroundColor: '#f9fafb', padding: 16, borderRadius: 8 }}>
+                  <div style={{ marginBottom: 8 }}><strong>Branch:</strong> {purchase.branch_name || 'N/A'}</div>
+                  <div style={{ marginBottom: 8 }}><strong>Purchase Date:</strong> {formatDate(purchase.purchase_date)}</div>
+                  {purchase.due_date && <div style={{ marginBottom: 8 }}><strong>Due Date:</strong> {formatDate(purchase.due_date)}</div>}
+                  {purchase.approved_by_name && <div style={{ marginBottom: 8 }}><strong>Approved By:</strong> {purchase.approved_by_name}</div>}
+                  {purchase.notes && (
+                    <div style={{ marginTop: 12 }}>
+                      <strong>Notes:</strong>
+                      <p style={{ marginTop: 4, color: '#6b7280' }}>{purchase.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Modals */}
-      {showPaymentModal && (
-        <PaymentModal
-          purchase={purchase}
-          onClose={() => setShowPaymentModal(false)}
-          onSuccess={handlePaymentSuccess}
-        />
-      )}
-      
-      {showCancelDialog && (
-        <ConfirmDialog
-          title="Cancel Purchase"
-          message={`Are you sure you want to cancel purchase ${purchase.purchase_number}? This will reverse inventory updates if already confirmed.`}
-          onConfirm={handleCancel}
-          onCancel={() => setShowCancelDialog(false)}
-          confirmText="Yes, Cancel"
-          cancelText="No, Keep"
-          type="danger"
-        />
-      )}
+      <style>
+        {`
+          .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+          }
+          .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+          }
+          @media (max-width: 1024px) {
+            .grid-4 {
+              grid-template-columns: repeat(2, 1fr);
+            }
+          }
+          @media (max-width: 768px) {
+            .grid-2 {
+              grid-template-columns: 1fr;
+            }
+          }
+          @media (max-width: 640px) {
+            .grid-4 {
+              grid-template-columns: 1fr;
+            }
+          }
+        `}
+      </style>
     </div>
+  );
+};
+
+// Item Status Badge Component
+const ItemStatusBadge = ({ status }) => {
+  const getStatusStyle = () => {
+    const s = status?.toUpperCase();
+    switch (s) {
+      case 'RECEIVED':
+        return { bg: '#d1fae5', color: '#065f46', icon: '✅' };
+      case 'PARTIAL':
+        return { bg: '#fef3c7', color: '#92400e', icon: '⚠️' };
+      case 'PENDING':
+        return { bg: '#fef3c7', color: '#92400e', icon: '⏳' };
+      case 'CANCELLED':
+        return { bg: '#fee2e2', color: '#991b1b', icon: '❌' };
+      default:
+        return { bg: '#f3f4f6', color: '#374151', icon: '❓' };
+    }
+  };
+
+  const style = getStatusStyle();
+  
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      padding: '2px 8px',
+      borderRadius: 12,
+      fontSize: 11,
+      fontWeight: 500,
+      backgroundColor: style.bg,
+      color: style.color
+    }}>
+      <span style={{ fontSize: 10 }}>{style.icon}</span>
+      {status || 'PENDING'}
+    </span>
   );
 };
 
