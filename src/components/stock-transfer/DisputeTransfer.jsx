@@ -1,288 +1,273 @@
-// frontend/components/stock-transfer/DisputeTransfer.js
+// frontend/components/stock-transfer/RaiseDispute.js
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
-import transferService from './transferService';
 
 function DisputeTransfer({ transfer, onSuccess, onCancel }) {
     const [items, setItems] = useState([]);
     const [disputeReason, setDisputeReason] = useState('');
-    const [notes, setNotes] = useState('');
+    const [disputeType, setDisputeType] = useState('QUANTITY_MISMATCH');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [disputeType, setDisputeType] = useState('full'); // full or partial
+    const [loadingTransfer, setLoadingTransfer] = useState(true);
+    const [selectedItems, setSelectedItems] = useState({});
 
     useEffect(() => {
         loadTransferItems();
-    }, [transfer.id]);
+    }, []);
 
     const loadTransferItems = async () => {
         try {
             const response = await api.get(`/api/stock-transfers/transfers/${transfer.id}/detail/`);
-            const itemsData = response.data.items.map(item => ({
-                id: item.id,
-                product_name: item.product_name,
-                unit: item.unit,
-                unit_display: item.unit_display,
-                quantity_sent: item.quantity_sent,
-                quantity_received: item.quantity_received || 0,
-                status: item.status,
-                dispute_reason: '',
-                expected_quantity: item.quantity_sent
+            const transferData = response.data;
+            
+            // Safely extract items with proper null checks
+            const transferItems = transferData?.items || [];
+            
+            const parsedItems = transferItems.map(item => ({
+                id: item?.id,
+                product_id: item?.product,
+                product_name: item?.product_name || 'Unknown Product',
+                // Convert string numbers to actual numbers
+                quantity_sent: typeof item?.quantity_sent === 'string' ? parseFloat(item.quantity_sent) : (item?.quantity_sent || 0),
+                quantity_received: typeof item?.quantity_received === 'string' ? parseFloat(item.quantity_received) : (item?.quantity_received || 0),
+                unit: item?.unit || 'KG',
+                bag_weight_kg: typeof item?.bag_weight_kg === 'string' ? parseFloat(item.bag_weight_kg) : (item?.bag_weight_kg || 1),
+                status: item?.status || 'PENDING',
+                status_display: item?.status_display || 'Pending'
             }));
-            setItems(itemsData);
+            
+            setItems(parsedItems);
+            
+            // Initialize selected items state
+            const initialSelected = {};
+            parsedItems.forEach(item => {
+                initialSelected[item.id] = false;
+            });
+            setSelectedItems(initialSelected);
         } catch (err) {
             console.error('Failed to load transfer items', err);
-            setError('Failed to load transfer items');
+            setError('Failed to load transfer details');
+            
+            // Fallback to transfer prop data
+            const fallbackItems = transfer?.items || [];
+            const parsedFallbackItems = fallbackItems.map(item => ({
+                ...item,
+                quantity_sent: typeof item?.quantity_sent === 'string' ? parseFloat(item.quantity_sent) : (item?.quantity_sent || 0),
+                quantity_received: typeof item?.quantity_received === 'string' ? parseFloat(item.quantity_received) : (item?.quantity_received || 0)
+            }));
+            setItems(parsedFallbackItems);
+        } finally {
+            setLoadingTransfer(false);
         }
     };
 
-    const updateItemDispute = (itemId, field, value) => {
-        setItems(prev => prev.map(item => 
-            item.id === itemId ? { ...item, [field]: value } : item
-        ));
+    const toggleItemSelection = (itemId) => {
+        setSelectedItems(prev => ({
+            ...prev,
+            [itemId]: !prev[itemId]
+        }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         
+        // Validate dispute reason
         if (!disputeReason.trim()) {
             setError('Please provide a reason for the dispute');
             return;
         }
-
+        
+        // Get selected items
+        const disputedItems = items.filter(item => selectedItems[item.id]);
+        
+        if (disputedItems.length === 0) {
+            setError('Please select at least one item to dispute');
+            return;
+        }
+        
         setLoading(true);
         setError('');
-
+        
         try {
-            const disputeData = {
+            const payload = {
+                transfer_id: transfer.id,
+                dispute_type: disputeType,
                 dispute_reason: disputeReason,
-                notes: notes
+                items: disputedItems.map(item => ({
+                    item_id: item.id,
+                    product_id: item.product_id,
+                    product_name: item.product_name,
+                    quantity_sent: item.quantity_sent,
+                    quantity_received: item.quantity_received || 0,
+                    unit: item.unit
+                }))
             };
-
-            if (disputeType === 'partial') {
-                // Only dispute specific items
-                const disputedItems = items
-                    .filter(item => item.dispute_reason)
-                    .map(item => ({
-                        item_id: item.id,
-                        reason: item.dispute_reason,
-                        expected_quantity: item.expected_quantity,
-                        notes: item.notes || ''
-                    }));
-                
-                if (disputedItems.length === 0) {
-                    setError('Please specify which items are disputed');
-                    setLoading(false);
-                    return;
-                }
-                
-                disputeData.items = disputedItems;
-            }
-
-            await transferService.disputeTransfer(transfer.id, disputeData);
+            
+            await api.post(`/api/stock-transfers/transfers/${transfer.id}/dispute/`, payload);
             onSuccess();
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to dispute transfer');
+            setError(err.response?.data?.error || err.response?.data?.detail || 'Failed to raise dispute');
         } finally {
             setLoading(false);
         }
     };
 
-    const totalSent = items.reduce((sum, item) => sum + item.quantity_sent, 0);
-    const totalReceived = items.reduce((sum, item) => sum + item.quantity_received, 0);
-    const discrepancy = totalSent - totalReceived;
+    // Helper function to safely format numbers (handles both string and number inputs)
+    const formatNumber = (value, decimals = 2) => {
+        if (value === undefined || value === null) return '0.00';
+        let num;
+        if (typeof value === 'string') {
+            num = parseFloat(value);
+        } else {
+            num = value;
+        }
+        if (isNaN(num)) return '0.00';
+        return num.toFixed(decimals);
+    };
+
+    // Calculate difference safely
+    const calculateDifference = (sent, received) => {
+        const sentNum = typeof sent === 'string' ? parseFloat(sent) : (sent || 0);
+        const receivedNum = typeof received === 'string' ? parseFloat(received) : (received || 0);
+        return sentNum - receivedNum;
+    };
+
+    if (loadingTransfer) {
+        return (
+            <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+                <div className="spinner"></div>
+                <p>Loading transfer details...</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="card" style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}>
-            <h2 style={{ marginTop: 0, marginBottom: 8 }}>❗ Dispute Transfer</h2>
-            <p style={{ color: '#6b7280', marginBottom: 24 }}>
-                Transfer: <strong>{transfer.transfer_number}</strong>
-            </p>
-
-            {/* Discrepancy Summary */}
-            <div style={{ 
-                backgroundColor: '#fef3c7', 
-                padding: 16, 
-                borderRadius: 8, 
-                marginBottom: 24,
-                borderLeft: `4px solid ${discrepancy > 0 ? '#f59e0b' : '#10b981'}`
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span>Total Quantity Sent:</span>
-                    <strong>{totalSent.toFixed(2)} units</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span>Total Quantity Received:</span>
-                    <strong>{totalReceived.toFixed(2)} units</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #fde68a' }}>
-                    <span>Discrepancy:</span>
-                    <strong style={{ color: discrepancy > 0 ? '#dc2626' : '#10b981' }}>
-                        {discrepancy > 0 ? `${discrepancy.toFixed(2)} units missing` : 'All items received'}
-                    </strong>
-                </div>
-            </div>
-
+        <div className="card" style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
+            <h2>Raise Dispute for Transfer #{transfer.transfer_number}</h2>
+            <p className="muted">Report issues with received items</p>
+            
             <form onSubmit={handleSubmit}>
-                {/* Dispute Type Selection */}
+                {/* Transfer Info */}
+                <div style={{ 
+                    backgroundColor: '#fef3c7', 
+                    padding: 16, 
+                    borderRadius: 8, 
+                    marginBottom: 20,
+                    borderLeft: '3px solid #f59e0b'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <span><strong>From:</strong> {transfer.from_branch_name || transfer.from_branch?.name || 'N/A'}</span>
+                        <span><strong>To:</strong> {transfer.to_branch_name || transfer.to_branch?.name || 'N/A'}</span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                        <strong>Transfer Date:</strong> {transfer.created_at ? new Date(transfer.created_at).toLocaleDateString() : 'N/A'}
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                        <strong>Status:</strong> <span style={{ color: '#f59e0b' }}>{transfer.status_display || transfer.status}</span>
+                    </div>
+                    {transfer.notes && (
+                        <div style={{ fontSize: 13, color: '#666' }}>
+                            <strong>Notes:</strong> {transfer.notes}
+                        </div>
+                    )}
+                </div>
+
+                {/* Dispute Type */}
                 <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Dispute Type *</label>
-                    <div style={{ display: 'flex', gap: 16 }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                            <input
-                                type="radio"
-                                value="full"
-                                checked={disputeType === 'full'}
-                                onChange={() => setDisputeType('full')}
-                            />
-                            <span>Full Transfer Dispute</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                            <input
-                                type="radio"
-                                value="partial"
-                                checked={disputeType === 'partial'}
-                                onChange={() => setDisputeType('partial')}
-                            />
-                            <span>Partial Item Dispute</span>
-                        </label>
+                    <label style={{ fontWeight: 500, display: 'block', marginBottom: 8 }}>Dispute Type *</label>
+                    <select
+                        value={disputeType}
+                        onChange={(e) => setDisputeType(e.target.value)}
+                        className="input"
+                        style={{ width: '100%', padding: 8 }}
+                        required
+                    >
+                        <option value="QUANTITY_MISMATCH">Quantity Mismatch</option>
+                        <option value="DAMAGED_GOODS">Damaged Goods</option>
+                        <option value="EXPIRED_GOODS">Expired Goods</option>
+                        <option value="WRONG_PRODUCT">Wrong Product</option>
+                        <option value="QUALITY_ISSUE">Quality Issue</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+
+                {/* Items Selection */}
+                <div style={{ marginBottom: 20 }}>
+                    <label style={{ fontWeight: 500, display: 'block', marginBottom: 8 }}>Select Items to Dispute *</label>
+                    <div className="card" style={{ padding: 16, backgroundColor: '#f9fafb' }}>
+                        {items.length === 0 ? (
+                            <p className="muted" style={{ textAlign: 'center', padding: 20 }}>No items found</p>
+                        ) : (
+                            <table className="table" style={{ width: '100%' }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: 40 }}>Select</th>
+                                        <th>Product</th>
+                                        <th style={{ width: 100 }}>Sent</th>
+                                        <th style={{ width: 100 }}>Received</th>
+                                        <th style={{ width: 80 }}>Unit</th>
+                                        <th style={{ width: 100 }}>Difference</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {items.map((item) => {
+                                        const quantitySent = item.quantity_sent;
+                                        const quantityReceived = item.quantity_received;
+                                        const difference = calculateDifference(quantitySent, quantityReceived);
+                                        const isDisputed = selectedItems[item.id];
+                                        
+                                        return (
+                                            <tr key={item.id} style={{ backgroundColor: isDisputed ? '#fef3c7' : 'transparent' }}>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isDisputed}
+                                                        onChange={() => toggleItemSelection(item.id)}
+                                                    />
+                                                </td>
+                                                <td>{item.product_name}</td>
+                                                <td style={{ textAlign: 'center' }}>{formatNumber(quantitySent)}</td>
+                                                <td style={{ textAlign: 'center' }}>{formatNumber(quantityReceived)}</td>
+                                                <td style={{ textAlign: 'center' }}>{item.unit}</td>
+                                                <td style={{ textAlign: 'center', color: difference !== 0 ? '#dc2626' : '#10b981' }}>
+                                                    {difference !== 0 ? `${formatNumber(Math.abs(difference))} short` : 'Match'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 </div>
 
-                {/* Main Dispute Reason */}
+                {/* Dispute Reason */}
                 <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>
-                        Dispute Reason *
-                    </label>
+                    <label style={{ fontWeight: 500, display: 'block', marginBottom: 8 }}>Dispute Reason *</label>
                     <textarea
                         value={disputeReason}
                         onChange={(e) => setDisputeReason(e.target.value)}
-                        rows="3"
-                        placeholder="Explain why you are disputing this transfer..."
-                        style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: 8,
-                            fontSize: 14,
-                            resize: 'vertical'
-                        }}
+                        rows="4"
+                        className="input"
+                        style={{ width: '100%', padding: 8 }}
+                        placeholder="Please provide detailed explanation of the issue..."
                         required
                     />
                 </div>
 
-                {/* Items Table (for partial disputes) */}
-                {disputeType === 'partial' && (
-                    <div style={{ marginBottom: 20 }}>
-                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Disputed Items</label>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table className="table" style={{ width: '100%' }}>
-                                <thead>
-                                    <tr>
-                                        <th>Product</th>
-                                        <th>Sent</th>
-                                        <th>Received</th>
-                                        <th>Dispute Reason</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {items.map(item => (
-                                        <tr key={item.id}>
-                                            <td>
-                                                {item.product_name}
-                                                <div style={{ fontSize: 11, color: '#666' }}>{item.unit_display}</div>
-                                            </td>
-                                            <td>{item.quantity_sent} {item.unit === 'KG' ? 'kg' : 'bags'}</td>
-                                            <td>
-                                                {item.quantity_received > 0 
-                                                    ? `${item.quantity_received} ${item.unit === 'KG' ? 'kg' : 'bags'}`
-                                                    : '—'}
-                                            </td>
-                                            <td>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Reason for disputing this item"
-                                                    value={item.dispute_reason || ''}
-                                                    onChange={(e) => updateItemDispute(item.id, 'dispute_reason', e.target.value)}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '6px 8px',
-                                                        border: '1px solid #d1d5db',
-                                                        borderRadius: 4,
-                                                        fontSize: 12
-                                                    }}
-                                                />
-                                                {item.quantity_received < item.quantity_sent && (
-                                                    <div style={{ marginTop: 4 }}>
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            placeholder="Expected quantity"
-                                                            value={item.expected_quantity || item.quantity_sent}
-                                                            onChange={(e) => updateItemDispute(item.id, 'expected_quantity', parseFloat(e.target.value))}
-                                                            style={{
-                                                                width: '100%',
-                                                                padding: '4px 8px',
-                                                                border: '1px solid #d1d5db',
-                                                                borderRadius: 4,
-                                                                fontSize: 11
-                                                            }}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* Additional Notes */}
-                <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Additional Notes (Optional)</label>
-                    <textarea
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        rows="2"
-                        placeholder="Any additional information about this dispute..."
-                        style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: 8,
-                            fontSize: 14,
-                            resize: 'vertical'
-                        }}
-                    />
-                </div>
-
-                {/* Error Message */}
                 {error && (
-                    <div style={{
-                        backgroundColor: '#fee2e2',
-                        color: '#dc2626',
-                        padding: '12px 16px',
-                        borderRadius: 8,
-                        marginBottom: 20
-                    }}>
+                    <div className="error" style={{ color: '#dc2626', padding: 10, backgroundColor: '#fee2e2', borderRadius: 6, marginBottom: 16 }}>
                         ❌ {error}
                     </div>
                 )}
 
                 {/* Action Buttons */}
-                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <div className="flex gap-2" style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
                     <button type="button" className="btn outline" onClick={onCancel} disabled={loading}>
                         Cancel
                     </button>
-                    <button 
-                        type="submit" 
-                        className="btn btn-danger" 
-                        disabled={loading || !disputeReason.trim()}
-                        style={{ backgroundColor: '#dc2626' }}
-                    >
-                        {loading ? 'Submitting Dispute...' : 'Submit Dispute'}
+                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                        {loading ? 'Submitting...' : 'Raise Dispute'}
                     </button>
                 </div>
             </form>
