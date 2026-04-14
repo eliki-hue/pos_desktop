@@ -78,17 +78,17 @@ const PurchaseDetail = () => {
       const s = status?.toUpperCase();
       switch (s) {
         case 'DRAFT':
-          return { bg: '#fef3c7', color: '#92400e', icon: '📝' };
+          return { bg: '#fef3c7', color: '#92400e' };
         case 'CONFIRMED':
-          return { bg: '#dbeafe', color: '#1e40af', icon: '✅' };
+          return { bg: '#dbeafe', color: '#1e40af' };
         case 'PARTIALLY_PAID':
-          return { bg: '#fef3c7', color: '#92400e', icon: '💰' };
+          return { bg: '#fef3c7', color: '#92400e' };
         case 'PAID':
-          return { bg: '#d1fae5', color: '#065f46', icon: '💳' };
+          return { bg: '#d1fae5', color: '#065f46' };
         case 'CANCELLED':
-          return { bg: '#fee2e2', color: '#991b1b', icon: '❌' };
+          return { bg: '#fee2e2', color: '#991b1b' };
         default:
-          return { bg: '#f3f4f6', color: '#374151', icon: '❓' };
+          return { bg: '#f3f4f6', color: '#374151' };
       }
     };
 
@@ -192,7 +192,7 @@ const PurchaseDetail = () => {
             fontSize: 12,
             color: '#065f46'
           }}>
-            ✅ Fully Paid - All installments completed
+            Fully Paid - All installments completed
           </div>
         )}
       </div>
@@ -558,15 +558,15 @@ const ItemStatusBadge = ({ status }) => {
     const s = status?.toUpperCase();
     switch (s) {
       case 'RECEIVED':
-        return { bg: '#d1fae5', color: '#065f46', icon: '✅' };
+        return { bg: '#d1fae5', color: '#065f46' };
       case 'PARTIAL':
-        return { bg: '#fef3c7', color: '#92400e', icon: '⚠️' };
+        return { bg: '#fef3c7', color: '#92400e' };
       case 'PENDING':
-        return { bg: '#fef3c7', color: '#92400e', icon: '⏳' };
+        return { bg: '#fef3c7', color: '#92400e' };
       case 'CANCELLED':
-        return { bg: '#fee2e2', color: '#991b1b', icon: '❌' };
+        return { bg: '#fee2e2', color: '#991b1b' };
       default:
-        return { bg: '#f3f4f6', color: '#374151', icon: '❓' };
+        return { bg: '#f3f4f6', color: '#374151' };
     }
   };
 

@@ -73,13 +73,13 @@ const PurchaseItemsTable = ({ items, onUpdateItem, onRemoveItem, readOnly = fals
     const statusLower = status?.toLowerCase();
     switch (statusLower) {
       case 'received':
-        return { bg: '#d1fae5', color: '#065f46', icon: '✅' };
+        return { bg: '#d1fae5', color: '#065f46' };
       case 'pending':
-        return { bg: '#fef3c7', color: '#92400e', icon: '⏳' };
+        return { bg: '#fef3c7', color: '#92400e' };
       case 'cancelled':
-        return { bg: '#fee2e2', color: '#991b1b', icon: '❌' };
+        return { bg: '#fee2e2', color: '#991b1b' };
       default:
-        return { bg: '#f3f4f6', color: '#374151', icon: '❓' };
+        return { bg: '#f3f4f6', color: '#374151' };
     }
   };
 
