@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Save, ArrowLeft, Package, AlertCircle } from 'lucide-react';
-import { purchaseAPI, productAPI, supplierAPI } from '../../services/api';
+import { purchaseAPI, productAPI, supplierAPI, branchAPI } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
+import CreateSupplierModal from './CreateSupplierModal';
+import api from '../../services/api';
 
 const PurchaseForm = ({ isEdit = false, onSuccess }) => {
   const { id } = useParams();
@@ -13,6 +15,8 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [formData, setFormData] = useState({
     supplier_id: '',
     branch_id: '',
@@ -23,33 +27,46 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
   });
 
   useEffect(() => {
-    fetchInitialData();
+    fetchSuppliers();
+    fetchProducts();
+    fetchBranches();
     if (isEdit && id) {
       fetchPurchaseData();
     }
   }, [id, isEdit]);
 
-  const fetchInitialData = async () => {
+  const fetchSuppliers = async () => {
+    setLoadingSuppliers(true);
     try {
-      const [suppliersRes, productsRes] = await Promise.all([
-        supplierAPI.getList(),
-        productAPI.getList({ is_active: true })
-      ]);
-      setSuppliers(suppliersRes.data || []);
-      setProducts(productsRes.data || []);
-      
-      // If you have a branches API, uncomment this
-      // const branchesRes = await branchAPI.getList();
-      // setBranches(branchesRes.data || []);
-      
-      // Temporary branches data - replace with your actual API
+      const response = await supplierAPI.getList({ is_active: true });
+      setSuppliers(response.data || []);
+    } catch (err) {
+      console.error('Failed to fetch suppliers:', err);
+      setError('Failed to load suppliers');
+    } finally {
+      setLoadingSuppliers(false);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await productAPI.getList({ is_active: true });
+      setProducts(response.data || []);
+    } catch (err) {
+      console.error('Failed to fetch products:', err);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const branchesRes = await branchAPI.getList();
+      setBranches(branchesRes.data || []);
+    } catch (err) {
+      console.error('Failed to fetch branches:', err);
       setBranches([
         { id: 1, name: 'Main Branch' },
         { id: 2, name: 'Gitugi Branch' },
       ]);
-    } catch (err) {
-      console.error('Failed to load initial data:', err);
-      setError('Failed to load initial data');
     }
   };
 
@@ -81,6 +98,11 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
     }
   };
 
+  const handleSupplierCreated = (newSupplier) => {
+    setSuppliers(prev => [...prev, newSupplier]);
+    setFormData(prev => ({ ...prev, supplier_id: newSupplier.id }));
+  };
+
   const addItem = () => {
     setFormData({
       ...formData,
@@ -107,7 +129,6 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
     const newItems = [...formData.items];
     newItems[index][field] = value;
     
-    // Auto-set bag weight when product selected
     if (field === 'product_id') {
       const product = products.find(p => p.id === parseInt(value));
       if (product) {
@@ -137,7 +158,6 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
     setLoading(true);
     setError(null);
 
-    // Validation
     if (formData.items.length === 0) {
       setError('Please add at least one item');
       setLoading(false);
@@ -156,9 +176,45 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
       return;
     }
 
+    // Validate each item
+    for (const item of formData.items) {
+      if (!item.product_id) {
+        setError('Please select a product for all items');
+        setLoading(false);
+        return;
+      }
+      if (!item.quantity || item.quantity <= 0) {
+        setError('Please enter valid quantity for all items');
+        setLoading(false);
+        return;
+      }
+      if (!item.unit_price || item.unit_price <= 0) {
+        setError('Please enter valid unit price for all items');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Prepare items payload - MATCHING BACKEND SERIALIZER
+    const itemsPayload = formData.items.map(item => ({
+      product: parseInt(item.product_id),
+      unit: item.unit,
+      quantity: parseFloat(item.quantity),
+      unit_price: parseFloat(item.unit_price),
+      bag_weight_kg: item.unit === 'BAG' ? parseFloat(item.bag_weight_kg) : null
+    }));
+
+    // Prepare submit data - MATCHING BACKEND SERIALIZER
     const submitData = {
-      ...formData,
-      total_amount: calculateTotal()
+      
+        supplier_id: parseInt(formData.supplier_id),
+        branch_id: parseInt(formData.branch_id),
+        purchase_date: formData.purchase_date,
+        due_date: formData.due_date || null,
+        notes: formData.notes || '',
+        items: itemsPayload,
+        total_amount: calculateTotal()
+      
     };
 
     try {
@@ -171,7 +227,15 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
       navigate('/purchases');
     } catch (err) {
       console.error('Failed to save purchase:', err);
-      setError(err.response?.data?.error || 'Failed to save purchase');
+      if (err.response?.data?.items) {
+        setError('Please check item details: ' + JSON.stringify(err.response.data.items));
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError('Failed to save purchase. Please check all fields.');
+      }
     } finally {
       setLoading(false);
     }
@@ -215,24 +279,51 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
         <div className="card" style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 600, marginBottom: 16, fontSize: 16 }}>Purchase Details</div>
           <div className="grid-2" style={{ gap: 20 }}>
+            {/* Supplier Field with Create Button */}
             <div>
-              <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>Supplier *</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <label style={{ fontSize: 13, fontWeight: 500 }}>Supplier *</label>
+                <button
+                  type="button"
+                  onClick={() => setShowSupplierModal(true)}
+                  style={{
+                    fontSize: 12,
+                    color: '#3b82f6',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <Plus style={{ width: 12, height: 12 }} />
+                  Create New Supplier
+                </button>
+              </div>
               <select
                 required
                 value={formData.supplier_id}
                 onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
                 className="input"
                 style={{ width: '100%' }}
+                disabled={loadingSuppliers}
               >
-                <option value="">Select Supplier</option>
+                <option value="">{loadingSuppliers ? 'Loading suppliers...' : 'Select Supplier'}</option>
                 {suppliers.map(supplier => (
                   <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
+                    {supplier.name} {!supplier.is_active && '(Inactive)'}
                   </option>
                 ))}
               </select>
+              {suppliers.length === 0 && !loadingSuppliers && (
+                <p style={{ fontSize: 12, color: '#f59e0b', marginTop: 4 }}>
+                  No suppliers found. Click "Create New Supplier" to add one.
+                </p>
+              )}
             </div>
 
+            {/* Branch Field */}
             <div>
               <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>Branch *</label>
               <select
@@ -251,6 +342,7 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
               </select>
             </div>
 
+            {/* Purchase Date */}
             <div>
               <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>Purchase Date *</label>
               <input
@@ -263,6 +355,7 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
               />
             </div>
 
+            {/* Due Date */}
             <div>
               <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>Due Date</label>
               <input
@@ -274,6 +367,7 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
               />
             </div>
 
+            {/* Notes */}
             <div className="full-width">
               <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>Notes</label>
               <textarea
@@ -423,6 +517,7 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
                     <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, fontSize: 16 }}>
                       {formatCurrency(calculateTotal())}
                     </td>
+                    
                   </tr>
                 </tfoot>
               </table>
@@ -450,6 +545,15 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
           </button>
         </div>
       </form>
+
+      {/* Create Supplier Modal */}
+      {showSupplierModal && (
+        <CreateSupplierModal
+          isOpen={showSupplierModal}
+          onClose={() => setShowSupplierModal(false)}
+          onSupplierCreated={handleSupplierCreated}
+        />
+      )}
 
       <style>
         {`

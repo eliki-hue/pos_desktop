@@ -74,16 +74,28 @@ export default function EcommerceOrdersPage() {
   };
 
   const normalizePhone = (phone) => {
-    if (!phone) return null;
-    let cleaned = phone.replace(/[^0-9]/g, '');
-    if (cleaned.startsWith('0')) {
-      return '254' + cleaned.slice(1);
-    }
-    if (cleaned.startsWith('254')) {
-      return cleaned;
-    }
+  if (!phone) return null;
+
+  let cleaned = phone.replace(/\D/g, '');
+
+  // 07XXXXXXXX → 2547XXXXXXXX
+  if (cleaned.startsWith('0')) {
+    cleaned = '254' + cleaned.slice(1);
+  }
+
+  // 7XXXXXXXX → 2547XXXXXXXX
+  if (cleaned.length === 9 && cleaned.startsWith('7')) {
+    cleaned = '254' + cleaned;
+  }
+
+  // Already correct format → validate
+  if (cleaned.startsWith('254') && cleaned.length === 12) {
     return cleaned;
-  };
+  }
+
+  // Invalid number
+  return null;
+};
 
   const updateOrderStatus = (orderId, newStatus, additionalData = {}) => {
     setOrders(prevOrders => 
@@ -205,8 +217,8 @@ export default function EcommerceOrdersPage() {
       return;
     }
 
-    setLoadingOrders(prev => ({ ...prev, [order.order_id]: true }));
-    updateOrderStatus(order.order_id, 'PROCESSING');
+    // setLoadingOrders(prev => ({ ...prev, [order.order_id]: true }));
+    // updateOrderStatus(order.order_id, 'PROCESSING');
 
     try {
       await api.post("/api/ecommerce/payments/stk-push/", {

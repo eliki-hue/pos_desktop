@@ -1,4 +1,3 @@
-// src/components/purchases/PurchaseDetail.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -14,10 +13,13 @@ import {
   Package,
   User,
   Building2,
-  FileText
+  FileText,
+  Plus
 } from 'lucide-react';
 import { purchaseAPI } from '../../services/api';
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
+import PaymentModal from './PaymentModal';
+import PaymentHistoryTable from './PaymentHistory';
 
 const PurchaseDetail = () => {
   const { id } = useParams();
@@ -26,10 +28,17 @@ const PurchaseDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('items');
   const [error, setError] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     fetchPurchaseDetail();
   }, [id]);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const fetchPurchaseDetail = async () => {
     setLoading(true);
@@ -49,10 +58,18 @@ const PurchaseDetail = () => {
     try {
       await purchaseAPI.confirm(id);
       await fetchPurchaseDetail();
+      showToast('Purchase confirmed successfully!', 'success');
     } catch (error) {
       console.error('Failed to confirm:', error);
       setError('Failed to confirm purchase');
+      showToast('Failed to confirm purchase', 'error');
     }
+  };
+
+  const handlePaymentSuccess = async () => {
+    await fetchPurchaseDetail();
+    showToast('Payment added successfully!', 'success');
+    setActiveTab('payments');
   };
 
   // Status badge component
@@ -96,7 +113,7 @@ const PurchaseDetail = () => {
   };
 
   // Info card component
-  const InfoCard = ({ icon: Icon, label, value, color }) => (
+  const InfoCard = ({ icon: Icon, label, value, color, subValue }) => (
     <div className="card" style={{ padding: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div style={{ 
@@ -113,9 +130,74 @@ const PurchaseDetail = () => {
       <div>
         <div className="muted" style={{ marginBottom: 4, fontSize: 12 }}>{label}</div>
         <div style={{ fontSize: 18, fontWeight: 600, color: '#111827' }}>{value}</div>
+        {subValue && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>{subValue}</div>}
       </div>
     </div>
   );
+
+  // Payment Progress Bar Component
+  const PaymentProgress = ({ totalAmount, amountPaid }) => {
+    const percentage = totalAmount > 0 ? (amountPaid / totalAmount) * 100 : 0;
+    const remaining = totalAmount - amountPaid;
+    const paymentCount = purchase?.payments?.length || 0;
+    
+    return (
+      <div className="card" style={{ padding: 20, marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>Payment Progress</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#10b981' }}>
+            {percentage.toFixed(1)}% Paid
+          </span>
+        </div>
+        
+        <div style={{ 
+          backgroundColor: '#e5e7eb', 
+          borderRadius: 10, 
+          height: 8, 
+          overflow: 'hidden',
+          marginBottom: 16
+        }}>
+          <div style={{ 
+            width: `${percentage}%`, 
+            backgroundColor: percentage === 100 ? '#10b981' : '#3b82f6', 
+            height: '100%',
+            transition: 'width 0.3s ease'
+          }} />
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+          <div>
+            <span style={{ color: '#6b7280' }}>Paid:</span>
+            <strong style={{ color: '#10b981', marginLeft: 4 }}>{formatCurrency(amountPaid)}</strong>
+          </div>
+          <div>
+            <span style={{ color: '#6b7280' }}>Remaining:</span>
+            <strong style={{ color: remaining > 0 ? '#ef4444' : '#10b981', marginLeft: 4 }}>
+              {formatCurrency(remaining)}
+            </strong>
+          </div>
+          <div>
+            <span style={{ color: '#6b7280' }}>Installments:</span>
+            <strong style={{ marginLeft: 4 }}>{paymentCount}</strong>
+          </div>
+        </div>
+        
+        {percentage === 100 && (
+          <div style={{ 
+            marginTop: 12, 
+            padding: 8, 
+            backgroundColor: '#d1fae5', 
+            borderRadius: 6,
+            textAlign: 'center',
+            fontSize: 12,
+            color: '#065f46'
+          }}>
+            ✅ Fully Paid - All installments completed
+          </div>
+        )}
+      </div>
+    );
+  };
 
   if (loading) {
     return <div className="card" style={{ textAlign: 'center', padding: 60, color: '#6b7280' }}>Loading purchase details...</div>;
@@ -148,8 +230,29 @@ const PurchaseDetail = () => {
     );
   }
 
+  const canAddPayment = purchase.status === 'CONFIRMED' || purchase.status === 'PARTIALLY_PAID';
+  const paymentCount = purchase.payments?.length || 0;
+
   return (
     <div>
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: 20,
+          right: 20,
+          zIndex: 9999,
+          padding: '12px 20px',
+          borderRadius: 8,
+          backgroundColor: toast.type === 'success' ? '#10b981' : '#ef4444',
+          color: 'white',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          {toast.message}
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -168,6 +271,7 @@ const PurchaseDetail = () => {
             </div>
             <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
               Created {formatDateTime(purchase.created_at)} by {purchase.created_by_name || 'System'}
+              {paymentCount > 0 && ` • ${paymentCount} payment${paymentCount > 1 ? 's' : ''} made`}
             </div>
           </div>
         </div>
@@ -193,12 +297,25 @@ const PurchaseDetail = () => {
               </button>
             </>
           )}
+          {canAddPayment && purchase.balance > 0 && (
+            <button
+              onClick={() => setShowPaymentModal(true)}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <CreditCard style={{ width: 16, height: 16 }} />
+              Add Payment {paymentCount > 0 ? `(Installment #${paymentCount + 1})` : ''}
+            </button>
+          )}
           <button className="btn outline" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Printer style={{ width: 16, height: 16 }} />
             Print
           </button>
         </div>
       </div>
+
+      {/* Payment Progress Bar */}
+      <PaymentProgress totalAmount={purchase.total_amount} amountPaid={purchase.amount_paid} />
 
       {/* Info Cards */}
       <div className="grid-4" style={{ marginBottom: 24 }}>
@@ -222,9 +339,10 @@ const PurchaseDetail = () => {
         />
         <InfoCard 
           icon={AlertCircle}
-          label="Balance"
+          label="Remaining Balance"
           value={formatCurrency(purchase.balance)}
           color={purchase.balance > 0 ? "#ef4444" : "#10b981"}
+          subValue={purchase.balance > 0 ? `${((purchase.amount_paid / purchase.total_amount) * 100).toFixed(1)}% paid` : 'Fully paid'}
         />
       </div>
 
@@ -259,7 +377,7 @@ const PurchaseDetail = () => {
               cursor: 'pointer'
             }}
           >
-            Payment History
+            Payment History {paymentCount > 0 && `(${paymentCount})`}
           </button>
           <button
             onClick={() => setActiveTab('info')}
@@ -318,7 +436,7 @@ const PurchaseDetail = () => {
                     <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, fontSize: 16 }}>
                       {formatCurrency(purchase.total_amount)}
                     </td>
-                    <td></td>
+                    
                   </tr>
                 </tfoot>
               </table>
@@ -328,69 +446,21 @@ const PurchaseDetail = () => {
           {/* Payments Tab */}
           {activeTab === 'payments' && (
             <div>
-              {purchase.payments && purchase.payments.length > 0 ? (
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="table" style={{ minWidth: 600, width: '100%' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ padding: '12px', textAlign: 'left' }}>Date</th>
-                        <th style={{ padding: '12px', textAlign: 'left' }}>Method</th>
-                        <th style={{ padding: '12px', textAlign: 'right' }}>Amount</th>
-                        <th style={{ padding: '12px', textAlign: 'left' }}>Reference</th>
-                        <th style={{ padding: '12px', textAlign: 'left' }}>Recorded By</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {purchase.payments.map((payment, idx) => (
-                        <tr key={idx}>
-                          <td style={{ padding: '12px' }}>{formatDateTime(payment.created_at)}</td>
-                          <td style={{ padding: '12px' }}>{payment.payment_method}</td>
-                          <td style={{ padding: '12px', textAlign: 'right', color: '#10b981', fontWeight: 500 }}>
-                            {formatCurrency(payment.amount)}
-                          </td>
-                          <td style={{ padding: '12px' }}>{payment.reference || '-'}</td>
-                          <td style={{ padding: '12px' }}>{payment.created_by_name || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot style={{ backgroundColor: '#f9fafb' }}>
-                      <tr>
-                        <td colSpan="2" style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Total Paid:</td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, fontSize: 16, color: '#10b981' }}>
-                          {formatCurrency(purchase.amount_paid)}
-                        </td>
-                        <td colSpan="2"></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: 60 }}>
-                  <div style={{ 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    width: 60,
-                    height: 60,
-                    backgroundColor: '#f3f4f6',
-                    borderRadius: 12,
-                    marginBottom: 12
-                  }}>
-                    <CreditCard style={{ width: 30, height: 30, color: '#9ca3af' }} />
-                  </div>
-                  <p style={{ color: '#6b7280' }}>No payments recorded yet</p>
-                </div>
-              )}
+              <PaymentHistoryTable 
+                payments={purchase.payments || []}
+                totalAmount={purchase.total_amount}
+                readOnly={true}
+              />
               
-              {purchase.can_add_payment && (
+              {canAddPayment && purchase.balance > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
                   <button
-                    onClick={() => navigate(`/purchases/${id}/pay`)}
+                    onClick={() => setShowPaymentModal(true)}
                     className="btn btn-primary"
                     style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                   >
-                    <CreditCard style={{ width: 16, height: 16 }} />
-                    Add Payment
+                    <Plus style={{ width: 16, height: 16 }} />
+                    Add Payment {paymentCount > 0 ? `(Installment #${paymentCount + 1})` : ''}
                   </button>
                 </div>
               )}
@@ -430,6 +500,15 @@ const PurchaseDetail = () => {
         </div>
       </div>
 
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <PaymentModal
+          purchase={purchase}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
+
       <style>
         {`
           .grid-4 {
@@ -455,6 +534,16 @@ const PurchaseDetail = () => {
           @media (max-width: 640px) {
             .grid-4 {
               grid-template-columns: 1fr;
+            }
+          }
+          @keyframes slideIn {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
             }
           }
         `}

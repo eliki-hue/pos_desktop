@@ -33,8 +33,11 @@ import StockTransfersPage from "./pages/StockTransfersPage";
 // Purchase imports - using the correct components
 import PurchaseList from './components/purchases/PurchaseList';
 import PurchaseDetail from './components/purchases/PurchaseDetail';
-import PurchaseForm from './components/purchases/PurchaseForm';
+import PurchaseForm from "./components/Purchases/PurchaseForm";
 import Purchases from './components/purchases/Purchases'; // This should be the wrapper component
+import SupplierList from "./components/Purchases/suppliers/SupplierList";
+
+
 
 export default function App() {
   return (
@@ -121,7 +124,7 @@ export default function App() {
 
         <Route path="/stock-transfers" element={<StockTransfersPage />} />
         <Route path="/admin/ecommerce-orders" element={<EcommerceOrdersPage />} />
-
+        <Route path="/suppliers" element={<SupplierList />} />
         <Route
           path="manager/sales"
           element={
@@ -218,6 +221,8 @@ export default function App() {
           element={<AdminAddProduct />}
         />
 
+
+        <Route path="/suppliers" element={<SupplierList />} />
         {/* Fallback */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>

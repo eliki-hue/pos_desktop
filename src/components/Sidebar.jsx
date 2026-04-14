@@ -105,6 +105,10 @@ export default function Sidebar() {
               Purchases 
             </NavLink>
             
+            <NavLink to="/suppliers" style={linkStyle}>
+              Suppliers
+            </NavLink>
+            
             
           </>
         )}
@@ -144,6 +148,10 @@ export default function Sidebar() {
             
             <NavLink to="/purchases" style={linkStyle}>
               Purchases 
+            </NavLink>
+
+            <NavLink to="/suppliers" style={linkStyle}>
+              Suppliers
             </NavLink>
           </>
         )}
