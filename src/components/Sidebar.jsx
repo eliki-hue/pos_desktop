@@ -85,7 +85,7 @@ export default function Sidebar() {
             
 
             <NavLink to="/manager/inventory" style={linkStyle}>
-              Stocks
+              Adjust Stocks
             </NavLink>
 
             {/* <NavLink to="/inventory/transfers" style={linkStyle}>
@@ -98,7 +98,7 @@ export default function Sidebar() {
             {/* { path: '/stock-transfers', icon: '🔄', label: 'Stock Transfers' }, */}
 
             <NavLink to="/api/reports/movements" style={linkStyle}>
-              Stock movement Reports
+              Stock changes Reports
             </NavLink>
 
              <NavLink to="/purchases" style={linkStyle}>

@@ -19,7 +19,7 @@ import {
 import { purchaseAPI } from '../../services/api';
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
 import PaymentModal from './PaymentModal';
-import PaymentHistoryTable from './PaymentHistory';
+// import PaymentHistoryTable from './PaymentHistory';
 
 const PurchaseDetail = () => {
   const { id } = useParams();
