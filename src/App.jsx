@@ -37,6 +37,9 @@ import PurchaseForm from "./components/Purchases/PurchaseForm";
 import Purchases from './components/purchases/Purchases'; // This should be the wrapper component
 import SupplierList from "./components/Purchases/suppliers/SupplierList";
 
+import OutstandingSales from './pages/OutstandingSales';
+import SaleDetail from './pages/SaleDetail';
+
 
 
 export default function App() {
@@ -44,7 +47,7 @@ export default function App() {
     <BrowserRouter basename="/pos">
       <Routes>
         {/* Root */}
-        <Route path="/" element={<Navigate to="dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
         <Route path="login" element={<Login />} />
 
@@ -223,8 +226,13 @@ export default function App() {
 
 
         <Route path="/suppliers" element={<SupplierList />} />
+
+        <Route path="balance/sales/outstanding" element={<OutstandingSales />} />
+        
+        <Route path="balance/sales/:id" element={<SaleDetail />} />
+
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

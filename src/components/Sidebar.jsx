@@ -65,6 +65,9 @@ export default function Sidebar() {
             <NavLink to="/receipts" style={linkStyle}>
               Receipts
             </NavLink>
+            <NavLink to="/receipts" style={linkStyle}>
+              Receipts
+            </NavLink>
           </>
         )}
 
@@ -158,9 +161,13 @@ export default function Sidebar() {
 
         {/* Everyone can see account */}
           
+          <NavLink to="/balance/sales/outstanding" style={linkStyle}>
+            Credit sales
+          </NavLink>
           <NavLink to="/account" style={linkStyle}>
             Account
           </NavLink>
+
         
       </div>
 
