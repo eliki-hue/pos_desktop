@@ -40,6 +40,8 @@ import SupplierList from "./components/Purchases/suppliers/SupplierList";
 import OutstandingSales from './pages/OutstandingSales';
 import SaleDetail from './pages/SaleDetail';
 
+import MyAdjustmentRequests from './pages/MyAdjustmentRequests';
+import PendingAdjustments from './pages/PendingAdjustments';
 
 
 export default function App() {
@@ -223,7 +225,8 @@ export default function App() {
           path="admin/products/add"
           element={<AdminAddProduct />}
         />
-
+        <Route path="sales/adjustments/my" element={<MyAdjustmentRequests />} />
+        <Route path="sales/adjustments/pending" element={<PendingAdjustments />} />
 
         <Route path="/suppliers" element={<SupplierList />} />
 
