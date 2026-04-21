@@ -14,7 +14,7 @@ export default function MyAdjustmentRequests() {
   const loadRequests = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/cart/sales/adjustments/my/');
+      const res = await api.get('api/cart/sales/adjustments/my/');
       setRequests(res.data || []);
     } catch (err) {
       console.error('Failed to load requests', err);

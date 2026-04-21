@@ -225,8 +225,8 @@ export default function App() {
           path="admin/products/add"
           element={<AdminAddProduct />}
         />
-        <Route path="sales/adjustments/my" element={<MyAdjustmentRequests />} />
-        <Route path="sales/adjustments/pending" element={<PendingAdjustments />} />
+        <Route path="/adjustments/my" element={<MyAdjustmentRequests />} />
+        <Route path="/adjustments/pending" element={<PendingAdjustments />} />
 
         <Route path="/suppliers" element={<SupplierList />} />
 

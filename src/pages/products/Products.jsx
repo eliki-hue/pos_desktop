@@ -140,7 +140,9 @@ export default function Products() {
   const navigate = useNavigate();
 
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [q, setQ] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -160,32 +162,55 @@ export default function Products() {
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      const res = await api.get("/api/categories/");
+      setCategories(res.data || []);
+    } catch (err) {
+      console.error("Failed to load categories", err);
+    }
+  };
+
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
 
   useEffect(() => {
     setBackendSearched(false);
-  }, [q]);
+  }, [q, selectedCategory]);
 
   const localResults = useMemo(() => {
+    let filtered = products;
+    
+    // Filter by search query
     const query = q.trim().toLowerCase();
-    if (!query) return [];
-    return products.filter((p) =>
-      String(p.name || "").toLowerCase().includes(query)
-    );
-  }, [products, q]);
+    if (query) {
+      filtered = filtered.filter((p) =>
+        String(p.name || "").toLowerCase().includes(query)
+      );
+    }
+    
+    // Filter by category
+    if (selectedCategory) {
+      filtered = filtered.filter((p) => p.category === parseInt(selectedCategory) || p.category?.toString() === selectedCategory);
+    }
+    
+    return filtered;
+  }, [products, q, selectedCategory]);
 
   const searchBackend = async () => {
-    if (!q.trim()) return;
+    if (!q.trim() && !selectedCategory) return;
 
     setLoading(true);
     setMsg("");
 
     try {
-      const res = await api.get(
-        `/api/products/?search=${encodeURIComponent(q)}`
-      );
+      const params = {};
+      if (q.trim()) params.search = q;
+      if (selectedCategory) params.category = selectedCategory;
+      
+      const res = await api.get(`/api/products/`, { params });
       setProducts(res.data || []);
       setBackendSearched(true);
     } catch (err) {
@@ -197,11 +222,12 @@ export default function Products() {
 
   const resetSearch = async () => {
     setQ("");
+    setSelectedCategory("");
     setBackendSearched(false);
     await loadProducts();
   };
 
-  const displayProducts = q
+  const displayProducts = q || selectedCategory
     ? backendSearched
       ? products
       : localResults
@@ -216,18 +242,32 @@ export default function Products() {
       />
 
       <div className="card">
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <input
             className="input"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search product name or scan barcode..."
-            style={{ flex: 1 }}
+            style={{ flex: 2, minWidth: 200 }}
           />
 
-          {q && (
+          <select
+            className="input"
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            style={{ flex: 1, minWidth: 150 }}
+          >
+            <option value="">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+
+          {(q || selectedCategory) && (
             <button className="btn btn-secondary" onClick={resetSearch}>
-              Back
+              Clear
             </button>
           )}
 
@@ -235,6 +275,18 @@ export default function Products() {
             Go to Cart
           </button>
         </div>
+
+        {(q || selectedCategory) && !backendSearched && (
+          <div style={{ marginTop: 12 }}>
+            <button
+              className="btn btn-primary"
+              onClick={searchBackend}
+              style={{ width: "100%" }}
+            >
+              Search in Store
+            </button>
+          </div>
+        )}
 
         {msg && <div style={{ marginTop: 10, fontWeight: 800 }}>{msg}</div>}
       </div>
@@ -245,8 +297,7 @@ export default function Products() {
         ) : displayProducts.length === 0 ? (
           <div className="card" style={{ textAlign: "center" }}>
             <div className="muted">No products found.</div>
-
-            {q && !backendSearched && (
+            {(q || selectedCategory) && !backendSearched && (
               <button
                 className="btn btn-primary"
                 style={{ marginTop: 10 }}

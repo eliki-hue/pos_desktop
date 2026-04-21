@@ -21,7 +21,7 @@ export default function PendingAdjustments() {
   const loadRequests = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/cart/sales/adjustments/pending/');
+      const res = await api.get('api/cart/sales/adjustments/pending/');
       setRequests(res.data || []);
     } catch (err) {
       console.error('Failed to load requests', err);
@@ -37,7 +37,7 @@ export default function PendingAdjustments() {
   const handleApprove = async (id) => {
     setProcessingId(id);
     try {
-      await api.post(`/cart/sales/adjustments/${id}/approve/`);
+      await api.post(`api/cart/sales/adjustments/${id}/approve/`);
       showToast('Request approved successfully');
       loadRequests();
     } catch (err) {
@@ -50,7 +50,7 @@ export default function PendingAdjustments() {
   const handleReject = async (id) => {
     setProcessingId(id);
     try {
-      await api.post(`/cart/sales/adjustments/${id}/reject/`);
+      await api.post(`api/cart/sales/adjustments/${id}/reject/`);
       showToast('Request rejected');
       loadRequests();
     } catch (err) {

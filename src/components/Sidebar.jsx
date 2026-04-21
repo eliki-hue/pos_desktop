@@ -94,7 +94,7 @@ export default function Sidebar() {
                 <CreditCard size={20} />
                 <span>Credit Sales</span>
               </NavLink>
-              <NavLink to="sales/adjustments/my" style={linkStyle}>
+              <NavLink to="/adjustments/my" style={linkStyle}>
                 <ClipboardList size={20} />
                 <span>My Requests</span>
               </NavLink>
@@ -147,7 +147,7 @@ export default function Sidebar() {
                 <span>Credit Sales</span>
               </NavLink>
 
-              <NavLink to="sales/adjustments/pending" style={linkStyle}>
+              <NavLink to="/adjustments/pending" style={linkStyle}>
                 <CheckCircle size={20} />
                 <span>Pending Approvals</span>
               </NavLink>
@@ -176,21 +176,7 @@ export default function Sidebar() {
                 <span>Branch Detail</span>
               </NavLink>
 
-              <NavLink to="/admin/branches" style={linkStyle}>
-                <GitBranch size={20} />
-                <span>Manage Branches</span>
-              </NavLink>
-
-              <NavLink to="/admin/users" style={linkStyle}>
-                <Users size={20} />
-                <span>Manage Users</span>
-              </NavLink>
-
-              <NavLink to="/admin/sessions" style={linkStyle}>
-                <Clock size={20} />
-                <span>User Sessions</span>
-              </NavLink>
-
+                            
               <NavLink to="/purchases" style={linkStyle}>
                 <ShoppingBag size={20} />
                 <span>Purchases</span>
@@ -206,9 +192,25 @@ export default function Sidebar() {
                 <span>Credit Sales</span>
               </NavLink>
 
-              <NavLink to="sales/adjustments/pending" style={linkStyle}>
+              <NavLink to="/adjustments/pending" style={linkStyle}>
                 <CheckCircle size={20} />
                 <span>Pending Approvals</span>
+              </NavLink>
+
+
+              <NavLink to="/admin/branches" style={linkStyle}>
+                <GitBranch size={20} />
+                <span>Manage Branches</span>
+              </NavLink>
+
+              <NavLink to="/admin/users" style={linkStyle}>
+                <Users size={20} />
+                <span>Manage Users</span>
+              </NavLink>
+              
+              <NavLink to="/admin/sessions" style={linkStyle}>
+                <Clock size={20} />
+                <span>User Sessions</span>
               </NavLink>
             </>
           )}
