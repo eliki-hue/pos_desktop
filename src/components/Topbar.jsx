@@ -1,9 +1,16 @@
 import React from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useNavigate } from "react-router-dom";
 import NotificationBell from "./NotificationBell";
 
 export default function Topbar({ title, subtitle }) {
   const { logout, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();               // clear session
+    navigate("/login", { replace: true }); 
+  };
 
   return (
     <div
@@ -39,7 +46,7 @@ export default function Topbar({ title, subtitle }) {
         </div>
 
         {/* LOGOUT */}
-        <button className="btn" onClick={logout}>
+        <button className="btn" onClick={handleLogout}>
           Logout
         </button>
       </div>

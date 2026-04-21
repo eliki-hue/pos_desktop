@@ -207,6 +207,7 @@ export default function OutstandingSales() {
               <tr>
                 <th>Sale #</th>
                 <th>Customer</th>
+                <th>Id No.</th>
                 <th>Phone</th>
                 <th style={{ textAlign: 'right' }}>Total</th>
                 <th style={{ textAlign: 'right' }}>Paid</th>
@@ -229,6 +230,7 @@ export default function OutstandingSales() {
                   <tr key={saleId}>
                     <td style={{ fontWeight: 500 }}>{saleId}</td>
                     <td>{sale.customer_name || 'Walk-in'}</td>
+                    <td>{sale.customer_id || '-'}</td>
                     <td>{sale.phone || '—'}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(total)}</td>
                     <td style={{ textAlign: 'right', color: '#10b981' }}>{formatCurrency(paid)}</td>
@@ -266,6 +268,8 @@ export default function OutstandingSales() {
             <tfoot style={{ backgroundColor: '#f9fafb' }}>
               <tr>
                 <td colSpan={(isManager || isAdmin) ? 3 : 2}><strong>Total</strong></td>
+                <td></td>
+                
                 <td style={{ textAlign: 'right' }}><strong>{formatCurrency(filteredSales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0))}</strong></td>
                 <td style={{ textAlign: 'right' }}><strong>{formatCurrency(filteredSales.reduce((sum, s) => sum + (parseFloat(s.paid) || 0), 0))}</strong></td>
                 <td style={{ textAlign: 'right' }}><strong>{formatCurrency(totalOutstanding)}</strong></td>
