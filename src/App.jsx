@@ -46,7 +46,7 @@ import PendingAdjustments from './pages/PendingAdjustments';
 
 export default function App() {
   return (
-    <BrowserRouter basename="/pos">
+    <BrowserRouter basename="/">
       <Routes>
         {/* Root */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -128,7 +128,7 @@ export default function App() {
         />
 
         <Route path="/stock-transfers" element={<StockTransfersPage />} />
-        <Route path="/admin/ecommerce-orders" element={<EcommerceOrdersPage />} />
+        <Route path="/pos-admin/ecommerce-orders" element={<EcommerceOrdersPage />} />
         <Route path="/suppliers" element={<SupplierList />} />
         <Route
           path="manager/sales"
@@ -162,7 +162,7 @@ export default function App() {
 
         {/* ================= Admin ================= */}
         <Route
-          path="admin/branches"
+          path="pos-admin/branches"
           element={
             <RequireRole allowedRoles={["ADMIN"]}>
               <AdminBranches />
@@ -171,7 +171,7 @@ export default function App() {
         />
 
         <Route
-          path="admin/products"
+          path="pos-admin/products"
           element={
             <RequireRole allowedRoles={["ADMIN"]}>
               <AdminProducts />
@@ -180,7 +180,7 @@ export default function App() {
         />
 
         <Route
-          path="admin/dashboard"
+          path="pos-admin/dashboard"
           element={
             <RequireAuth>
               <RequireRole allowedRoles={["ADMIN"]}>
@@ -191,7 +191,7 @@ export default function App() {
         />
 
         <Route
-          path="admin/sessions"
+          path="pos-admin/sessions"
           element={
             <RequireAuth>
               <RequireRole allowedRoles={["ADMIN"]}>
@@ -202,7 +202,7 @@ export default function App() {
         />
 
         <Route
-          path="admin/users"
+          path="pos-admin/users"
           element={
             <RequireAuth>
               <RequireRole allowedRoles={["ADMIN"]}>
@@ -213,7 +213,7 @@ export default function App() {
         />
 
         <Route
-          path="admin/branches/:branchId"
+          path="pos-admin/branches/:branchId"
           element={
             <RequireRole allowedRoles={["ADMIN"]}>
               <AdminBranchDetail />
@@ -222,7 +222,7 @@ export default function App() {
         />
 
         <Route
-          path="admin/products/add"
+          path="pos-admin/products/add"
           element={<AdminAddProduct />}
         />
         <Route path="/adjustments/my" element={<MyAdjustmentRequests />} />

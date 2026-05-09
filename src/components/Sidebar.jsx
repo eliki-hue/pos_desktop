@@ -112,7 +112,7 @@ export default function Sidebar() {
                 <span>Sales Reports</span>
               </NavLink>
 
-              <NavLink to="/admin/ecommerce-orders" style={linkStyle}>
+              <NavLink to="/pos-admin/ecommerce-orders" style={linkStyle}>
                 <ShoppingBag size={20} />
                 <span>Ecommerce Orders</span>
               </NavLink>
@@ -161,17 +161,17 @@ export default function Sidebar() {
                 Admin
               </div>
 
-              <NavLink to="/admin/dashboard" style={linkStyle}>
+              <NavLink to="/pos-admin/dashboard" style={linkStyle}>
                 <LayoutDashboard size={20} />
                 <span>Admin Dashboard</span>
               </NavLink>
 
-              <NavLink to="/admin/products" style={linkStyle}>
+              <NavLink to="/pos-admin/products" style={linkStyle}>
                 <Package size={20} />
                 <span>Products</span>
               </NavLink>
 
-              <NavLink to="/admin/branches/1" style={linkStyle}>
+              <NavLink to="/pos-admin/branches/1" style={linkStyle}>
                 <Building2 size={20} />
                 <span>Branch Detail</span>
               </NavLink>
@@ -198,17 +198,17 @@ export default function Sidebar() {
               </NavLink>
 
 
-              <NavLink to="/admin/branches" style={linkStyle}>
+              <NavLink to="/pos-admin/branches" style={linkStyle}>
                 <GitBranch size={20} />
                 <span>Manage Branches</span>
               </NavLink>
 
-              <NavLink to="/admin/users" style={linkStyle}>
+              <NavLink to="/pos-admin/users" style={linkStyle}>
                 <Users size={20} />
                 <span>Manage Users</span>
               </NavLink>
               
-              <NavLink to="/admin/sessions" style={linkStyle}>
+              <NavLink to="/pos-admin/sessions" style={linkStyle}>
                 <Clock size={20} />
                 <span>User Sessions</span>
               </NavLink>

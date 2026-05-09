@@ -37,6 +37,7 @@ export default function AdminProducts() {
             <tr>
               <th>Image</th>
               <th>Name</th>
+              <th>Categoty</th>
               <th>SKU</th>
               <th>Price</th>
               <th>Status</th>
