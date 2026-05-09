@@ -59,6 +59,7 @@ export default function AdminProducts() {
                   )}
                 </td>
                 <td>{p.name}</td>
+                <td>{p.category_name}</td>
                 <td>{p.sku}</td>
                 <td>KES {p.unit_price}</td>
                 <td>{p.is_active ? "Active" : "Inactive"}</td>

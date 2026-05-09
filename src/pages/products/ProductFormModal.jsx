@@ -20,18 +20,22 @@ export default function ProductFormModal({ product, onClose }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   /* ================= LOAD CATEGORIES ================= */
 
-  useEffect(() => {
-    async function loadCategories() {
-      try {
-        const res = await api.get("/api/public/categories/");
-        setCategories(res.data || []);
-      } catch (err) {
-        console.error(err);
-      }
+  async function loadCategories() {
+    try {
+      const res = await api.get("/api/categories/");
+      setCategories(res.data || []);
+    } catch (err) {
+      console.error(err);
     }
+  }
+
+  useEffect(() => {
     loadCategories();
   }, []);
 
@@ -47,7 +51,7 @@ export default function ProductFormModal({ product, onClose }) {
         unit_cost: product.unit_cost || "",
         allows_bag: product.allows_bag || false,
         bag_weight_kg: product.bag_weight_kg || "",
-        image: null, // never preload file input
+        image: null,
         is_active: product.is_active ?? true,
       });
     }
@@ -57,6 +61,39 @@ export default function ProductFormModal({ product, onClose }) {
 
   function updateField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  /* ================= CREATE NEW CATEGORY ================= */
+
+  async function handleCreateCategory() {
+    if (!newCategoryName.trim()) {
+      setError("Category name is required");
+      return;
+    }
+
+    try {
+      setCreatingCategory(true);
+      // Using the same endpoint - POST to /api/categories/
+      const response = await api.post("/api/categories/", {
+        name: newCategoryName.trim(),
+      });
+      
+      const newCategory = response.data;
+      setCategories(prev => [...prev, newCategory]);
+      updateField("category", newCategory.id);
+      setShowNewCategoryInput(false);
+      setNewCategoryName("");
+      setError("");
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.response?.data?.detail || 
+        err.response?.data?.name?.[0] || 
+        "Failed to create category"
+      );
+    } finally {
+      setCreatingCategory(false);
+    }
   }
 
   /* ================= SUBMIT ================= */
@@ -150,20 +187,72 @@ export default function ProductFormModal({ product, onClose }) {
           disabled={isEdit}
         />
 
-        {/* CATEGORY */}
-        <select
-          className="input"
-          value={form.category}
-          onChange={(e) => updateField("category", e.target.value)}
-          required
-        >
-          <option value="">Select category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        {/* CATEGORY SELECTION */}
+        {!showNewCategoryInput ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <select
+              className="input"
+              value={form.category}
+              onChange={(e) => updateField("category", e.target.value)}
+              required
+              style={{ flex: 1 }}
+            >
+              <option value="">Select category</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn muted"
+              onClick={() => setShowNewCategoryInput(true)}
+              style={{ padding: "0 12px" }}
+              disabled={loading}
+            >
+              + New
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="input"
+                placeholder="New category name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                autoFocus
+                disabled={creatingCategory}
+              />
+              <button
+                type="button"
+                className="btn"
+                onClick={handleCreateCategory}
+                disabled={creatingCategory}
+                style={{ padding: "0 12px" }}
+              >
+                {creatingCategory ? "..." : "Create"}
+              </button>
+              <button
+                type="button"
+                className="btn muted"
+                onClick={() => {
+                  setShowNewCategoryInput(false);
+                  setNewCategoryName("");
+                  setError("");
+                }}
+                disabled={creatingCategory}
+                style={{ padding: "0 12px" }}
+              >
+                Cancel
+              </button>
+            </div>
+            <small style={{ color: "#666" }}>
+              Create a new category. This will be available for future products.
+            </small>
+          </div>
+        )}
 
         {/* PRICING */}
         <input
@@ -274,12 +363,12 @@ export default function ProductFormModal({ product, onClose }) {
             type="button"
             className="btn muted"
             onClick={onClose}
-            disabled={loading}
+            disabled={loading || creatingCategory}
           >
             Cancel
           </button>
 
-          <button className="btn" disabled={loading}>
+          <button className="btn" disabled={loading || creatingCategory}>
             {loading
               ? "Saving…"
               : isEdit
