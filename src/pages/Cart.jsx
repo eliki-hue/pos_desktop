@@ -592,12 +592,12 @@ export default function Cart() {
                           updateQty(i.product, e.target.value, i.unit)
                         }
                       />
-                      <div className="muted">
+                      <span className="muted">
                         {i.unit}
-                      </div>
+                      </span>
                     </td>
-                    <td>KES {i.unit_price}</td>
-                    <td>KES KES {Number(i.subtotal).toFixed(2)}</td>
+                    <td>KES {Number(i.display_unit_price).toFixed(0)}</td>
+                    <td>KES KES {Number(i.subtotal).toFixed(0)}</td>
                     <td>
                       <button
                         className="btn btn-danger"
