@@ -464,7 +464,7 @@ export default function Cart() {
   const subtotal = useMemo(
     () =>
       items.reduce(
-        (sum, i) => sum + Number(i.unit_price) * Number(i.quantity),
+        (sum, i) => sum + Number(i.subtotal),
         0
       ),
     [items]
@@ -485,16 +485,20 @@ export default function Cart() {
 
   const balanceDue = subtotal - totalPaid;
 
-  const updateQty = async (productId, quantity) => {
+  const updateQty = async (productId, quantity, unit) => {
     await api.patch("/api/cart/pos/cart/update_item/", {
       product: productId,
       quantity: Math.max(1, Number(quantity)),
+      unit,
     });
     await loadCart();
   };
 
-  const removeItem = async (productId) => {
-    await api.post("/api/cart/pos/cart/remove/", { product: productId });
+  const removeItem = async (productId, unit) => {
+  await api.post("/api/cart/pos/cart/remove/", {
+    product: productId,
+    unit,
+  });
     await loadCart();
   };
 
@@ -573,7 +577,13 @@ export default function Cart() {
               <tbody>
                 {items.map((i) => (
                   <tr key={i.id}>
-                    <td>{i.product_name}</td>
+                    <td>
+                      {i.product_name}
+
+                      <div className="muted">
+                        {i.unit}
+                      </div>
+                    </td>
                     <td style={{ width: 100 }}>
                       <input
                         className="input"
@@ -581,16 +591,16 @@ export default function Cart() {
                         min="1"
                         value={i.quantity}
                         onChange={(e) =>
-                          updateQty(i.product, e.target.value)
+                          updateQty(i.product, e.target.value, i.unit)
                         }
                       />
                     </td>
                     <td>KES {i.unit_price}</td>
-                    <td>KES {(i.unit_price * i.quantity).toFixed(2)}</td>
+                    <td>KES KES {Number(i.subtotal).toFixed(2)}</td>
                     <td>
                       <button
                         className="btn btn-danger"
-                        onClick={() => removeItem(i.product)}
+                        onClick={() => removeItem(i.product, i.unit)}
                       >
                         Remove
                       </button>
