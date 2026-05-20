@@ -583,6 +583,8 @@ export default function Cart() {
                       
                     </td>
                     <td style={{ width: 100 }}>
+                    <td style={{ width: 100 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <input
                         className="input"
                         type="number"
@@ -591,13 +593,16 @@ export default function Cart() {
                         onChange={(e) =>
                           updateQty(i.product, e.target.value, i.unit)
                         }
+                        style={{ flex: 1 }}
                       />
                       <span className="muted">
                         {i.unit}
                       </span>
+                    </div>
+                  </td>
                     </td>
-                    <td>KES {Number(i.display_unit_price).toFixed(0)}</td>
-                    <td>KES KES {Number(i.subtotal).toFixed(0)}</td>
+                    <td>KES {Number(i.display_unit_price).toFixed(0)}/{i.unit}</td>
+                    <td>KES {Number(i.subtotal).toFixed(0)}</td>
                     <td>
                       <button
                         className="btn btn-danger"
