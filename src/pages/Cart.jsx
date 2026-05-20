@@ -580,9 +580,7 @@ export default function Cart() {
                     <td>
                       {i.product_name}
 
-                      <div className="muted">
-                        {i.unit}
-                      </div>
+                      
                     </td>
                     <td style={{ width: 100 }}>
                       <input
@@ -594,6 +592,9 @@ export default function Cart() {
                           updateQty(i.product, e.target.value, i.unit)
                         }
                       />
+                      <div className="muted">
+                        {i.unit}
+                      </div>
                     </td>
                     <td>KES {i.unit_price}</td>
                     <td>KES KES {Number(i.subtotal).toFixed(2)}</td>
