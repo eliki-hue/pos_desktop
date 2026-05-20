@@ -583,20 +583,20 @@ export default function Cart() {
                       
                     </td>
                     <td style={{ width: 100 }}>
-                    <td style={{ width: 140 }}>
+                    <td style={{ width: 160 }}>
                       <div
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          flexWrap: "nowrap",
                           gap: "6px",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         <input
-                          className="input"
                           type="number"
                           min="1"
-                          value={i.quantity}
+                          step="0.1"
+                          value={Number(i.quantity)}
                           onChange={(e) =>
                             updateQty(
                               i.product,
@@ -605,15 +605,21 @@ export default function Cart() {
                             )
                           }
                           style={{
-                            width: "70px",
-                            minWidth: "70px",
+                            width: "72px",
+                            padding: "6px 10px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "10px",
+                            outline: "none",
+                            boxShadow: "none",
                             margin: 0,
+                            display: "inline-block",
                           }}
                         />
 
                         <span
                           className="muted"
                           style={{
+                            fontSize: "13px",
                             whiteSpace: "nowrap",
                           }}
                         >
