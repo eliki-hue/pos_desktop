@@ -595,7 +595,7 @@ export default function Cart() {
                         <input
                           type="number"
                           min="1"
-                          step="0.1"
+                          step="1"
                           value={Number(i.quantity)}
                           onChange={(e) =>
                             updateQty(
