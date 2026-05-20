@@ -583,23 +583,44 @@ export default function Cart() {
                       
                     </td>
                     <td style={{ width: 100 }}>
-                    <td style={{ width: 100 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <input
-                        className="input"
-                        type="number"
-                        min="1"
-                        value={i.quantity}
-                        onChange={(e) =>
-                          updateQty(i.product, e.target.value, i.unit)
-                        }
-                        style={{ flex: 1 }}
-                      />
-                      <span className="muted">
-                        {i.unit}
-                      </span>
-                    </div>
-                  </td>
+                    <td style={{ width: 140 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          flexWrap: "nowrap",
+                          gap: "6px",
+                        }}
+                      >
+                        <input
+                          className="input"
+                          type="number"
+                          min="1"
+                          value={i.quantity}
+                          onChange={(e) =>
+                            updateQty(
+                              i.product,
+                              e.target.value,
+                              i.unit
+                            )
+                          }
+                          style={{
+                            width: "70px",
+                            minWidth: "70px",
+                            margin: 0,
+                          }}
+                        />
+
+                        <span
+                          className="muted"
+                          style={{
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {i.unit}
+                        </span>
+                      </div>
+                    </td>
                     </td>
                     <td>KES {Number(i.display_unit_price).toFixed(0)}/{i.unit}</td>
                     <td>KES {Number(i.subtotal).toFixed(0)}</td>
