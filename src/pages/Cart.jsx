@@ -616,7 +616,7 @@ export default function Cart() {
                           }}
                         />
 
-                        <span
+                        <div
                           className="muted"
                           style={{
                             fontSize: "13px",
@@ -624,12 +624,12 @@ export default function Cart() {
                           }}
                         >
                           {i.unit}
-                        </span>
+                        </div>
                       </div>
                     </td>
                     </td>
-                    <td>KES {Number(i.display_unit_price).toFixed(0)}/{i.unit}</td>
-                    <td>KES {Number(i.subtotal).toFixed(0)}</td>
+                    <td>KES {Number(i.display_unit_price).toFixed(2)}/{i.unit}</td>
+                    <td>KES {Number(i.subtotal).toFixed(2)}</td>
                     <td>
                       <button
                         className="btn btn-danger"
