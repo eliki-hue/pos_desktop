@@ -9,8 +9,10 @@ export default function ProductFormModal({ product, onClose }) {
     name: "",
     sku: "",
     category: "",
-    unit_price: "",
-    unit_cost: "",
+    price_per_kg: "",
+    price_per_bag: "",
+    cost_per_kg: "",
+    cost_per_bag: "",
     allows_bag: false,
     bag_weight_kg: "",
     image: null,
@@ -47,8 +49,10 @@ export default function ProductFormModal({ product, onClose }) {
         name: product.name || "",
         sku: product.sku || "",
         category: product.category || "",
-        unit_price: product.unit_price || "",
-        unit_cost: product.unit_cost || "",
+        price_per_kg: product.price_per_kg || "",
+        price_per_bag: product.price_per_bag || "",
+        cost_per_kg: product.cost_per_kg || "",
+        cost_per_bag: product.cost_per_bag || "",
         allows_bag: product.allows_bag || false,
         bag_weight_kg: product.bag_weight_kg || "",
         image: null,
@@ -73,7 +77,6 @@ export default function ProductFormModal({ product, onClose }) {
 
     try {
       setCreatingCategory(true);
-      // Using the same endpoint - POST to /api/categories/
       const response = await api.post("/api/categories/", {
         name: newCategoryName.trim(),
       });
@@ -107,9 +110,24 @@ export default function ProductFormModal({ product, onClose }) {
       return;
     }
 
-    if (form.allows_bag && !form.bag_weight_kg) {
-      setError("Bag weight (KG) is required when bags are enabled");
+    if (!form.price_per_kg || !form.cost_per_kg) {
+      setError("KG price and cost are required");
       return;
+    }
+
+    if (form.allows_bag) {
+      if (!form.bag_weight_kg) {
+        setError("Bag weight (KG) is required when bags are enabled");
+        return;
+      }
+      if (!form.price_per_bag) {
+        setError("Bag price is required when bags are enabled");
+        return;
+      }
+      if (!form.cost_per_bag) {
+        setError("Bag cost is required when bags are enabled");
+        return;
+      }
     }
 
     try {
@@ -119,13 +137,16 @@ export default function ProductFormModal({ product, onClose }) {
       data.append("name", form.name);
       data.append("sku", form.sku);
       data.append("category", form.category);
-      data.append("unit_price", form.unit_price);
-      data.append("unit_cost", form.unit_cost);
+      data.append("price_per_kg", form.price_per_kg);
+      data.append("cost_per_kg", form.cost_per_kg);
       data.append("allows_bag", form.allows_bag);
-      data.append(
-        "bag_weight_kg",
-        form.allows_bag ? form.bag_weight_kg : ""
-      );
+      
+      if (form.allows_bag) {
+        data.append("price_per_bag", form.price_per_bag);
+        data.append("cost_per_bag", form.cost_per_bag);
+        data.append("bag_weight_kg", form.bag_weight_kg);
+      }
+      
       data.append("is_active", form.is_active);
 
       if (form.image) {
@@ -254,14 +275,15 @@ export default function ProductFormModal({ product, onClose }) {
           </div>
         )}
 
-        {/* PRICING */}
+        {/* KG PRICING (Always required) */}
+        <h4 style={{ margin: "12px 0 4px 0", fontSize: 14 }}>KG Pricing</h4>
         <input
           className="input"
           type="number"
           step="0.01"
-          placeholder="Unit price (per KG)"
-          value={form.unit_price}
-          onChange={(e) => updateField("unit_price", e.target.value)}
+          placeholder="Price per KG"
+          value={form.price_per_kg}
+          onChange={(e) => updateField("price_per_kg", e.target.value)}
           required
         />
 
@@ -269,9 +291,9 @@ export default function ProductFormModal({ product, onClose }) {
           className="input"
           type="number"
           step="0.01"
-          placeholder="Unit cost (per KG)"
-          value={form.unit_cost}
-          onChange={(e) => updateField("unit_cost", e.target.value)}
+          placeholder="Cost per KG"
+          value={form.cost_per_kg}
+          onChange={(e) => updateField("cost_per_kg", e.target.value)}
           required
         />
 
@@ -281,31 +303,57 @@ export default function ProductFormModal({ product, onClose }) {
             display: "flex",
             alignItems: "center",
             gap: 8,
-            marginTop: 8,
+            marginTop: 16,
           }}
         >
           <input
             type="checkbox"
             checked={form.allows_bag}
-            onChange={(e) =>
-              updateField("allows_bag", e.target.checked)
-            }
+            onChange={(e) => {
+              updateField("allows_bag", e.target.checked);
+              if (!e.target.checked) {
+                updateField("price_per_bag", "");
+                updateField("cost_per_bag", "");
+                updateField("bag_weight_kg", "");
+              }
+            }}
           />
           Allow selling by bag
         </label>
 
         {form.allows_bag && (
-          <input
-            className="input"
-            type="number"
-            step="0.01"
-            placeholder="Bag weight (KG)"
-            value={form.bag_weight_kg}
-            onChange={(e) =>
-              updateField("bag_weight_kg", e.target.value)
-            }
-            required
-          />
+          <>
+            <h4 style={{ margin: "12px 0 4px 0", fontSize: 14 }}>Bag Pricing</h4>
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              placeholder="Price per bag"
+              value={form.price_per_bag}
+              onChange={(e) => updateField("price_per_bag", e.target.value)}
+              required
+            />
+
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              placeholder="Cost per bag"
+              value={form.cost_per_bag}
+              onChange={(e) => updateField("cost_per_bag", e.target.value)}
+              required
+            />
+
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              placeholder="Bag weight (KG)"
+              value={form.bag_weight_kg}
+              onChange={(e) => updateField("bag_weight_kg", e.target.value)}
+              required
+            />
+          </>
         )}
 
         {/* IMAGE */}
@@ -313,9 +361,8 @@ export default function ProductFormModal({ product, onClose }) {
           type="file"
           accept="image/*"
           className="input"
-          onChange={(e) =>
-            updateField("image", e.target.files[0])
-          }
+          style={{ marginTop: 12 }}
+          onChange={(e) => updateField("image", e.target.files[0])}
         />
 
         {/* ACTIVE */}
@@ -330,9 +377,7 @@ export default function ProductFormModal({ product, onClose }) {
           <input
             type="checkbox"
             checked={form.is_active}
-            onChange={(e) =>
-              updateField("is_active", e.target.checked)
-            }
+            onChange={(e) => updateField("is_active", e.target.checked)}
           />
           Active
         </label>

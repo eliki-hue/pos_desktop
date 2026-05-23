@@ -5,6 +5,7 @@ import { api } from "../../api/client";
 
 /**
  * Modal for adding product with KG / BAG support
+ * UPDATED: Shows both KG and BAG pricing
  */
 function AddToCartModal({ product, onClose, onAdded }) {
   const [unit, setUnit] = useState("KG");
@@ -16,10 +17,16 @@ function AddToCartModal({ product, onClose, onAdded }) {
 
   const kgPerBag = product.bag_weight_kg || 0;
 
+  // Calculate total weight in KG based on selected unit
   const totalKg =
     unit === "KG"
       ? Number(qty || 0)
       : Number(qty || 0) * Number(kgPerBag);
+
+  // Get the price for selected unit
+  const selectedPrice = unit === "KG" 
+    ? product.price_per_kg 
+    : product.price_per_bag;
 
   const submit = async () => {
     setMsg("");
@@ -75,6 +82,9 @@ function AddToCartModal({ product, onClose, onAdded }) {
 
         <div style={{ marginTop: 10 }}>
           <div style={{ fontWeight: 800 }}>{product.name}</div>
+          <div className="muted" style={{ marginTop: 4 }}>
+            SKU: {product.sku}
+          </div>
 
           <div className="muted" style={{ marginTop: 4 }}>
             {product.out_of_stock ? (
@@ -86,8 +96,16 @@ function AddToCartModal({ product, onClose, onAdded }) {
             )}
           </div>
 
-          <div className="muted">
-            Price: KES {product.unit_price} / KG
+          {/* Show both pricing options */}
+          <div style={{ marginTop: 8 }}>
+            <div className="muted">
+              <strong>KG:</strong> KES {Number(product.price_per_kg).toFixed(2)} / KG
+            </div>
+            {product.allows_bag && product.price_per_bag && (
+              <div className="muted">
+                <strong>BAG:</strong> KES {Number(product.price_per_bag).toFixed(2)} / bag ({kgPerBag} KG)
+              </div>
+            )}
           </div>
         </div>
 
@@ -98,11 +116,15 @@ function AddToCartModal({ product, onClose, onAdded }) {
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
             >
-              <option value="KG">KG</option>
-              <option value="BAG">BAG ({kgPerBag} KG)</option>
+              <option value="KG">
+                KG - KES {Number(product.price_per_kg).toFixed(2)}/KG
+              </option>
+              <option value="BAG">
+                BAG - KES {Number(product.price_per_bag).toFixed(2)}/bag ({kgPerBag} KG)
+              </option>
             </select>
           ) : (
-            <div className="muted">Sold in KG only</div>
+            <div className="muted">Sold in KG only - KES {Number(product.price_per_kg).toFixed(2)}/KG</div>
           )}
         </div>
 
@@ -111,7 +133,12 @@ function AddToCartModal({ product, onClose, onAdded }) {
             className="input"
             type="number"
             min="0.01"
-            placeholder={unit === "KG" ? "Quantity in KG" : "Number of bags"}
+            step={unit === "KG" ? "0.01" : "1"}
+            placeholder={
+              unit === "KG" 
+                ? `Quantity in KG (max ${Number(product.stock_kg).toFixed(2)} KG)` 
+                : `Number of bags (${kgPerBag} KG each)`
+            }
             value={qty}
             onChange={(e) => setQty(e.target.value)}
           />
@@ -119,9 +146,15 @@ function AddToCartModal({ product, onClose, onAdded }) {
 
         <div className="muted" style={{ marginTop: 8 }}>
           Total weight: <b>{totalKg.toFixed(3)} KG</b>
+          {selectedPrice && qty && totalKg > 0 && (
+            <>
+              <br />
+              Total price: <b>KES {(Number(qty) * Number(selectedPrice)).toFixed(2)}</b>
+            </>
+          )}
         </div>
 
-        {msg && <div style={{ marginTop: 8 }}>{msg}</div>}
+        {msg && <div style={{ marginTop: 8, color: "red" }}>{msg}</div>}
 
         <button
           className="btn btn-primary"
@@ -129,7 +162,7 @@ function AddToCartModal({ product, onClose, onAdded }) {
           disabled={loading || !qty || totalKg <= 0 || product.out_of_stock}
           onClick={submit}
         >
-          {loading ? "Adding..." : "Add to Cart"}
+          {loading ? "Adding..." : `Add ${unit} to Cart`}
         </button>
       </div>
     </div>
@@ -187,7 +220,8 @@ export default function Products() {
     const query = q.trim().toLowerCase();
     if (query) {
       filtered = filtered.filter((p) =>
-        String(p.name || "").toLowerCase().includes(query)
+        String(p.name || "").toLowerCase().includes(query) ||
+        String(p.sku || "").toLowerCase().includes(query)
       );
     }
     
@@ -247,7 +281,7 @@ export default function Products() {
             className="input"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search product name or scan barcode..."
+            placeholder="Search product name or SKU..."
             style={{ flex: 2, minWidth: 200 }}
           />
 
@@ -312,16 +346,27 @@ export default function Products() {
             {displayProducts.map((p) => (
               <div className="card" key={p.id}>
                 <div style={{ fontWeight: 900 }}>{p.name}</div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  SKU: {p.sku}
+                </div>
 
                 <div className="muted" style={{ marginTop: 4 }}>
                   {p.allows_bag
-                    ? `Sold in KG / BAG (${p.bag_weight_kg} KG)`
-                    : "Sold in KG"}
+                    ? `Sold in KG / BAG (${p.bag_weight_kg} KG per bag)`
+                    : "Sold in KG only"}
                 </div>
 
+                {/* Show KG price prominently */}
                 <div style={{ marginTop: 8, fontWeight: 900 }}>
-                  KES {p.unit_price} / KG
+                  KES {Number(p.price_per_kg).toFixed(2)} / KG
                 </div>
+
+                {/* Show bag price if available */}
+                {p.allows_bag && p.price_per_bag && (
+                  <div className="muted" style={{ marginTop: 4 }}>
+                    KES {Number(p.price_per_bag).toFixed(2)} / bag
+                  </div>
+                )}
 
                 <div style={{ marginTop: 6 }}>
                   {p.out_of_stock ? (
