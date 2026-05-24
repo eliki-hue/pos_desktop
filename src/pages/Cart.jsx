@@ -87,7 +87,7 @@ function ReceiptModal({ receipt, onClose }) {
             <div className="muted">
               Receipt #: <b>{receipt.id}</b><br />
               Date: <b>{new Date(receipt.created_at).toLocaleString()}</b><br />
-              Cashier: <b>{receipt.cashier_username}</b>
+              Cashier: <b>{receipt.cashier_username}</b><br />
               Branch:<b>{receipt.branch_name}</b>
             </div>
 
