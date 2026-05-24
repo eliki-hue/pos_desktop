@@ -102,7 +102,8 @@ function ReceiptModal({ receipt, onClose }) {
               <tr>
                 <th>Item</th>
                 <th>Qty</th>
-                <th>Price</th>
+                <th>units</th>
+                <th>Unit Price</th>
                 <th>Total</th>
               </tr>
             </thead>
@@ -111,6 +112,7 @@ function ReceiptModal({ receipt, onClose }) {
                 <tr key={idx}>
                   <td>{i.product_name}</td>
                   <td>{i.quantity}</td>
+                  <td>{i.unit}</td>
                   <td>KES {i.unit_price}</td>
                   <td>KES {i.subtotal}</td>
                 </tr>

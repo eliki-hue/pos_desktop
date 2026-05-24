@@ -71,20 +71,24 @@ function ReceiptModal({ receipt, onClose }) {
             flexDirection: "column",
           }}
         >
-          {/* SCROLLABLE CONTENT */}
+          {/* RECEIPT-SCROLLABLE CONTENT */}
           <div style={{ overflowY: "auto", paddingRight: 4 }}>
             {/* HEADER */}
             <div style={{ textAlign: "center", marginBottom: 12 }}>
               <div style={{ fontWeight: 900, fontSize: 18 }}>
-                {receipt.branch_name}
+                Premium Farming feeds
               </div>
-              <div className="muted">OFFICIAL RECEIPT</div>
+              {/* <div style={{ fontWeight: 900, fontSize: 18 }}>
+                {receipt.branch_name}
+              </div> */}
+              <div className="muted">SALES RECEIPT</div>
             </div>
 
             <div className="muted">
               Receipt #: <b>{receipt.id}</b><br />
               Date: <b>{new Date(receipt.created_at).toLocaleString()}</b><br />
               Cashier: <b>{receipt.cashier_username}</b>
+              Branch:<b>{receipt.branch_name}</b>
             </div>
 
             <hr />
@@ -107,7 +111,8 @@ function ReceiptModal({ receipt, onClose }) {
               <thead>
                 <tr>
                   <th>Item</th>
-                  <th style={{ textAlign: "right" }}>Qty × Unit</th>
+                  <th style={{ textAlign: "right" }}>Qty </th>
+                  <th style={{ textAlign: "right" }}>Unit </th>
                   <th style={{ textAlign: "right" }}>Unit Price</th>
                   <th style={{ textAlign: "right" }}>Total</th>
                 </tr>
@@ -117,12 +122,12 @@ function ReceiptModal({ receipt, onClose }) {
                   <tr key={i.id}>
                     <td>
                       {i.product_name}
-                      <div className="muted">
-                        {i.quantity} {i.unit} @ {i.unit_price}/{i.unit}
-                      </div>
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      {i.quantity} {i.unit}
+                      {i.quantity} 
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                       {i.unit}
                     </td>
                     <td style={{ textAlign: "right" }}>
                       KES {Number(i.unit_price).toFixed(2)}
