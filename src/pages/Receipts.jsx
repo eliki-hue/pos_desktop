@@ -114,7 +114,7 @@ function ReceiptModal({ receipt, onClose }) {
                 <tr>
                   <th>Item</th>
                   <th style={{ textAlign: "right" }}>Qty</th>
-                  <th style={{ textAlign: "right" }}>Unit</th>
+                  {/* <th style={{ textAlign: "right" }}>Unit</th> */}
                   <th style={{ textAlign: "right" }}>Unit Price</th>
                   <th style={{ textAlign: "right" }}>Total</th>
                 </tr>
@@ -126,11 +126,11 @@ function ReceiptModal({ receipt, onClose }) {
                       {i.product_name}
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      {i.quantity}
+                      <span>{Number(i.quantity).toFixed(2)}{i.unit}</span>
                     </td>
-                    <td style={{ textAlign: "right" }}>
-                      {i.unit}
-                    </td>
+                    {/* <td style={{ textAlign: "right" }}>
+                       {i.unit}
+                    </td> */}
                     <td style={{ textAlign: "right" }}>
                       KES {Number(i.unit_price).toFixed(2)}
                     </td>
