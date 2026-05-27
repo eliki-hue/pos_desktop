@@ -78,17 +78,20 @@ function ReceiptModal({ receipt, onClose }) {
               <div style={{ fontWeight: 900, fontSize: 18 }}>
                 Premium Farming feeds
               </div>
-              {/* <div style={{ fontWeight: 900, fontSize: 18 }}>
-                {receipt.branch_name}
-              </div> */}
+              <div style={{ fontWeight: 500, fontSize: 14 }}>
+                Turitu, Ikinu & Githiga - Kiambu
+              </div>
+              <div style={{ fontWeight: 500, fontSize: 14 }}>
+                Paybill 400200 Acc No. 4003901                
+              </div>
               <div className="muted">SALES RECEIPT</div>
             </div>
 
             <div className="muted">
               Receipt #: <b>{receipt.id}</b><br />
-              Date: <b>{new Date(receipt.created_at).toLocaleString()}</b><br />
-              Cashier: <b>{receipt.cashier_username}</b><br />
-              Branch:<b>{receipt.branch_name}</b>
+              Date: {new Date(receipt.created_at).toLocaleString()}<br />
+              Cashier: {receipt.cashier_username}<br />
+              Branch:{receipt.branch_name}
             </div>
 
             <hr />
@@ -197,7 +200,7 @@ function ReceiptModal({ receipt, onClose }) {
 
             {/* FOOTER */}
             <div style={{ textAlign: "center", marginTop: 10 }}>
-              <div style={{ fontWeight: 900 }}>
+              <div style={{ fontWeight: 500 }}>
                 THANK YOU FOR PURCHASING WITH US
               </div>
               {receipt.status === "PARTIAL" && (

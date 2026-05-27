@@ -15,8 +15,9 @@ const ACTIONS = {
    UNIT TYPES - EXACTLY AS BACKEND EXPECTS
 ======================================== */
 const UNITS = {
-  KG: "kg",    // backend expects "kg"
-  BAG: "bag",  // backend expects "bag" (singular)
+  KG: "kg",      // backend expects "kg"
+  BAG: "bag",    // backend expects "bag" (singular)
+  PIECE: "piece" // backend expects "piece"
 };
 
 export default function InventoryManager() {
@@ -28,6 +29,7 @@ export default function InventoryManager() {
   const [items, setItems] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [productUnits, setProductUnits] = useState({}); // Store available units per product
 
   const [selectedItem, setSelectedItem] = useState(null);
 
@@ -59,7 +61,18 @@ export default function InventoryManager() {
 
     api
       .get(`/api/inventory/admin-branch/?branch=${branchId}`)
-      .then((res) => setItems(res.data.items || []))
+      .then((res) => {
+        setItems(res.data.items || []);
+        // Build available units per product from product data
+        const unitsMap = {};
+        (res.data.items || []).forEach((item) => {
+          const available = ["kg"];
+          if (item.allows_bag) available.push("bag");
+          if (item.allows_piece) available.push("piece");
+          unitsMap[item.product_id] = available;
+        });
+        setProductUnits(unitsMap);
+      })
       .finally(() => setLoading(false));
 
     api.get("/api/branches/").then((res) => {
@@ -72,6 +85,15 @@ export default function InventoryManager() {
       `/api/inventory/admin-branch/?branch=${branchId}`
     );
     setItems(res.data.items || []);
+    // Update units map
+    const unitsMap = {};
+    (res.data.items || []).forEach((item) => {
+      const available = ["kg"];
+      if (item.allows_bag) available.push("bag");
+      if (item.allows_piece) available.push("piece");
+      unitsMap[item.product_id] = available;
+    });
+    setProductUnits(unitsMap);
   };
 
   const closeModals = () => {
@@ -88,7 +110,9 @@ export default function InventoryManager() {
     setSelectedItem(item);
     setActionType(type);
     setQuantity("");
-    setUnit(UNITS.KG);
+    // Set default unit to KG, but if product only allows piece, set to piece
+    const availableUnits = productUnits[item.product_id] || ["kg"];
+    setUnit(availableUnits.includes("kg") ? UNITS.KG : (availableUnits.includes("piece") ? UNITS.PIECE : UNITS.BAG));
     setNote("");
     setShowMainModal(true);
   };
@@ -96,7 +120,8 @@ export default function InventoryManager() {
   const openStockOutModal = (item) => {
     setSelectedItem(item);
     setStockOutQuantity("");
-    setStockOutUnit(UNITS.KG);
+    const availableUnits = productUnits[item.product_id] || ["kg"];
+    setStockOutUnit(availableUnits.includes("kg") ? UNITS.KG : (availableUnits.includes("piece") ? UNITS.PIECE : UNITS.BAG));
     setStockOutNote("");
     setStockOutSource("internal_use");
     setDestinationBranch("");
@@ -119,7 +144,7 @@ export default function InventoryManager() {
       branch: branchId,
       product: selectedItem.product_id,
       quantity: Number(quantity),
-      unit: unit,  // This will be either "kg" or "bag" as defined in UNITS
+      unit: unit,  // This will be either "kg", "bag", or "piece"
       note,
     };
 
@@ -160,7 +185,7 @@ export default function InventoryManager() {
       branch: branchId,
       product: selectedItem.product_id,
       quantity: Number(stockOutQuantity),
-      unit: stockOutUnit,  // This will be either "kg" or "bag" as defined in UNITS
+      unit: stockOutUnit,  // This will be either "kg", "bag", or "piece"
       source: stockOutSource,
       note: stockOutNote,
     };
@@ -178,6 +203,41 @@ export default function InventoryManager() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Helper to get available units for a product
+  const getAvailableUnits = (item) => {
+    const units = [];
+    units.push({ value: UNITS.KG, label: "KG" });
+    if (item.allows_bag) units.push({ value: UNITS.BAG, label: "Bag" });
+    if (item.allows_piece) units.push({ value: UNITS.PIECE, label: "Piece" });
+    return units;
+  };
+
+  // Helper to display stock in human-readable format
+  const getStockDisplay = (item) => {
+    const parts = [];
+    
+    // Show full bags if available
+    if (item.allows_bag && item.full_bags > 0) {
+      parts.push(`${item.full_bags} bag${item.full_bags !== 1 ? "s" : ""}`);
+    }
+    
+    // Show remaining KG
+    if (item.remaining_kg > 0) {
+      parts.push(`${item.remaining_kg} kg`);
+    }
+    
+    // Show pieces if product allows pieces
+    if (item.allows_piece && item.full_pieces > 0) {
+      parts.push(`${item.full_pieces} piece${item.full_pieces !== 1 ? "s" : ""}`);
+    }
+    
+    if (parts.length === 0 && item.stock_kg > 0) {
+      return `${item.stock_kg} kg`;
+    }
+    
+    return parts.join(" + ");
   };
 
   return (
@@ -203,6 +263,7 @@ export default function InventoryManager() {
                 <tr>
                   <th>Product</th>
                   <th>Stock (KG)</th>
+                  <th>Breakdown</th>
                   <th>Status</th>
                   <th className="text-end">Actions</th>
                 </tr>
@@ -222,22 +283,51 @@ export default function InventoryManager() {
                       >
                         SKU: {item.sku}
                       </div>
+                      {/* Show available units badge */}
+                      <div style={{ display: "flex", gap: "4px", marginTop: "4px" }}>
+                        <span style={{
+                          fontSize: "10px",
+                          padding: "2px 6px",
+                          background: "#e2e8f0",
+                          borderRadius: "4px",
+                        }}>KG</span>
+                        {item.allows_bag && (
+                          <span style={{
+                            fontSize: "10px",
+                            padding: "2px 6px",
+                            background: "#dbeafe",
+                            borderRadius: "4px",
+                            color: "#1e40af",
+                          }}>BAG</span>
+                        )}
+                        {item.allows_piece && (
+                          <span style={{
+                            fontSize: "10px",
+                            padding: "2px 6px",
+                            background: "#dcfce7",
+                            borderRadius: "4px",
+                            color: "#166534",
+                          }}>PIECE</span>
+                        )}
+                      </div>
                     </td>
                     <td>
-                      {item.stock_kg} kg
-                      <div
-                        style={{
-                          fontSize: "0.8rem",
-                          color: "#64748b",
-                        }}
-                      >
-                        (
-                        {item.full_bags} bag
-                        {item.full_bags !== 1 ? "s" : ""}
-                        {item.remaining_kg > 0 &&
-                          ` + ${item.remaining_kg} kg`}
-                        )
+                      <strong>{item.stock_kg} kg</strong>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: "0.85rem", color: "#475569" }}>
+                        {getStockDisplay(item)}
                       </div>
+                      {item.allows_bag && item.bag_weight_kg && (
+                        <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                          Bag: {item.bag_weight_kg} kg/bag
+                        </div>
+                      )}
+                      {item.allows_piece && item.piece_weight_kg && (
+                        <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                          Piece: {item.piece_weight_kg} kg/piece
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span
@@ -319,7 +409,7 @@ export default function InventoryManager() {
               <div style={{ flex: 1, position: "relative" }}>
                 <input
                   type="number"
-                  step="0.01"
+                  step={unit === UNITS.KG ? "0.01" : "1"}
                   min="0"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
@@ -343,10 +433,13 @@ export default function InventoryManager() {
                   placeholder="0.00"
                 />
               </div>
-              <UnitSelector
-                value={unit}
-                onChange={setUnit}
-              />
+              {selectedItem && (
+                <UnitSelector
+                  value={unit}
+                  onChange={setUnit}
+                  availableUnits={getAvailableUnits(selectedItem)}
+                />
+              )}
             </div>
           </FormField>
 
@@ -481,7 +574,7 @@ export default function InventoryManager() {
               <div style={{ flex: 1, position: "relative" }}>
                 <input
                   type="number"
-                  step="0.01"
+                  step={stockOutUnit === UNITS.KG ? "0.01" : "1"}
                   min="0"
                   value={stockOutQuantity}
                   onChange={(e) => setStockOutQuantity(e.target.value)}
@@ -505,10 +598,13 @@ export default function InventoryManager() {
                   placeholder="0.00"
                 />
               </div>
-              <UnitSelector
-                value={stockOutUnit}
-                onChange={setStockOutUnit}
-              />
+              {selectedItem && (
+                <UnitSelector
+                  value={stockOutUnit}
+                  onChange={setStockOutUnit}
+                  availableUnits={getAvailableUnits(selectedItem)}
+                />
+              )}
             </div>
           </FormField>
 
@@ -554,9 +650,16 @@ export default function InventoryManager() {
 }
 
 /* ========================================
-   UNIT SELECTOR COMPONENT
+   UNIT SELECTOR COMPONENT (UPDATED)
 ======================================== */
-function UnitSelector({ value, onChange }) {
+function UnitSelector({ value, onChange, availableUnits = [] }) {
+  // Default units if none provided
+  const units = availableUnits.length > 0 ? availableUnits : [
+    { value: "kg", label: "KG" },
+    { value: "bag", label: "Bag" },
+    { value: "piece", label: "Piece" }
+  ];
+
   return (
     <div style={{
       display: "flex",
@@ -564,42 +667,27 @@ function UnitSelector({ value, onChange }) {
       borderRadius: "12px",
       padding: "4px",
     }}>
-      <button
-        type="button"
-        onClick={() => onChange(UNITS.KG)}
-        style={{
-          padding: "10px 20px",
-          borderRadius: "10px",
-          border: "none",
-          background: value === UNITS.KG ? "#ffffff" : "transparent",
-          color: value === UNITS.KG ? "#0f172a" : "#64748b",
-          fontSize: "0.95rem",
-          fontWeight: "500",
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-          boxShadow: value === UNITS.KG ? "0 2px 8px rgba(0,0,0,0.05)" : "none",
-        }}
-      >
-        KG
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(UNITS.BAG)}
-        style={{
-          padding: "10px 20px",
-          borderRadius: "10px",
-          border: "none",
-          background: value === UNITS.BAG ? "#ffffff" : "transparent",
-          color: value === UNITS.BAG ? "#0f172a" : "#64748b",
-          fontSize: "0.95rem",
-          fontWeight: "500",
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-          boxShadow: value === UNITS.BAG ? "0 2px 8px rgba(0,0,0,0.05)" : "none",
-        }}
-      >
-        Bag
-      </button>
+      {units.map((unit) => (
+        <button
+          key={unit.value}
+          type="button"
+          onClick={() => onChange(unit.value)}
+          style={{
+            padding: "10px 20px",
+            borderRadius: "10px",
+            border: "none",
+            background: value === unit.value ? "#ffffff" : "transparent",
+            color: value === unit.value ? "#0f172a" : "#64748b",
+            fontSize: "0.95rem",
+            fontWeight: "500",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            boxShadow: value === unit.value ? "0 2px 8px rgba(0,0,0,0.05)" : "none",
+          }}
+        >
+          {unit.label}
+        </button>
+      ))}
     </div>
   );
 }

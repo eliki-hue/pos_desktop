@@ -11,10 +11,14 @@ export default function ProductFormModal({ product, onClose }) {
     category: "",
     price_per_kg: "",
     price_per_bag: "",
+    price_per_piece: "",
     cost_per_kg: "",
     cost_per_bag: "",
+    cost_per_piece: "",
     allows_bag: false,
+    allows_piece: false,
     bag_weight_kg: "",
+    piece_weight_kg: "",
     image: null,
     is_active: true,
   });
@@ -51,10 +55,14 @@ export default function ProductFormModal({ product, onClose }) {
         category: product.category || "",
         price_per_kg: product.price_per_kg || "",
         price_per_bag: product.price_per_bag || "",
+        price_per_piece: product.price_per_piece || "",
         cost_per_kg: product.cost_per_kg || "",
         cost_per_bag: product.cost_per_bag || "",
+        cost_per_piece: product.cost_per_piece || "",
         allows_bag: product.allows_bag || false,
+        allows_piece: product.allows_piece || false,
         bag_weight_kg: product.bag_weight_kg || "",
+        piece_weight_kg: product.piece_weight_kg || "",
         image: null,
         is_active: product.is_active ?? true,
       });
@@ -115,6 +123,7 @@ export default function ProductFormModal({ product, onClose }) {
       return;
     }
 
+    // Bag validation
     if (form.allows_bag) {
       if (!form.bag_weight_kg) {
         setError("Bag weight (KG) is required when bags are enabled");
@@ -130,6 +139,22 @@ export default function ProductFormModal({ product, onClose }) {
       }
     }
 
+    // Piece validation
+    if (form.allows_piece) {
+      if (!form.piece_weight_kg) {
+        setError("Piece weight (KG) is required when pieces are enabled");
+        return;
+      }
+      if (!form.price_per_piece) {
+        setError("Piece price is required when pieces are enabled");
+        return;
+      }
+      if (!form.cost_per_piece) {
+        setError("Piece cost is required when pieces are enabled");
+        return;
+      }
+    }
+
     try {
       setLoading(true);
 
@@ -140,11 +165,18 @@ export default function ProductFormModal({ product, onClose }) {
       data.append("price_per_kg", form.price_per_kg);
       data.append("cost_per_kg", form.cost_per_kg);
       data.append("allows_bag", form.allows_bag);
+      data.append("allows_piece", form.allows_piece);
       
       if (form.allows_bag) {
         data.append("price_per_bag", form.price_per_bag);
         data.append("cost_per_bag", form.cost_per_bag);
         data.append("bag_weight_kg", form.bag_weight_kg);
+      }
+      
+      if (form.allows_piece) {
+        data.append("price_per_piece", form.price_per_piece);
+        data.append("cost_per_piece", form.cost_per_piece);
+        data.append("piece_weight_kg", form.piece_weight_kg);
       }
       
       data.append("is_active", form.is_active);
@@ -353,6 +385,68 @@ export default function ProductFormModal({ product, onClose }) {
               onChange={(e) => updateField("bag_weight_kg", e.target.value)}
               required
             />
+          </>
+        )}
+
+        {/* PIECE SUPPORT - NEW */}
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 16,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={form.allows_piece}
+            onChange={(e) => {
+              updateField("allows_piece", e.target.checked);
+              if (!e.target.checked) {
+                updateField("price_per_piece", "");
+                updateField("cost_per_piece", "");
+                updateField("piece_weight_kg", "");
+              }
+            }}
+          />
+          Allow selling by piece
+        </label>
+
+        {form.allows_piece && (
+          <>
+            <h4 style={{ margin: "12px 0 4px 0", fontSize: 14 }}>Piece Pricing</h4>
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              placeholder="Price per piece"
+              value={form.price_per_piece}
+              onChange={(e) => updateField("price_per_piece", e.target.value)}
+              required
+            />
+
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              placeholder="Cost per piece"
+              value={form.cost_per_piece}
+              onChange={(e) => updateField("cost_per_piece", e.target.value)}
+              required
+            />
+
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              placeholder="Piece weight (KG)"
+              value={form.piece_weight_kg}
+              onChange={(e) => updateField("piece_weight_kg", e.target.value)}
+              required
+            />
+            <small style={{ color: "#666", marginTop: -8 }}>
+              Example: If 1 piece = 2kg, enter 2
+            </small>
           </>
         )}
 

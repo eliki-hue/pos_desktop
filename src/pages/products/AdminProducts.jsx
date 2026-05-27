@@ -32,7 +32,7 @@ export default function AdminProducts() {
       </div>
 
       <div className="card" style={{ marginTop: 12, overflowX: "auto" }}>
-        <table className="table" style={{ minWidth: 800 }}>
+        <table className="table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
               <th>Image</th>
@@ -41,7 +41,9 @@ export default function AdminProducts() {
               <th>SKU</th>
               <th>KG Price</th>
               <th>Bag Price</th>
+              <th>Piece Price</th>
               <th>Bag Info</th>
+              <th>Piece Info</th>
               <th>Status</th>
               <th />
             </tr>
@@ -70,12 +72,16 @@ export default function AdminProducts() {
                 <td>
                   <code style={{ fontSize: 12 }}>{p.sku}</code>
                 </td>
+                
+                {/* KG Price Column */}
                 <td>
                   <strong>KES {Number(p.price_per_kg).toFixed(2)}</strong>
                   <div style={{ fontSize: 11, color: "#666" }}>
                     Cost: KES {Number(p.cost_per_kg).toFixed(2)}
                   </div>
                 </td>
+                
+                {/* Bag Price Column */}
                 <td>
                   {p.allows_bag ? (
                     <>
@@ -88,6 +94,22 @@ export default function AdminProducts() {
                     <span style={{ color: "#999" }}>—</span>
                   )}
                 </td>
+                
+                {/* Piece Price Column - NEW */}
+                <td>
+                  {p.allows_piece ? (
+                    <>
+                      <strong>KES {Number(p.price_per_piece).toFixed(2)}</strong>
+                      <div style={{ fontSize: 11, color: "#666" }}>
+                        Cost: KES {Number(p.cost_per_piece).toFixed(2)}
+                      </div>
+                    </>
+                  ) : (
+                    <span style={{ color: "#999" }}>—</span>
+                  )}
+                </td>
+                
+                {/* Bag Info Column */}
                 <td>
                   {p.allows_bag ? (
                     <>
@@ -100,11 +122,29 @@ export default function AdminProducts() {
                     <span style={{ color: "#999" }}>KG only</span>
                   )}
                 </td>
+                
+                {/* Piece Info Column - NEW */}
+                <td>
+                  {p.allows_piece ? (
+                    <>
+                      <div>{p.piece_weight_kg} KG/piece</div>
+                      <div style={{ fontSize: 11, color: "#666" }}>
+                        {Number(p.price_per_piece / p.piece_weight_kg).toFixed(2)} KES/KG
+                      </div>
+                    </>
+                  ) : (
+                    <span style={{ color: "#999" }}>—</span>
+                  )}
+                </td>
+                
+                {/* Status Column */}
                 <td>
                   <span className={p.is_active ? "badge-success" : "badge-danger"}>
                     {p.is_active ? "Active" : "Inactive"}
                   </span>
                 </td>
+                
+                {/* Actions Column */}
                 <td style={{ display: "flex", gap: 6, whiteSpace: "nowrap" }}>
                   <button className="btn" onClick={() => setModal(p)}>
                     Edit

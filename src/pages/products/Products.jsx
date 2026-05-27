@@ -4,8 +4,8 @@ import AppLayout from "../../components/AppLayout";
 import { api } from "../../api/client";
 
 /**
- * Modal for adding product with KG / BAG support
- * UPDATED: Shows both KG and BAG pricing
+ * Modal for adding product with KG / BAG / PIECE support
+ * UPDATED: Shows KG, BAG, and PIECE pricing
  */
 function AddToCartModal({ product, onClose, onAdded }) {
   const [unit, setUnit] = useState("KG");
@@ -16,17 +16,40 @@ function AddToCartModal({ product, onClose, onAdded }) {
   if (!product) return null;
 
   const kgPerBag = product.bag_weight_kg || 0;
+  const kgPerPiece = product.piece_weight_kg || 0;
 
   // Calculate total weight in KG based on selected unit
   const totalKg =
     unit === "KG"
       ? Number(qty || 0)
-      : Number(qty || 0) * Number(kgPerBag);
+      : unit === "BAG"
+      ? Number(qty || 0) * Number(kgPerBag)
+      : Number(qty || 0) * Number(kgPerPiece);
 
   // Get the price for selected unit
-  const selectedPrice = unit === "KG" 
-    ? product.price_per_kg 
-    : product.price_per_bag;
+  const getSelectedPrice = () => {
+    if (unit === "KG") return product.price_per_kg;
+    if (unit === "BAG") return product.price_per_bag;
+    if (unit === "PIECE") return product.price_per_piece;
+    return product.price_per_kg;
+  };
+
+  const selectedPrice = getSelectedPrice();
+
+  // Build available units dynamically
+  const availableUnits = [];
+  
+  if (product.price_per_kg) {
+    availableUnits.push({ value: "KG", label: `KG - KES ${Number(product.price_per_kg).toFixed(2)}/KG` });
+  }
+  
+  if (product.allows_bag && product.price_per_bag) {
+    availableUnits.push({ value: "BAG", label: `BAG - KES ${Number(product.price_per_bag).toFixed(2)}/bag (${kgPerBag} KG)` });
+  }
+  
+  if (product.allows_piece && product.price_per_piece) {
+    availableUnits.push({ value: "PIECE", label: `PIECE - KES ${Number(product.price_per_piece).toFixed(2)}/piece (${kgPerPiece} KG)` });
+  }
 
   const submit = async () => {
     setMsg("");
@@ -96,7 +119,7 @@ function AddToCartModal({ product, onClose, onAdded }) {
             )}
           </div>
 
-          {/* Show both pricing options */}
+          {/* Show all pricing options */}
           <div style={{ marginTop: 8 }}>
             <div className="muted">
               <strong>KG:</strong> KES {Number(product.price_per_kg).toFixed(2)} / KG
@@ -106,25 +129,31 @@ function AddToCartModal({ product, onClose, onAdded }) {
                 <strong>BAG:</strong> KES {Number(product.price_per_bag).toFixed(2)} / bag ({kgPerBag} KG)
               </div>
             )}
+            {product.allows_piece && product.price_per_piece && (
+              <div className="muted">
+                <strong>PIECE:</strong> KES {Number(product.price_per_piece).toFixed(2)} / piece ({kgPerPiece} KG)
+              </div>
+            )}
           </div>
         </div>
 
         <div style={{ marginTop: 12 }}>
-          {product.allows_bag ? (
+          {availableUnits.length > 1 ? (
             <select
               className="input"
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
             >
-              <option value="KG">
-                KG - KES {Number(product.price_per_kg).toFixed(2)}/KG
-              </option>
-              <option value="BAG">
-                BAG - KES {Number(product.price_per_bag).toFixed(2)}/bag ({kgPerBag} KG)
-              </option>
+              {availableUnits.map((u) => (
+                <option key={u.value} value={u.value}>
+                  {u.label}
+                </option>
+              ))}
             </select>
           ) : (
-            <div className="muted">Sold in KG only - KES {Number(product.price_per_kg).toFixed(2)}/KG</div>
+            <div className="muted">
+              Sold in {availableUnits[0]?.value || "KG"} only - KES {Number(selectedPrice).toFixed(2)}/{availableUnits[0]?.value || "KG"}
+            </div>
           )}
         </div>
 
@@ -137,7 +166,9 @@ function AddToCartModal({ product, onClose, onAdded }) {
             placeholder={
               unit === "KG" 
                 ? `Quantity in KG (max ${Number(product.stock_kg).toFixed(2)} KG)` 
-                : `Number of bags (${kgPerBag} KG each)`
+                : unit === "BAG"
+                ? `Number of bags (${kgPerBag} KG each)`
+                : `Number of pieces (${kgPerPiece} KG each)`
             }
             value={qty}
             onChange={(e) => setQty(e.target.value)}
@@ -267,6 +298,24 @@ export default function Products() {
       : localResults
     : products;
 
+  // Helper to get unit display text
+  const getUnitDisplayText = (product) => {
+    const units = [];
+    units.push("KG");
+    if (product.allows_bag) units.push("BAG");
+    if (product.allows_piece) units.push("PIECE");
+    
+    if (units.length === 1) return `Sold in ${units[0]} only`;
+    if (units.length === 2) return `Sold in ${units[0]} / ${units[1]}`;
+    return `Sold in ${units[0]} / ${units[1]} / ${units[2]}`;
+  };
+
+  const getWeightInfo = (product, unit) => {
+    if (unit === "BAG") return `${product.bag_weight_kg} KG per bag`;
+    if (unit === "PIECE") return `${product.piece_weight_kg} KG per piece`;
+    return null;
+  };
+
   return (
     <AppLayout title="Products" subtitle="Search products and add to cart">
       <AddToCartModal
@@ -351,9 +400,7 @@ export default function Products() {
                 </div>
 
                 <div className="muted" style={{ marginTop: 4 }}>
-                  {p.allows_bag
-                    ? `Sold in KG / BAG (${p.bag_weight_kg} KG per bag)`
-                    : "Sold in KG only"}
+                  {getUnitDisplayText(p)}
                 </div>
 
                 {/* Show KG price prominently */}
@@ -364,7 +411,14 @@ export default function Products() {
                 {/* Show bag price if available */}
                 {p.allows_bag && p.price_per_bag && (
                   <div className="muted" style={{ marginTop: 4 }}>
-                    KES {Number(p.price_per_bag).toFixed(2)} / bag
+                    KES {Number(p.price_per_bag).toFixed(2)} / bag ({p.bag_weight_kg} KG)
+                  </div>
+                )}
+
+                {/* Show piece price if available */}
+                {p.allows_piece && p.price_per_piece && (
+                  <div className="muted" style={{ marginTop: 4 }}>
+                    KES {Number(p.price_per_piece).toFixed(2)} / piece ({p.piece_weight_kg} KG)
                   </div>
                 )}
 
