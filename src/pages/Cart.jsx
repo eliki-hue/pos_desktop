@@ -110,7 +110,7 @@ function ReceiptModal({ receipt, onClose }) {
             )}
 
             {/* ITEMS - UPDATED TO SHOW UNIT */}
-            <table className="table" style={{ fontSize: 10 }}>
+            <table className="table" style={{ fontSize: 8 }}>
               <thead>
                 <tr>
                   <th>Item</th>
