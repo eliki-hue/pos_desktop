@@ -110,7 +110,7 @@ function ReceiptModal({ receipt, onClose }) {
             )}
 
             {/* ITEMS - UPDATED TO SHOW UNIT */}
-            <table className="table" style={{ fontSize: 13 }}>
+            <table className="table" style={{ fontSize: 10 }}>
               <thead>
                 <tr>
                   <th>Item</th>
@@ -176,7 +176,7 @@ function ReceiptModal({ receipt, onClose }) {
 
             {/* PAYMENTS */}
             <div>
-              <div style={{ fontWeight: 900 }}>Payments</div>
+              <div style={{ fontWeight: 500 }}>Payments</div>
 
               {cashPaid > 0 && (
                 <div className="muted">Cash: KES {cashPaid.toFixed(2)}</div>
@@ -200,7 +200,7 @@ function ReceiptModal({ receipt, onClose }) {
 
             {/* FOOTER */}
             <div style={{ textAlign: "center", marginTop: 10 }}>
-              <div style={{ fontWeight: 500 }}>
+              <div style={{ fontWeight: 300 }}>
                 THANK YOU FOR PURCHASING WITH US
               </div>
               {receipt.status === "PARTIAL" && (
