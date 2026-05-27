@@ -152,7 +152,7 @@ console.log(topProducts[0]);
               />
               <StatCard
                 label="POS Profit"
-                value={`KES ${Number(overview.pos_revenue).toFixed(2)}`}
+                value={`KES ${Number(overview.pos_profit).toFixed(2)}`}
               />
             </div>
             <div className="grid grid-4" style={{ marginTop: 20 }}>
