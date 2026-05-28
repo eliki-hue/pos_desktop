@@ -4,7 +4,7 @@ import { api } from "../api/client";
 
 /* =====================================================
    RECEIPT MODAL - OPTIMIZED FOR 80mm THERMAL PRINTER
-   WITH LARGER PRINT FONTS
+   WITH REDUCED LINE SPACING & BETTER TABLE HEADERS
 ===================================================== */
 function ReceiptModal({ receipt, onClose }) {
   if (!receipt) return null;
@@ -26,7 +26,7 @@ function ReceiptModal({ receipt, onClose }) {
 
   return (
     <>
-      {/* PRINT STYLES FOR 80mm THERMAL PRINTER - LARGER FONTS */}
+      {/* PRINT STYLES FOR 80mm THERMAL PRINTER */}
       <style>
         {`
           @media print {
@@ -49,41 +49,37 @@ function ReceiptModal({ receipt, onClose }) {
               top: 0;
               width: 80mm;
               font-family: 'Arial', 'Helvetica', 'Courier New', monospace;
-              font-size: 14pt !important;
-              line-height: 1.5 !important;
+              font-size: 12pt !important;
+              line-height: 1.2 !important;
             }
             
             .no-print {
               display: none !important;
             }
             
-            /* Thermal printer optimizations - LARGER */
+            /* Thermal printer optimizations */
             .print-area hr {
-              border-top: 2px solid #000;
-              margin: 8px 0;
+              border-top: 1px solid #000;
+              margin: 4px 0;
             }
             
             .print-area table {
               width: 100%;
-              font-size: 13pt !important;
+              font-size: 11pt !important;
             }
             
             .print-area th, .print-area td {
-              padding: 6px 0;
+              padding: 2px 0;
+            }
+            
+            .print-area th {
+              padding-bottom: 4px !important;
             }
             
             /* Signature lines for printing */
             .signature-line {
-              margin-top: 30px;
-              margin-bottom: 20px;
-            }
-            
-            .print-area div, .print-area span, .print-area p {
-              font-size: 14pt !important;
-            }
-            
-            .print-area strong, .print-area b {
-              font-weight: 900 !important;
+              margin-top: 20px;
+              margin-bottom: 10px;
             }
           }
         `}
@@ -111,68 +107,71 @@ function ReceiptModal({ receipt, onClose }) {
             flexDirection: "column",
             background: "#ffffff",
             fontFamily: "'Arial', 'Helvetica', 'Courier New', monospace",
-            fontSize: "16px",
+            fontSize: "13px",
+            lineHeight: "1.3",
           }}
         >
           {/* RECEIPT-SCROLLABLE CONTENT */}
-          <div style={{ overflowY: "auto", padding: "16px" }}>
+          <div style={{ overflowY: "auto", padding: "12px" }}>
             {/* HEADER */}
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontWeight: 900, fontSize: "22px", textTransform: "uppercase", marginBottom: 10 }}>
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <div style={{ fontWeight: 900, fontSize: "16px", textTransform: "uppercase", marginBottom: 4 }}>
                 Premium Farming Feeds
               </div>
-              <div style={{ fontSize: "15px", fontWeight: 500 }}>
+              <div style={{ fontSize: "11px", fontWeight: 500 }}>
                 Turitu, Ikinu & Githiga - Kiambu
               </div>
-              <div style={{ fontSize: "14px" }}>
+              <div style={{ fontSize: "10px" }}>
                 P.O Box 1257-00900, Kiambu
               </div>
-              <div style={{ fontSize: "14px", fontWeight: 500 }}>
+              <div style={{ fontSize: "10px", fontWeight: 500 }}>
                 Tel: 0741550549 / 0708488688 / 0711633900
               </div>
-              <div style={{ fontSize: "14px" }}>
+              <div style={{ fontSize: "10px" }}>
                 Paybill: 400200 | Acc: 4003901
               </div>
-              <div style={{ fontSize: "14px", marginTop: 10, fontWeight: 500 }}>
+              <div style={{ fontSize: "10px", marginTop: 6, fontWeight: 500 }}>
                 {new Date(receipt.created_at).toLocaleString()}
               </div>
-              <div style={{ fontSize: "16px", fontWeight: 800, marginTop: 6 }}>
+              <div style={{ fontSize: "12px", fontWeight: 800, marginTop: 4 }}>
                 Receipt: #{receipt.id}
               </div>
             </div>
 
-            <div style={{ fontSize: "14px", marginBottom: 10, fontWeight: 500 }}>
+            <div style={{ fontSize: "11px", marginBottom: 6, fontWeight: 500 }}>
               Cashier: {receipt.cashier_username}
               <br />
               Branch: {receipt.branch_name}
             </div>
 
             {/* Divider */}
-            <div style={{ borderTop: "2px solid #000", margin: "10px 0" }} />
+            <div style={{ borderTop: "1px solid #000", margin: "6px 0" }} />
 
             {/* CUSTOMER */}
             {showCustomer && (
               <>
-                <div style={{ fontWeight: 800, fontSize: "16px", marginTop: 10, marginBottom: 6 }}>CUSTOMER DETAILS</div>
-                <div style={{ fontSize: "14px" }}>
+                <div style={{ fontWeight: 800, fontSize: "12px", marginTop: 6, marginBottom: 4 }}>CUSTOMER DETAILS</div>
+                <div style={{ fontSize: "11px" }}>
                   <strong>Name:</strong> {receipt.customer_name}<br />
                   <strong>Phone:</strong> {receipt.customer_phone}<br />
                   <strong>ID Number:</strong> {receipt.customer_id_number}
                 </div>
-                <div style={{ borderTop: "2px solid #000", margin: "10px 0" }} />
+                <div style={{ borderTop: "1px solid #000", margin: "6px 0" }} />
               </>
             )}
 
-            {/* ITEMS HEADER */}
+            {/* ITEMS HEADER - IMPROVED SPACING */}
             <div style={{ 
               display: "flex", 
               justifyContent: "space-between", 
               fontWeight: 800, 
-              fontSize: "15px", 
-              marginTop: 10,
-              marginBottom: 6,
+              fontSize: "12px", 
+              marginTop: 8,
+              marginBottom: 4,
+              backgroundColor: "#f0f0f0",
+              padding: "6px 0",
               borderBottom: "2px solid #000",
-              paddingBottom: 6
+              borderTop: "1px solid #000"
             }}>
               <div style={{ flex: 3 }}>ITEM</div>
               <div style={{ flex: 1, textAlign: "center" }}>QTY</div>
@@ -182,9 +181,9 @@ function ReceiptModal({ receipt, onClose }) {
 
             {/* ITEMS LIST */}
             {(receipt.items || []).map((i, idx) => (
-              <div key={idx} style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: "15px", fontWeight: 600 }}>{i.product_name}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginTop: 3 }}>
+              <div key={idx} style={{ marginBottom: 6, borderBottom: "1px dotted #ccc", paddingBottom: 4 }}>
+                <div style={{ fontSize: "12px", fontWeight: 600 }}>{i.product_name}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: 2 }}>
                   <div style={{ flex: 3, fontWeight: 500 }}>
                     {Number(i.quantity).toFixed(2)} {i.unit} @ KES {Number(i.unit_price).toFixed(2)}
                   </div>
@@ -195,19 +194,19 @@ function ReceiptModal({ receipt, onClose }) {
               </div>
             ))}
 
-            <div style={{ borderTop: "2px solid #000", margin: "10px 0" }} />
+            <div style={{ borderTop: "1px solid #000", margin: "6px 0" }} />
 
             {/* TOTALS */}
-            <div style={{ marginTop: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: 6 }}>
+            <div style={{ marginTop: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: 3 }}>
                 <span>Subtotal:</span>
                 <span><strong>KES {Number(receipt.subtotal).toFixed(2)}</strong></span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: 3 }}>
                 <span>Discount:</span>
                 <span><strong>KES {Number(receipt.discount).toFixed(2)}</strong></span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: 3 }}>
                 <span>Tax:</span>
                 <span><strong>KES {Number(receipt.tax).toFixed(2)}</strong></span>
               </div>
@@ -215,98 +214,98 @@ function ReceiptModal({ receipt, onClose }) {
                 display: "flex", 
                 justifyContent: "space-between", 
                 fontWeight: 800, 
-                fontSize: "18px", 
-                marginTop: 10,
-                paddingTop: 6,
-                borderTop: "3px solid #000"
+                fontSize: "14px", 
+                marginTop: 6,
+                paddingTop: 4,
+                borderTop: "2px solid #000"
               }}>
                 <span>TOTAL:</span>
                 <span>KES {Number(receipt.total).toFixed(2)}</span>
               </div>
             </div>
 
-            <div style={{ borderTop: "2px solid #000", margin: "10px 0" }} />
+            <div style={{ borderTop: "1px solid #000", margin: "6px 0" }} />
 
             {/* PAYMENTS */}
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontWeight: 800, fontSize: "16px", marginBottom: 8 }}>PAYMENTS</div>
+            <div style={{ marginTop: 4 }}>
+              <div style={{ fontWeight: 800, fontSize: "12px", marginBottom: 4 }}>PAYMENTS</div>
               {cashPaid > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: 3 }}>
                   <span>Cash:</span>
                   <span><strong>KES {cashPaid.toFixed(2)}</strong></span>
                 </div>
               )}
               {mpesaPaid > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: 3 }}>
                   <span>MPESA:</span>
                   <span><strong>KES {mpesaPaid.toFixed(2)}</strong></span>
                 </div>
               )}
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "15px", marginTop: 10, fontWeight: 700 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginTop: 6, fontWeight: 700 }}>
                 <span>Total Paid:</span>
                 <span>KES {totalPaid.toFixed(2)}</span>
               </div>
               {receipt.status !== "PAID" && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", marginTop: 10, fontWeight: 800, color: "#b00020" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginTop: 6, fontWeight: 800, color: "#b00020" }}>
                   <span>Balance Due:</span>
                   <span>KES {(Number(receipt.total) - totalPaid).toFixed(2)}</span>
                 </div>
               )}
             </div>
 
-            <div style={{ borderTop: "2px solid #000", margin: "10px 0" }} />
+            <div style={{ borderTop: "1px solid #000", margin: "6px 0" }} />
 
             {/* SIGNATURES FOR PARTIAL/CREDIT SALES */}
             {showCustomer && (
-              <div className="signature-line" style={{ marginTop: 15 }}>
-                <div style={{ fontWeight: 800, fontSize: "16px", textAlign: "center", marginBottom: 20 }}>
+              <div className="signature-line" style={{ marginTop: 10 }}>
+                <div style={{ fontWeight: 800, fontSize: "13px", textAlign: "center", marginBottom: 12 }}>
                   AGREEMENT
                 </div>
-                <div style={{ fontSize: "13px", marginBottom: 25, textAlign: "center" }}>
+                <div style={{ fontSize: "10px", marginBottom: 15, textAlign: "center" }}>
                   I hereby acknowledge receipt of goods and agree<br />
                   to pay the balance as stated above.
                 </div>
                 
                 {/* Customer Signature */}
-                <div style={{ marginBottom: 30 }}>
-                  <div style={{ fontSize: "14px", marginBottom: 8 }}>Customer Signature: _______________________</div>
-                  <div style={{ fontSize: "14px", marginTop: 5 }}>Date: _________________</div>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: "11px", marginBottom: 4 }}>Customer Signature: _______________________</div>
+                  <div style={{ fontSize: "11px", marginTop: 2 }}>Date: _________________</div>
                 </div>
                 
                 {/* Manager Signature */}
-                <div style={{ marginBottom: 30 }}>
-                  <div style={{ fontSize: "14px", marginBottom: 8 }}>Manager Signature: _______________________</div>
-                  <div style={{ fontSize: "14px", marginTop: 5 }}>Date: _________________</div>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: "11px", marginBottom: 4 }}>Manager Signature: _______________________</div>
+                  <div style={{ fontSize: "11px", marginTop: 2 }}>Date: _________________</div>
                 </div>
                 
-                <div style={{ fontSize: "11px", textAlign: "center", marginTop: 15, color: "#666" }}>
+                <div style={{ fontSize: "9px", textAlign: "center", marginTop: 10, color: "#666" }}>
                   This is a legally binding agreement
                 </div>
-                <div style={{ borderTop: "2px solid #000", margin: "15px 0" }} />
+                <div style={{ borderTop: "1px solid #000", margin: "10px 0" }} />
               </div>
             )}
 
             {/* FOOTER */}
-            <div style={{ textAlign: "center", marginTop: 15 }}>
-              <div style={{ fontSize: "16px", fontWeight: 800, marginBottom: 10 }}>
+            <div style={{ textAlign: "center", marginTop: 10 }}>
+              <div style={{ fontSize: "12px", fontWeight: 800, marginBottom: 6 }}>
                 THANK YOU FOR SHOPPING WITH US
               </div>
               {receipt.status === "PARTIAL" && (
-                <div style={{ fontSize: "13px", color: "#666", marginTop: 10 }}>
+                <div style={{ fontSize: "10px", color: "#666", marginTop: 6 }}>
                   Goods issued on partial payment.<br />
                   <strong>Please settle balance within 7 days.</strong>
                 </div>
               )}
               {receipt.status === "CREDIT" && (
-                <div style={{ fontSize: "13px", color: "#666", marginTop: 10 }}>
+                <div style={{ fontSize: "10px", color: "#666", marginTop: 6 }}>
                   Goods issued on credit.<br />
                   <strong>Payment due within 30 days.</strong>
                 </div>
               )}
-              <div style={{ fontSize: "12px", marginTop: 15 }}>
+              <div style={{ fontSize: "9px", marginTop: 8 }}>
                 Returns accepted within 7 days with valid receipt
               </div>
-              <div style={{ fontSize: "14px", marginTop: 15, fontWeight: 500 }}>
+              <div style={{ fontSize: "11px", marginTop: 8, fontWeight: 500 }}>
                 Thank you for your business!
               </div>
             </div>
@@ -318,14 +317,14 @@ function ReceiptModal({ receipt, onClose }) {
             style={{
               display: "flex",
               gap: 12,
-              padding: "16px",
+              padding: "12px",
               borderTop: "1px solid #e2e8f0",
               background: "#ffffff",
             }}
           >
             <button
               className="btn btn-primary"
-              style={{ flex: 1, fontSize: "14px", padding: "12px" }}
+              style={{ flex: 1, fontSize: "14px", padding: "10px" }}
               onClick={() => window.print()}
             >
               🖨️ Print Receipt
@@ -333,7 +332,7 @@ function ReceiptModal({ receipt, onClose }) {
 
             <button
               className="btn btn-danger"
-              style={{ flex: 1, fontSize: "14px", padding: "12px" }}
+              style={{ flex: 1, fontSize: "14px", padding: "10px" }}
               onClick={onClose}
             >
               Close
@@ -464,9 +463,9 @@ export default function Receipts() {
                       <td>KES {totalPaid.toFixed(2)}</td>
                       <td style={{ color: r.balance_due > 0 ? "#b00020" : "#137333", fontWeight: 600 }}>
                         KES {Number(r.balance_due).toFixed(2)}
-                      </td>
-                      <td>{r.cashier_username}</td>
-                      <td>
+                       </td>
+                       <td>{r.cashier_username}</td>
+                       <td>
                         <button
                           className="btn btn-primary"
                           onClick={() => setSelected(r)}
@@ -474,8 +473,8 @@ export default function Receipts() {
                         >
                           View / Print
                         </button>
-                      </td>
-                    </tr>
+                       </td>
+                     </tr>
                   );
                 })}
               </tbody>
