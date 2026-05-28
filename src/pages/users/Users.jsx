@@ -70,7 +70,7 @@ export default function Users() {
             setOpen(true);
           }}
           onDeactivate={async (id) => {
-            await api.post(`/api/auth/admin/users/${id}/`, {
+            await api.patch(`/api/auth/admin/users/${id}/`, {
               is_active: false,
             });
             loadUsers();
