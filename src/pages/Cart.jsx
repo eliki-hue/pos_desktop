@@ -288,7 +288,7 @@ function ReceiptModal({ receipt, onClose }) {
               {/* <div style={{ fontSize: 10, marginTop: 6 }}>
                 Returns accepted within 7 days with valid receipt
               </div> */}
-              <div style={{ fontSize: 7, marginTop: 6 }}>
+              <div style={{ fontSize: 9, marginTop: 6 }}>
                 Thank you for buying with us!
               </div>
             </div>

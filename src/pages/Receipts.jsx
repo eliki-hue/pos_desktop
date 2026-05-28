@@ -166,7 +166,7 @@ function ReceiptModal({ receipt, onClose }) {
 
             {/* ITEMS LIST */}
             {(receipt.items || []).map((i, idx) => (
-              <div key={idx} style={{ marginBottom: 6 }}>
+              <div key={idx} style={{ marginBottom: 6, fontSize: 11 }}>
                 <div style={{ fontSize: 9, fontWeight: 500 }}>{i.product_name}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
                   <div style={{ flex: 3 }}>
@@ -238,23 +238,23 @@ function ReceiptModal({ receipt, onClose }) {
                 <div style={{ fontWeight: 700, fontSize: 10, textAlign: "center", marginBottom: 12 }}>
                   AGREEMENT
                 </div>
-                <div style={{ fontSize: 8, marginBottom: 16 }}>
+                <div style={{ fontSize: 11, marginBottom: 16 }}>
                   I hereby acknowledge receipt of goods and agree to pay the balance as stated above.
                 </div>
                 
                 {/* Customer Signature */}
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 8, marginBottom: 4 }}>Customer Signature: _______________________</div>
-                  <div style={{ fontSize: 8, marginTop: 2 }}>Date: _________________</div>
+                  <div style={{ fontSize: 11, marginBottom: 4 }}>Customer Signature: _______________________</div>
+                  <div style={{ fontSize: 11, marginTop: 2 }}>Date: _________________</div>
                 </div>
                 
                 {/* Manager Signature */}
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 8, marginBottom: 4 }}>Manager Signature: _______________________</div>
-                  <div style={{ fontSize: 8, marginTop: 2 }}>Date: _________________</div>
+                  <div style={{ fontSize: 11, marginBottom: 4 }}>Manager Signature: _______________________</div>
+                  <div style={{ fontSize: 11, marginTop: 2 }}>Date: _________________</div>
                 </div>
                 
-                <div style={{ fontSize: 7, textAlign: "center", marginTop: 8, color: "#666" }}>
+                <div style={{ fontSize: 11, textAlign: "center", marginTop: 8, color: "#666" }}>
                   This is a legally binding agreement
                 </div>
                 <div style={{ borderTop: "1px dashed #000", margin: "8px 0" }} />
@@ -267,21 +267,21 @@ function ReceiptModal({ receipt, onClose }) {
                 THANK YOU FOR SHOPPING WITH US
               </div>
               {receipt.status === "PARTIAL" && (
-                <div style={{ fontSize: 8, color: "#666", marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
                   Goods issued on partial payment.<br />
                   Please settle balance within 30 days.
                 </div>
               )}
               {receipt.status === "CREDIT" && (
-                <div style={{ fontSize: 8, color: "#666", marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
                   Goods issued on credit.<br />
                   Payment due within 30 days.
                 </div>
               )}
-              {/* <div style={{ fontSize: 8, marginTop: 6 }}>
+              {/* <div style={{ fontSize: 11, marginTop: 6 }}>
                 Returns accepted within 7 days with valid receipt
               </div> */}
-              <div style={{ fontSize: 7, marginTop: 6 }}>
+              <div style={{ fontSize: 11, marginTop: 6 }}>
                 Thank you for your business!
               </div>
             </div>
