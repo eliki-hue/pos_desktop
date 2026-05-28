@@ -10,26 +10,55 @@ export default function UserFormModal({ user, branches, onClose, onSaved }) {
     role: user?.role || "cashier",
     branch: user?.branch_id || "",
     password: "",
+    is_active: user?.is_active ?? true,
   });
 
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const save = async () => {
     setError("");
+    setLoading(true);
 
     if (form.role !== "admin" && !form.branch) {
       setError("Branch is required for this role");
+      setLoading(false);
       return;
     }
 
-    if (user) {
-      await api.patch(`/api/auth/admin/users/${user.id}/`, form);
-    } else {
-      await api.post("/api/auth/admin/users/create/", form);
-    }
+    try {
+      if (user) {
+        // Update existing user
+        await api.patch(`/api/auth/admin/users/${user.id}/`, {
+          email: form.email,
+          role: form.role,
+          branch: form.branch,
+          is_active: form.is_active,
+        });
+      } else {
+        // Create new user
+        if (!form.password) {
+          setError("Password is required for new user");
+          setLoading(false);
+          return;
+        }
+        await api.post("/api/auth/admin/users/create/", {
+          username: form.username,
+          email: form.email,
+          role: form.role,
+          branch: form.branch,
+          password: form.password,
+          is_active: true,
+        });
+      }
 
-    onClose();
-    onSaved();
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.detail || err.response?.data?.error || "Failed to save user");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,7 +68,7 @@ export default function UserFormModal({ user, branches, onClose, onSaved }) {
       <div className="user-modal">
         <h3>{user ? "Edit User" : "Add User"}</h3>
 
-        {error && <div style={{ color: "red" }}>{error}</div>}
+        {error && <div style={{ color: "red", marginBottom: 12, padding: 8, background: "#fdecea", borderRadius: 6 }}>{error}</div>}
 
         <input
           className="input"
@@ -81,7 +110,7 @@ export default function UserFormModal({ user, branches, onClose, onSaved }) {
         >
           {ROLES.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {r.charAt(0).toUpperCase() + r.slice(1)}
             </option>
           ))}
         </select>
@@ -102,12 +131,55 @@ export default function UserFormModal({ user, branches, onClose, onSaved }) {
           ))}
         </select>
 
+        {/* ACTIVE TOGGLE - Only show for editing existing users */}
+        {user && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px",
+              background: form.is_active ? "#e6f4ea" : "#fdecea",
+              borderRadius: "8px",
+              marginTop: "12px",
+              marginBottom: "12px",
+              border: `1px solid ${form.is_active ? "#b7eb8f" : "#ffccc7"}`,
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                {form.is_active ? "✅ Active" : "❌ Inactive"}
+              </div>
+              <div style={{ fontSize: 12, color: "#666" }}>
+                {form.is_active 
+                  ? "User can log in and access the system" 
+                  : "User cannot log in to the system"}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, is_active: !form.is_active })}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "none",
+                background: form.is_active ? "#dc2626" : "#059669",
+                color: "#fff",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              {form.is_active ? "Deactivate" : "Activate"}
+            </button>
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          <button className="btn" onClick={onClose}>
+          <button className="btn" onClick={onClose} disabled={loading}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={save}>
-            Save
+          <button className="btn btn-primary" onClick={save} disabled={loading}>
+            {loading ? "Saving..." : (user ? "Update User" : "Create User")}
           </button>
         </div>
       </div>
