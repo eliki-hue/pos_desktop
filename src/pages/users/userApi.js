@@ -5,4 +5,5 @@ export const userApi = {
   create: (data) => api.post("/api/users/", data),
   update: (id, data) => api.patch(`/api/users/${id}/`, data),
   deactivate: (id) => api.patch(`/api/users/${id}/deactivate/`),
+  resetPassword: (id, password) => api.post(`/api/admin/users/${id}/reset-password/`, { password }),
 };
