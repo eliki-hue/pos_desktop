@@ -1,5 +1,6 @@
 import React from "react";
 import { createContext, useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/axios";
 
 const AuthContext = createContext(null);
@@ -8,13 +9,21 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const navigate = useNavigate();
 
   const fetchMe = async () => {
     try {
       const res = await api.get("/api/auth/me/");
       setUser(res.data);
-      // Check if user must change password
-      setMustChangePassword(res.data.must_change_password || false);
+      const needsPasswordChange = res.data.must_change_password || false;
+      setMustChangePassword(needsPasswordChange);
+      
+      // Redirect to account page if password change is required
+      if (needsPasswordChange && window.location.pathname !== "/account") {
+        navigate("/account", { replace: true });
+      }
+      
+      return res.data;
     } catch {
       setUser(null);
       setMustChangePassword(false);
@@ -61,11 +70,12 @@ export function AuthProvider({ children }) {
     await api.post("/api/auth/pos/logout/");
     setUser(null);
     setMustChangePassword(false);
+    navigate("/login");
   };
 
-  const updateUser = (updatedUser) => {
-    setUser(updatedUser);
-    setMustChangePassword(updatedUser.must_change_password || false);
+  // Re-fetch user data (useful after password change)
+  const refreshUser = async () => {
+    await fetchMe();
   };
 
   return (
@@ -77,8 +87,7 @@ export function AuthProvider({ children }) {
         mustChangePassword,
         login,
         logout,
-        updateUser,
-        fetchMe,
+        refreshUser,
       }}
     >
       {children}
