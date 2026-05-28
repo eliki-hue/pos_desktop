@@ -49,7 +49,7 @@ function ReceiptModal({ receipt, onClose }) {
               top: 0;
               width: 80mm;
               font-family: 'Arial', 'Helvetica', 'Courier New', monospace;
-              font-size: 12pt !important;
+              font-size: 13pt !important;
               line-height: 1.2 !important;
             }
             
@@ -65,7 +65,7 @@ function ReceiptModal({ receipt, onClose }) {
             
             .print-area table {
               width: 100%;
-              font-size: 11pt !important;
+              font-size: 13pt !important;
             }
             
             .print-area th, .print-area td {
