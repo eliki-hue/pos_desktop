@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { api } from '../../api/axios';
 
 const ResetPasswordModal = ({ isOpen, onClose, userName, userId, onSuccess }) => {
   const [password, setPassword] = useState('');
@@ -27,27 +28,35 @@ const ResetPasswordModal = ({ isOpen, onClose, userName, userId, onSuccess }) =>
 
   const handleSubmit = async () => {
     if (!isFormValid) return;
-    
+
     setLoading(true);
     setError('');
     setSuccess('');
-    
+
     try {
-      const response =  await api.post(
-      `/auth/admin/users/${userId}/reset-password/`,
-      { password }
-    );
-      setSuccess('Password reset successfully!');
-      setTimeout(() => {
+        await api.post(
+        `/api/auth/admin/users/${userId}/reset-password/`,
+        { password }
+        );
+
+        setSuccess('Password reset successfully!');
+
+        setTimeout(() => {
         onSuccess?.();
         onClose();
-      }, 1500);
+        }, 1500);
+
     } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.error || 'Failed to reset password');
+        setError(
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        'Failed to reset password'
+        );
+
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+    };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape' && !loading) {
