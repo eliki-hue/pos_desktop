@@ -33,7 +33,10 @@ const ResetPasswordModal = ({ isOpen, onClose, userName, userId, onSuccess }) =>
     setSuccess('');
     
     try {
-      const response = await userApi.resetPassword(userId, password);
+      const response =  await api.post(
+      `/auth/admin/users/${userId}/reset-password/`,
+      { password }
+    );
       setSuccess('Password reset successfully!');
       setTimeout(() => {
         onSuccess?.();
