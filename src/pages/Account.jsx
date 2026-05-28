@@ -14,7 +14,14 @@ export default function Account() {
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Show password change form automatically if must_change_password is true
+  // If user is on account page but doesn't need to change password, redirect to home
+  useEffect(() => {
+    if (user && !mustChangePassword) {
+      navigate("/");
+    }
+  }, [user, mustChangePassword, navigate]);
+
+  // Auto-open password form if change is required
   useEffect(() => {
     if (mustChangePassword) {
       setEditingPassword(true);
@@ -41,7 +48,7 @@ export default function Account() {
         new_password: newPassword,
       });
 
-      // Refresh user data - backend already set must_change_password to false
+      // Refresh user data (backend already set must_change_password to false)
       await refreshUser();
 
       setEditingPassword(false);
@@ -212,7 +219,6 @@ export default function Account() {
         </section>
       </div>
 
-      {/* STYLES */}
       <style>{`
         .account-container {
           max-width: 860px;

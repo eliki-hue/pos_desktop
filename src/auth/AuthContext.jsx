@@ -1,6 +1,5 @@
 import React from "react";
 import { createContext, useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../api/axios";
 
 const AuthContext = createContext(null);
@@ -9,21 +8,12 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const navigate = useNavigate();
 
   const fetchMe = async () => {
     try {
       const res = await api.get("/api/auth/me/");
       setUser(res.data);
-      const needsPasswordChange = res.data.must_change_password || false;
-      setMustChangePassword(needsPasswordChange);
-      
-      // Redirect to account page if password change is required
-      if (needsPasswordChange && window.location.pathname !== "/account") {
-        navigate("/account", { replace: true });
-      }
-      
-      return res.data;
+      setMustChangePassword(res.data.must_change_password || false);
     } catch {
       setUser(null);
       setMustChangePassword(false);
@@ -43,14 +33,13 @@ export function AuthProvider({ children }) {
       } finally {
         await fetchMe();
 
-        // start refresh loop after initialization
         refreshTimer = setInterval(async () => {
           try {
             await api.post("/api/auth/pos/refresh/");
           } catch (e) {
             console.error("Token refresh failed");
           }
-        }, 270000); // 4.5 minutes
+        }, 270000);
       }
     };
 
@@ -70,10 +59,8 @@ export function AuthProvider({ children }) {
     await api.post("/api/auth/pos/logout/");
     setUser(null);
     setMustChangePassword(false);
-    navigate("/login");
   };
 
-  // Re-fetch user data (useful after password change)
   const refreshUser = async () => {
     await fetchMe();
   };
