@@ -119,27 +119,27 @@ function ReceiptModal({ receipt, onClose }) {
               <div style={{ fontWeight: 900, fontSize: 14, textTransform: "uppercase" }}>
                 Premium Farming Feeds
               </div>
-              <div style={{ fontSize: 9 }}>
+              <div style={{ fontSize: 11 }}>
                 Turitu, Ikinu & Githiga - Kiambu
               </div>
-              <div style={{ fontSize: 9 }}>
+              <div style={{ fontSize: 11 }}>
                 P.O Box 1257-00900, Kiambu
               </div>
-              <div style={{ fontSize: 9 }}>
+              <div style={{ fontSize: 11 }}>
                 Tel: 0741550549 / 0708488688 / 0711633900
               </div>
-              <div style={{ fontSize: 9 }}>
+              <div style={{ fontSize: 11 }}>
                 Paybill: 400200 | Acc: 4003901
               </div>
-              <div style={{ fontSize: 9, marginTop: 4 }}>
+              <div style={{ fontSize: 11, marginTop: 4 }}>
                 {new Date(receipt.created_at).toLocaleString()}
               </div>
-              <div style={{ fontSize: 9 }}>
+              <div style={{ fontSize: 11 }}>
                 Receipt: #{receipt.id}
               </div>
             </div>
 
-            <div style={{ fontSize: 9, marginBottom: 8 }}>
+            <div style={{ fontSize: 11, marginBottom: 8 }}>
               Cashier: {receipt.cashier_username}
               <br />
               Branch: {receipt.branch_name}
@@ -152,7 +152,7 @@ function ReceiptModal({ receipt, onClose }) {
             {showCustomer && (
               <>
                 <div style={{ fontWeight: 700, fontSize: 10, marginTop: 4 }}>CUSTOMER DETAILS</div>
-                <div style={{ fontSize: 9 }}>
+                <div style={{ fontSize: 11 }}>
                   Name: {receipt.customer_name}<br />
                   Phone: {receipt.customer_phone}<br />
                   ID Number: {receipt.customer_id_number}
@@ -162,7 +162,7 @@ function ReceiptModal({ receipt, onClose }) {
             )}
 
             {/* ITEMS HEADER */}
-            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 9, marginTop: 4 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 11, marginTop: 4 }}>
               <div style={{ flex: 3 }}>ITEM</div>
               <div style={{ flex: 1, textAlign: "right" }}>QTY</div>
               <div style={{ flex: 1, textAlign: "right" }}>PRICE</div>
@@ -174,8 +174,8 @@ function ReceiptModal({ receipt, onClose }) {
             {/* ITEMS LIST */}
             {(receipt.items || []).map((i, idx) => (
               <div key={idx} style={{ marginBottom: 6 }}>
-                <div style={{ fontSize: 9, fontWeight: 500 }}>{i.product_name}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
+                <div style={{ fontSize: 11, fontWeight: 500 }}>{i.product_name}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                   <div style={{ flex: 3 }}>
                     {Number(i.quantity).toFixed(2)} {i.unit} @ KES {Number(i.unit_price).toFixed(2)}
                   </div>
@@ -189,16 +189,16 @@ function ReceiptModal({ receipt, onClose }) {
             <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />
 
             {/* TOTALS */}
-            <div style={{ marginTop: 4 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
+            <div style={{ marginTop: 4,fontSize: 11 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                 <span>Subtotal:</span>
                 <span>KES {Number(receipt.subtotal).toFixed(2)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                 <span>Discount:</span>
                 <span>KES {Number(receipt.discount).toFixed(2)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                 <span>Tax:</span>
                 <span>KES {Number(receipt.tax).toFixed(2)}</span>
               </div>
@@ -214,23 +214,23 @@ function ReceiptModal({ receipt, onClose }) {
             <div style={{ marginTop: 4 }}>
               <div style={{ fontWeight: 700, fontSize: 10 }}>PAYMENTS</div>
               {cashPaid > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                   <span>Cash:</span>
                   <span>KES {cashPaid.toFixed(2)}</span>
                 </div>
               )}
               {mpesaPaid > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                   <span>MPESA:</span>
                   <span>KES {mpesaPaid.toFixed(2)}</span>
                 </div>
               )}
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, marginTop: 2 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginTop: 2 }}>
                 <span>Total Paid:</span>
                 <span>KES {totalPaid.toFixed(2)}</span>
               </div>
               {receipt.status !== "PAID" && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, fontWeight: 700, marginTop: 2 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, marginTop: 2 }}>
                   <span>Balance Due:</span>
                   <span>KES {(Number(receipt.total) - totalPaid).toFixed(2)}</span>
                 </div>
@@ -245,20 +245,20 @@ function ReceiptModal({ receipt, onClose }) {
                 <div style={{ fontWeight: 700, fontSize: 10, textAlign: "center", marginBottom: 12 }}>
                   AGREEMENT
                 </div>
-                <div style={{ fontSize: 8, marginBottom: 16 }}>
+                <div style={{ fontSize: 10, marginBottom: 16 }}>
                   I hereby acknowledge receipt of goods and agree to pay the balance as stated above.
                 </div>
                 
                 {/* Customer Signature */}
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 8, marginBottom: 4 }}>Customer Signature: _______________________</div>
-                  <div style={{ fontSize: 8, marginTop: 2 }}>Date: _________________</div>
+                  <div style={{ fontSize: 10, marginBottom: 4 }}>Customer Signature: _______________________</div>
+                  <div style={{ fontSize: 10, marginTop: 2 }}>Date: _________________</div>
                 </div>
                 
                 {/* Manager Signature */}
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 8, marginBottom: 4 }}>Manager Signature: _______________________</div>
-                  <div style={{ fontSize: 8, marginTop: 2 }}>Date: _________________</div>
+                  <div style={{ fontSize: 10, marginBottom: 4 }}>Manager Signature: _______________________</div>
+                  <div style={{ fontSize: 10, marginTop: 2 }}>Date: _________________</div>
                 </div>
                 
                 <div style={{ fontSize: 7, textAlign: "center", marginTop: 8, color: "#666" }}>
@@ -270,26 +270,26 @@ function ReceiptModal({ receipt, onClose }) {
 
             {/* FOOTER */}
             <div style={{ textAlign: "center", marginTop: 8 }}>
-              <div style={{ fontSize: 9, fontWeight: 700 }}>
+              <div style={{ fontSize: 11, fontWeight: 700 }}>
                 THANK YOU FOR SHOPPING WITH US
               </div>
               {receipt.status === "PARTIAL" && (
-                <div style={{ fontSize: 8, color: "#666", marginTop: 4 }}>
+                <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>
                   Goods issued on partial payment.<br />
                   Please settle balance within 30 days.
                 </div>
               )}
               {receipt.status === "CREDIT" && (
-                <div style={{ fontSize: 8, color: "#666", marginTop: 4 }}>
+                <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>
                   Goods issued on credit.<br />
                   Payment due within 30 days.
                 </div>
               )}
-              {/* <div style={{ fontSize: 8, marginTop: 6 }}>
+              {/* <div style={{ fontSize: 10, marginTop: 6 }}>
                 Returns accepted within 7 days with valid receipt
               </div> */}
               <div style={{ fontSize: 7, marginTop: 6 }}>
-                Thank you for your business!
+                Thank you for buying with us!
               </div>
             </div>
           </div>
