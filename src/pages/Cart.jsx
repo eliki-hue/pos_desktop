@@ -322,7 +322,7 @@ function ReceiptModal({ receipt, onClose }) {
 }
 
 /* =====================================================
-   CHECKOUT MODAL WITH CHANGE CALCULATOR
+   CHECKOUT MODAL WITH CHANGE CALCULATOR - FIXED
 ===================================================== */
 function CheckoutModal({
   open,
@@ -341,10 +341,9 @@ function CheckoutModal({
   checkingOut,
   msg,
 }) {
+  // ✅ All hooks called FIRST, before any conditional returns
   const [amountGiven, setAmountGiven] = useState("");
   const [calculatedChange, setCalculatedChange] = useState(0);
-
-  if (!open) return null;
 
   // Get denomination breakdown for change
   const getDenominations = (amount) => {
@@ -428,6 +427,9 @@ function CheckoutModal({
 
     return false;
   }, [paymentMode, totalPaid, subtotal, customer]);
+
+  // ✅ Conditional return AFTER all hooks
+  if (!open) return null;
 
   return (
     <div
@@ -856,17 +858,6 @@ export default function Cart() {
     }
   };
 
-  // Helper for unit badge styling
-  const getUnitBadgeStyle = (unit) => {
-    if (unit === "BAG") {
-      return { background: "#e6f7ff", padding: "4px 8px", borderRadius: "6px", fontSize: 12, fontWeight: 500 };
-    }
-    if (unit === "PIECE") {
-      return { background: "#f6ffed", padding: "4px 8px", borderRadius: "6px", fontSize: 12, fontWeight: 500 };
-    }
-    return { background: "#f5f5f5", padding: "4px 8px", borderRadius: "6px", fontSize: 12, fontWeight: 500 };
-  };
-
   return (
     <AppLayout title="Cart" subtitle="Review items and checkout">
       <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />
@@ -936,7 +927,13 @@ export default function Cart() {
                         />
                       </td>
                       <td>
-                        <span style={getUnitBadgeStyle(i.unit)}>
+                        <span style={{ 
+                          background: i.unit === "BAG" ? "#e6f7ff" : i.unit === "PIECE" ? "#f6ffed" : "#f5f5f5",
+                          padding: "4px 8px",
+                          borderRadius: "6px",
+                          fontSize: 12,
+                          fontWeight: 500
+                        }}>
                           {i.unit}
                         </span>
                       </td>
