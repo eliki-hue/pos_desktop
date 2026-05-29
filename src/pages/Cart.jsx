@@ -285,12 +285,6 @@ function ReceiptModal({ receipt, onClose }) {
                   Payment due within 30 days.
                 </div>
               )}
-              {/* <div style={{ fontSize: 10, marginTop: 6 }}>
-                Returns accepted within 7 days with valid receipt
-              </div> */}
-              {/* <div style={{ fontSize: 11, marginTop: 6 }}>
-                Thank you for buying with us!
-              </div> */}
             </div>
           </div>
 
@@ -328,7 +322,7 @@ function ReceiptModal({ receipt, onClose }) {
 }
 
 /* =====================================================
-   CHECKOUT MODAL (UPDATED - NO PRICE CALCULATIONS)
+   CHECKOUT MODAL WITH CHANGE CALCULATOR
 ===================================================== */
 function CheckoutModal({
   open,
@@ -347,7 +341,70 @@ function CheckoutModal({
   checkingOut,
   msg,
 }) {
+  const [amountGiven, setAmountGiven] = useState("");
+  const [calculatedChange, setCalculatedChange] = useState(0);
+
   if (!open) return null;
+
+  // Get denomination breakdown for change
+  const getDenominations = (amount) => {
+    const denominations = [
+      { value: 1000, name: "1000 KES" },
+      { value: 500, name: "500 KES" },
+      { value: 200, name: "200 KES" },
+      { value: 100, name: "100 KES" },
+      { value: 50, name: "50 KES" },
+      { value: 20, name: "20 KES" },
+      { value: 10, name: "10 KES" },
+      { value: 5, name: "5 KES" },
+      { value: 1, name: "1 KES" },
+    ];
+    
+    let remaining = amount;
+    const breakdown = [];
+    
+    for (const denom of denominations) {
+      if (remaining >= denom.value) {
+        const count = Math.floor(remaining / denom.value);
+        breakdown.push({ ...denom, count });
+        remaining -= count * denom.value;
+        remaining = Math.round(remaining * 100) / 100;
+      }
+    }
+    
+    return breakdown;
+  };
+
+  // Calculate change based on amount given
+  const handleAmountGivenChange = (value) => {
+    const given = parseFloat(value);
+    setAmountGiven(value);
+    
+    if (!isNaN(given) && given > 0) {
+      const change = given - subtotal;
+      setCalculatedChange(change > 0 ? change : 0);
+    } else {
+      setCalculatedChange(0);
+    }
+  };
+
+  // Apply the amount given to payment
+  const applyAmountToPayment = () => {
+    const given = parseFloat(amountGiven);
+    if (!isNaN(given) && given > 0) {
+      if (paymentMode === "FULL") {
+        setPayments([{ method: "CASH", amount: given.toFixed(2) }]);
+      } else if (paymentMode === "PARTIAL") {
+        // For partial, if amount is less than total, use as payment
+        if (given <= subtotal) {
+          setPayments([{ method: "CASH", amount: given.toFixed(2) }]);
+        }
+      }
+    }
+  };
+
+  // Quick amount buttons
+  const quickAmounts = [500, 1000, 2000, 5000];
 
   // 🔒 validation (used to disable Confirm)
   const isValid = useMemo(() => {
@@ -395,7 +452,7 @@ function CheckoutModal({
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <div style={{ fontWeight: 900 }}>Checkout</div>
+          <div style={{ fontWeight: 900, fontSize: 18 }}>Checkout</div>
           <button className="btn btn-danger" onClick={onClose}>
             Close
           </button>
@@ -403,14 +460,18 @@ function CheckoutModal({
 
         {/* PAYMENT MODE */}
         <div style={{ marginTop: 16 }}>
-          <div style={{ fontWeight: 900 }}>Payment Mode</div>
+          <div style={{ fontWeight: 900, marginBottom: 8 }}>Payment Mode</div>
 
           {["FULL", "PARTIAL", "CREDIT"].map((m) => (
             <label key={m} style={{ marginRight: 16 }}>
               <input
                 type="radio"
                 checked={paymentMode === m}
-                onChange={() => setPaymentMode(m)}
+                onChange={() => {
+                  setPaymentMode(m);
+                  setAmountGiven("");
+                  setCalculatedChange(0);
+                }}
               />{" "}
               {m}
             </label>
@@ -445,8 +506,166 @@ function CheckoutModal({
             </div>
           )}
 
+          {/* CHANGE CALCULATOR - Only show for FULL and PARTIAL payments */}
+          {(paymentMode === "FULL" || paymentMode === "PARTIAL") && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: "16px",
+                background: "#f8fafc",
+                borderRadius: "12px",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>🧮</span>
+                <span>Change Calculator</span>
+              </div>
+
+              {/* Total Amount Display */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "8px 12px",
+                  background: "#e6f4ea",
+                  borderRadius: "8px",
+                  marginBottom: 12,
+                }}
+              >
+                <span style={{ fontWeight: 500 }}>Total Amount:</span>
+                <strong style={{ fontSize: 18, color: "#137333" }}>
+                  KES {subtotal.toFixed(2)}
+                </strong>
+              </div>
+
+              {/* Amount Given Input */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>
+                  Amount Given by Customer:
+                </label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 150 }}>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="input"
+                      placeholder="Enter amount given"
+                      value={amountGiven}
+                      onChange={(e) => handleAmountGivenChange(e.target.value)}
+                      style={{ fontSize: 16 }}
+                      autoFocus={paymentMode === "FULL"}
+                    />
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={applyAmountToPayment}
+                    disabled={!amountGiven || parseFloat(amountGiven) <= 0}
+                    style={{ padding: "10px 16px" }}
+                  >
+                    Apply Amount
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Amount Buttons */}
+              <div style={{ marginBottom: 12 }}>
+                <span style={{ fontSize: 12, color: "#64748b" }}>Quick select:</span>
+                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                  {quickAmounts.map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      className="btn"
+                      onClick={() => handleAmountGivenChange(amt)}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#e2e8f0",
+                        fontSize: 13,
+                      }}
+                    >
+                      KES {amt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Change Display */}
+              {amountGiven && parseFloat(amountGiven) > 0 && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "12px",
+                    borderRadius: "8px",
+                    background:
+                      parseFloat(amountGiven) >= subtotal ? "#f0f9ff" : "#fef2f2",
+                    border: `1px solid ${
+                      parseFloat(amountGiven) >= subtotal ? "#bae6fd" : "#fee2e2"
+                    }`,
+                  }}
+                >
+                  {parseFloat(amountGiven) >= subtotal ? (
+                    <>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <span style={{ fontWeight: 500 }}>💰 Change to give:</span>
+                        <strong style={{ fontSize: 20, color: "#0284c7" }}>
+                          KES {calculatedChange.toFixed(2)}
+                        </strong>
+                      </div>
+
+                      {/* Denomination Breakdown */}
+                      {calculatedChange > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                            Suggested breakdown:
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 8,
+                              fontSize: 12,
+                            }}
+                          >
+                            {getDenominations(calculatedChange).map((denom, idx) => (
+                              <span
+                                key={idx}
+                                style={{
+                                  background: "#e2e8f0",
+                                  padding: "4px 8px",
+                                  borderRadius: "6px",
+                                }}
+                              >
+                                {denom.count} × {denom.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{ color: "#991b1b" }}>
+                      ⚠️ Insufficient amount. Customer still owes:{" "}
+                      <strong>KES {(subtotal - parseFloat(amountGiven)).toFixed(2)}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Payment Methods - Only show if not CREDIT */}
           {paymentMode !== "CREDIT" && (
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontWeight: 900, marginBottom: 8 }}>Payment Methods</div>
               {payments.map((p, idx) => (
                 <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                   <select
@@ -484,7 +703,7 @@ function CheckoutModal({
                   setPayments([...payments, { method: "CASH", amount: "" }])
                 }
               >
-                + Add Payment
+                + Add Payment Method
               </button>
 
               <div className="muted" style={{ marginTop: 8 }}>
@@ -579,9 +798,9 @@ export default function Cart() {
       await api.patch("/api/cart/pos/cart/update_item/", {
         product: productId,
         quantity: Math.max(1, Number(quantity)),
-        unit: unit, // IMPORTANT: Include unit
+        unit: unit,
       });
-      await loadCart(); // Reload to get updated backend calculations
+      await loadCart();
     } catch (err) {
       console.error(err);
       setMsg("❌ Failed to update quantity");
@@ -593,7 +812,7 @@ export default function Cart() {
     try {
       await api.post("/api/cart/pos/cart/remove/", {
         product: productId,
-        unit: unit, // IMPORTANT: Include unit
+        unit: unit,
       });
       await loadCart();
     } catch (err) {
@@ -637,6 +856,17 @@ export default function Cart() {
     }
   };
 
+  // Helper for unit badge styling
+  const getUnitBadgeStyle = (unit) => {
+    if (unit === "BAG") {
+      return { background: "#e6f7ff", padding: "4px 8px", borderRadius: "6px", fontSize: 12, fontWeight: 500 };
+    }
+    if (unit === "PIECE") {
+      return { background: "#f6ffed", padding: "4px 8px", borderRadius: "6px", fontSize: 12, fontWeight: 500 };
+    }
+    return { background: "#f5f5f5", padding: "4px 8px", borderRadius: "6px", fontSize: 12, fontWeight: 500 };
+  };
+
   return (
     <AppLayout title="Cart" subtitle="Review items and checkout">
       <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />
@@ -666,86 +896,82 @@ export default function Cart() {
       ) : (
         <>
           <div className="card">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Quantity</th>
-                  <th>Unit</th>
-                  <th>Unit Price</th>
-                  <th>Subtotal</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((i) => (
-                  <tr key={i.id}>
-                    <td>
-                      {i.product_name}
-                      <div className="muted" style={{ fontSize: 12 }}>
-                        SKU: {i.sku}
-                      </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="table" style={{ minWidth: 600 }}>
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Unit</th>
+                    <th>Unit Price</th>
+                    <th>Subtotal</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((i) => (
+                    <tr key={i.id}>
+                      <td>
+                        {i.product_name}
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          SKU: {i.sku}
+                        </div>
+                      </td>
+                      <td style={{ width: 120 }}>
+                        <input
+                          type="number"
+                          min="1"
+                          step={i.unit === "KG" ? "0.01" : "1"}
+                          value={Number(i.quantity)}
+                          onChange={(e) =>
+                            updateQty(i.product, e.target.value, i.unit)
+                          }
+                          style={{
+                            width: "80px",
+                            padding: "6px 10px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "10px",
+                            outline: "none",
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <span style={getUnitBadgeStyle(i.unit)}>
+                          {i.unit}
+                        </span>
+                      </td>
+                      <td>
+                        KES {Number(i.unit_price).toFixed(2)}/{i.unit}
+                      </td>
+                      <td>
+                        <strong>KES {Number(i.subtotal).toFixed(2)}</strong>
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-danger"
+                          size="sm"
+                          onClick={() => removeItem(i.product, i.unit)}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: "right" }}>
+                      <strong>Cart Total:</strong>
                     </td>
-                    <td style={{ width: 120 }}>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={Number(i.quantity)}
-                        onChange={(e) =>
-                          updateQty(i.product, e.target.value, i.unit)
-                        }
-                        style={{
-                          width: "80px",
-                          padding: "6px 10px",
-                          border: "1px solid #d1d5db",
-                          borderRadius: "10px",
-                          outline: "none",
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <span className="badge" style={{ 
-                        background: i.unit === "BAG" ? "#e6f7ff" : "#f6ffed",
-                        padding: "4px 8px",
-                        borderRadius: "6px",
-                        fontSize: 12,
-                        fontWeight: 500
-                      }}>
-                        {i.unit}
-                      </span>
-                    </td>
-                    <td>
-                      KES {Number(i.unit_price).toFixed(2)}/{i.unit}
-                    </td>
-                    <td>
-                      <strong>KES {Number(i.subtotal).toFixed(2)}</strong>
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-danger"
-                        size="sm"
-                        onClick={() => removeItem(i.product, i.unit)}
-                      >
-                        Remove
-                      </button>
+                    <td colSpan="2">
+                      <strong style={{ fontSize: 18 }}>
+                        KES {subtotal.toFixed(2)}
+                      </strong>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan="4" style={{ textAlign: "right" }}>
-                    <strong>Cart Total:</strong>
-                  </td>
-                  <td colSpan="2">
-                    <strong style={{ fontSize: 18 }}>
-                      KES {subtotal.toFixed(2)}
-                    </strong>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                </tfoot>
+              </table>
+            </div>
           </div>
 
           <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
