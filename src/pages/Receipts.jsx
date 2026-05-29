@@ -293,7 +293,7 @@ function ReceiptModal({ receipt, onClose }) {
               {receipt.status === "PARTIAL" && (
                 <div style={{ fontSize: "10px", color: "#666", marginTop: 6 }}>
                   Goods issued on partial payment.<br />
-                  <strong>Please settle balance within 7 days.</strong>
+                  <strong>Please settle balance within 30 days.</strong>
                 </div>
               )}
               {receipt.status === "CREDIT" && (
@@ -302,12 +302,12 @@ function ReceiptModal({ receipt, onClose }) {
                   <strong>Payment due within 30 days.</strong>
                 </div>
               )}
-              <div style={{ fontSize: "9px", marginTop: 8 }}>
+              {/* <div style={{ fontSize: "9px", marginTop: 8 }}>
                 Returns accepted within 7 days with valid receipt
-              </div>
-              <div style={{ fontSize: "11px", marginTop: 8, fontWeight: 500 }}>
+              </div> */}
+              {/* <div style={{ fontSize: "11px", marginTop: 8, fontWeight: 500 }}>
                 Thank you for your business!
-              </div>
+              </div> */}
             </div>
           </div>
 
