@@ -3,6 +3,8 @@ import AppLayout from "../components/AppLayout";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
+
+
 /* =====================================================
    RECEIPT MODAL - OPTIMIZED FOR 80mm THERMAL PRINTER
 ===================================================== */
@@ -20,6 +22,10 @@ function ReceiptModal({ receipt, onClose }) {
     .reduce((s, p) => s + Number(p.amount), 0);
 
   const totalPaid = cashPaid + mpesaPaid;
+  
+  // Get amount given and change from receipt - ensure they're numbers
+  const amountGiven = receipt.amount_given ? Number(receipt.amount_given) : totalPaid;
+  const changeGiven = receipt.change_given ? Number(receipt.change_given) : 0;
 
   const showCustomer =
     receipt.status === "PARTIAL" || receipt.status === "CREDIT";
@@ -174,8 +180,8 @@ function ReceiptModal({ receipt, onClose }) {
             {/* ITEMS LIST */}
             {(receipt.items || []).map((i, idx) => (
               <div key={idx} style={{ marginBottom: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 500 }}>{i.product_name}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <div style={{ fontSize: "15px", fontWeight: 700 }}>{i.product_name}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "15px" }}>
                   <div style={{ flex: 3 }}>
                     {Number(i.quantity).toFixed(2)} {i.unit} @ KES {Number(i.unit_price).toFixed(2)}
                   </div>
@@ -189,20 +195,20 @@ function ReceiptModal({ receipt, onClose }) {
             <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />
 
             {/* TOTALS */}
-            <div style={{ marginTop: 4,fontSize: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+            <div style={{ marginTop: 4,fontSize: "13px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", }}>
                 <span>Subtotal:</span>
                 <span>KES {Number(receipt.subtotal).toFixed(2)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", }}>
                 <span>Discount:</span>
                 <span>KES {Number(receipt.discount).toFixed(2)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", }}>
                 <span>Tax:</span>
                 <span>KES {Number(receipt.tax).toFixed(2)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 12, marginTop: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, marginTop: 4 }}>
                 <span>TOTAL:</span>
                 <span>KES {Number(receipt.total).toFixed(2)}</span>
               </div>
@@ -210,27 +216,61 @@ function ReceiptModal({ receipt, onClose }) {
 
             <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />
 
-            {/* PAYMENTS */}
-            <div style={{ marginTop: 4 }}>
+            {/* PAYMENTS - UPDATED WITH AMOUNT GIVEN AND CHANGE */}
+            <div style={{ marginTop: 4, fontSize:"13px" }}>
               <div style={{ fontWeight: 700, fontSize: 10 }}>PAYMENTS</div>
               {cashPaid > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>Cash:</span>
                   <span>KES {cashPaid.toFixed(2)}</span>
                 </div>
               )}
               {mpesaPaid > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>MPESA:</span>
                   <span>KES {mpesaPaid.toFixed(2)}</span>
                 </div>
               )}
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginTop: 2 }}>
+              
+              {/* AMOUNT GIVEN BY CUSTOMER */}
+              {amountGiven >0 &&(<div style={{ 
+                display: "flex", 
+                justifyContent: "space-between", 
+                fontSize: 13, 
+                marginTop: 8,
+                paddingTop: 6,
+                borderTop: "1px dotted #000"
+              }}>
+                <span>Amount Given:</span>
+                <span>KES {amountGiven.toFixed(2)}</span>
+              </div>
+              )}
+              
+              {/* CHANGE TO RETURN */}
+              {changeGiven > 0 && (
+                <div style={{ 
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  fontSize: 13, 
+                  fontWeight: 500,
+                  marginTop: 6,
+                  // padding: "6px 8px",
+                  // backgroundColor: "#e6f4ea",
+                  borderRadius: "4px",
+                  // color: "#198038"
+                }}>
+                  <span> Change due:</span>
+                  <span>KES {changeGiven.toFixed(2)}</span>
+                </div>
+              )}
+              
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginTop: 6 }}>
                 <span>Total Paid:</span>
                 <span>KES {totalPaid.toFixed(2)}</span>
               </div>
+              
               {receipt.status !== "PAID" && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, marginTop: 2 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, marginTop: 2 }}>
                   <span>Balance Due:</span>
                   <span>KES {(Number(receipt.total) - totalPaid).toFixed(2)}</span>
                 </div>
@@ -340,11 +380,9 @@ function CheckoutModal({
   onConfirm,
   checkingOut,
   msg,
+  amountGiven,
+  setAmountGiven,
 }) {
-  // ✅ All hooks called FIRST, before any conditional returns
-  const [amountGiven, setAmountGiven] = useState("");
-  const [calculatedChange, setCalculatedChange] = useState(0);
-
   // Get denomination breakdown for change
   const getDenominations = (amount) => {
     const denominations = [
@@ -374,41 +412,56 @@ function CheckoutModal({
     return breakdown;
   };
 
-  // Calculate change based on amount given
+  const getCashRequired = () => {
+    const nonCashPayments = payments
+      .filter((p) => p.method !== "CASH")
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    return Math.max(0, subtotal - nonCashPayments);
+  };
+
+  // Calculate change on the fly
+  const getCalculatedChange = () => {
+    const given = parseFloat(amountGiven) || 0;
+    const cashRequired = getCashRequired();
+    return given > cashRequired ? given - cashRequired : 0;
+  };
+
+  // Handle amount given change
   const handleAmountGivenChange = (value) => {
-    const given = parseFloat(value);
     setAmountGiven(value);
-    
-    if (!isNaN(given) && given > 0) {
-      const change = given - subtotal;
-      setCalculatedChange(change > 0 ? change : 0);
-    } else {
-      setCalculatedChange(0);
-    }
   };
 
   // Apply the amount given to payment
   const applyAmountToPayment = () => {
     const given = parseFloat(amountGiven);
     if (!isNaN(given) && given > 0) {
-      if (paymentMode === "FULL") {
-        setPayments([{ method: "CASH", amount: given.toFixed(2) }]);
-      } else if (paymentMode === "PARTIAL") {
-        // For partial, if amount is less than total, use as payment
-        if (given <= subtotal) {
-          setPayments([{ method: "CASH", amount: given.toFixed(2) }]);
-        }
+      const cashRequired = getCashRequired();
+      const updatedPayments = [...payments];
+      const cashIndex = updatedPayments.findIndex((p) => p.method === "CASH");
+
+      if (cashIndex >= 0) {
+        updatedPayments[cashIndex] = {
+          ...updatedPayments[cashIndex],
+          amount: Math.min(cashRequired, given).toFixed(2),
+        };
+      } else {
+        updatedPayments.push({
+          method: "CASH",
+          amount: Math.min(cashRequired, given).toFixed(2),
+        });
       }
+      setPayments(updatedPayments);
+      setAmountGiven("");
     }
   };
 
   // Quick amount buttons
   const quickAmounts = [500, 1000, 2000, 5000];
 
-  // 🔒 validation (used to disable Confirm)
+  // Validation
   const isValid = useMemo(() => {
     if (paymentMode === "FULL") {
-      return totalPaid === subtotal && subtotal > 0;
+      return balanceDue <= 0 && subtotal > 0;
     }
 
     if (paymentMode === "PARTIAL") {
@@ -422,14 +475,21 @@ function CheckoutModal({
     }
 
     if (paymentMode === "CREDIT") {
-      return customer.name && customer.phone && customer.id_number;
+      return (
+        customer.name &&
+        customer.phone &&
+        customer.id_number
+      );
     }
 
     return false;
-  }, [paymentMode, totalPaid, subtotal, customer]);
+  }, [paymentMode, totalPaid, balanceDue, subtotal, customer]);
 
-  // ✅ Conditional return AFTER all hooks
   if (!open) return null;
+
+  const displayChange = getCalculatedChange();
+  const cashRequired = getCashRequired();
+  const isSufficient = parseFloat(amountGiven) >= cashRequired;
 
   return (
     <div
@@ -472,7 +532,6 @@ function CheckoutModal({
                 onChange={() => {
                   setPaymentMode(m);
                   setAmountGiven("");
-                  setCalculatedChange(0);
                 }}
               />{" "}
               {m}
@@ -508,7 +567,7 @@ function CheckoutModal({
             </div>
           )}
 
-          {/* CHANGE CALCULATOR - Only show for FULL and PARTIAL payments */}
+          {/* CHANGE CALCULATOR */}
           {(paymentMode === "FULL" || paymentMode === "PARTIAL") && (
             <div
               style={{
@@ -542,10 +601,53 @@ function CheckoutModal({
                 </strong>
               </div>
 
+              {/* Non-Cash Payments Display */}
+              {paymentMode === "PARTIAL" && (() => {
+                const nonCashTotal = payments
+                  .filter(p => p.method !== "CASH")
+                  .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+                return nonCashTotal > 0 ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 12px",
+                      background: "#dbeafe",
+                      borderRadius: "8px",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <span style={{ fontWeight: 500 }}>Non-Cash Payments:</span>
+                    <strong style={{ color: "#1e40af" }}>
+                      KES {nonCashTotal.toFixed(2)}
+                    </strong>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Cash Required Display */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "8px 12px",
+                  background: "#fef3c7",
+                  borderRadius: "8px",
+                  marginBottom: 12,
+                }}
+              >
+                <span style={{ fontWeight: 500 }}>Cash Required:</span>
+                <strong style={{ fontSize: 16, color: "#92400e" }}>
+                  KES {cashRequired.toFixed(2)}
+                </strong>
+              </div>
+
               {/* Amount Given Input */}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>
-                  Amount Given by Customer:
+                  Amount Given by Customer (Cash):
                 </label>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <div style={{ flex: 1, minWidth: 150 }}>
@@ -553,7 +655,7 @@ function CheckoutModal({
                       type="number"
                       step="0.01"
                       className="input"
-                      placeholder="Enter amount given"
+                      placeholder="Enter cash amount"
                       value={amountGiven}
                       onChange={(e) => handleAmountGivenChange(e.target.value)}
                       style={{ fontSize: 16 }}
@@ -566,7 +668,7 @@ function CheckoutModal({
                     disabled={!amountGiven || parseFloat(amountGiven) <= 0}
                     style={{ padding: "10px 16px" }}
                   >
-                    Apply Amount
+                    Apply Cash
                   </button>
                 </div>
               </div>
@@ -580,7 +682,7 @@ function CheckoutModal({
                       key={amt}
                       type="button"
                       className="btn"
-                      onClick={() => handleAmountGivenChange(amt)}
+                      onClick={() => handleAmountGivenChange(amt.toString())}
                       style={{
                         padding: "6px 12px",
                         background: "#e2e8f0",
@@ -600,14 +702,11 @@ function CheckoutModal({
                     marginTop: 12,
                     padding: "12px",
                     borderRadius: "8px",
-                    background:
-                      parseFloat(amountGiven) >= subtotal ? "#f0f9ff" : "#fef2f2",
-                    border: `1px solid ${
-                      parseFloat(amountGiven) >= subtotal ? "#bae6fd" : "#fee2e2"
-                    }`,
+                    background: isSufficient ? "#f0f9ff" : "#fef2f2",
+                    border: `1px solid ${isSufficient ? "#bae6fd" : "#fee2e2"}`,
                   }}
                 >
-                  {parseFloat(amountGiven) >= subtotal ? (
+                  {isSufficient ? (
                     <>
                       <div
                         style={{
@@ -619,12 +718,11 @@ function CheckoutModal({
                       >
                         <span style={{ fontWeight: 500 }}>💰 Change to give:</span>
                         <strong style={{ fontSize: 20, color: "#0284c7" }}>
-                          KES {calculatedChange.toFixed(2)}
+                          KES {displayChange.toFixed(2)}
                         </strong>
                       </div>
 
-                      {/* Denomination Breakdown */}
-                      {calculatedChange > 0 && (
+                      {displayChange > 0 && (
                         <div style={{ marginTop: 8 }}>
                           <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
                             Suggested breakdown:
@@ -637,7 +735,7 @@ function CheckoutModal({
                               fontSize: 12,
                             }}
                           >
-                            {getDenominations(calculatedChange).map((denom, idx) => (
+                            {getDenominations(displayChange).map((denom, idx) => (
                               <span
                                 key={idx}
                                 style={{
@@ -656,7 +754,7 @@ function CheckoutModal({
                   ) : (
                     <div style={{ color: "#991b1b" }}>
                       ⚠️ Insufficient amount. Customer still owes:{" "}
-                      <strong>KES {(subtotal - parseFloat(amountGiven)).toFixed(2)}</strong>
+                      <strong>KES {(cashRequired - parseFloat(amountGiven)).toFixed(2)}</strong>
                     </div>
                   )}
                 </div>
@@ -664,7 +762,7 @@ function CheckoutModal({
             </div>
           )}
 
-          {/* Payment Methods - Only show if not CREDIT */}
+          {/* Payment Methods */}
           {paymentMode !== "CREDIT" && (
             <div style={{ marginTop: 16 }}>
               <div style={{ fontWeight: 900, marginBottom: 8 }}>Payment Methods</div>
@@ -756,6 +854,8 @@ export default function Cart() {
     { method: "CASH", amount: "" },
   ]);
 
+  const [amountGiven, setAmountGiven] = useState("");
+
   const loadCart = async () => {
     setLoading(true);
     setMsg("");
@@ -776,12 +876,10 @@ export default function Cart() {
 
   const items = cart?.items || [];
 
-  // USE BACKEND SUBTOTAL - NO FRONTEND CALCULATIONS
   const subtotal = useMemo(() => {
     return items.reduce((sum, i) => sum + Number(i.subtotal), 0);
   }, [items]);
 
-  // AUTO-FILL CASH = total for FULL payment mode
   useEffect(() => {
     if (paymentMode === "FULL" && subtotal > 0) {
       setPayments([{ method: "CASH", amount: subtotal.toFixed(2) }]);
@@ -793,8 +891,24 @@ export default function Cart() {
   }, [payments]);
 
   const balanceDue = subtotal - totalPaid;
+  const getCalculatedChange = () => {
+    const given = parseFloat(amountGiven) || 0;
 
-  // UPDATE QUANTITY - Pass unit to backend
+    const nonCashPayments = payments
+      .filter((p) => p.method !== "CASH")
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    const cashRequired = Math.max(
+      0,
+      subtotal - nonCashPayments
+    );
+
+    return given > cashRequired
+      ? given - cashRequired
+      : 0;
+  };
+
+
   const updateQty = async (productId, quantity, unit) => {
     try {
       await api.patch("/api/cart/pos/cart/update_item/", {
@@ -809,7 +923,6 @@ export default function Cart() {
     }
   };
 
-  // REMOVE ITEM - Pass unit to backend
   const removeItem = async (productId, unit) => {
     try {
       await api.post("/api/cart/pos/cart/remove/", {
@@ -823,15 +936,21 @@ export default function Cart() {
     }
   };
 
-  // CONFIRM CHECKOUT - Send payments as-is, backend handles totals
   const confirmCheckout = async () => {
     setCheckingOut(true);
     setMsg("");
 
     try {
+      const givenAmount = parseFloat(amountGiven) || 0;
+      // Calculate change based on balanceDue (already accounts for all payments)
+      // const calculatedChange = givenAmount > balanceDue ? givenAmount - balanceDue : 0;
+      const calculatedChange = getCalculatedChange();
+
       const payload = {
         cart_id: cart.id,
         payment_mode: paymentMode,
+        amount_given: givenAmount,
+        change_given: calculatedChange,
       };
 
       if (paymentMode !== "CREDIT") {
@@ -849,6 +968,7 @@ export default function Cart() {
 
       setReceipt(res.data.receipt);
       setCheckoutOpen(false);
+      setAmountGiven("");
       await loadCart();
     } catch (err) {
       console.error(err);
@@ -864,7 +984,10 @@ export default function Cart() {
 
       <CheckoutModal
         open={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
+        onClose={() => {
+          setCheckoutOpen(false);
+          setAmountGiven("");
+        }}
         cart={cart}
         subtotal={subtotal}
         paymentMode={paymentMode}
@@ -878,6 +1001,8 @@ export default function Cart() {
         onConfirm={confirmCheckout}
         checkingOut={checkingOut}
         msg={msg}
+        amountGiven={amountGiven}
+        setAmountGiven={setAmountGiven}
       />
 
       {loading ? (
