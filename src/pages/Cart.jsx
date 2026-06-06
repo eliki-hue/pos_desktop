@@ -125,22 +125,22 @@ function ReceiptModal({ receipt, onClose }) {
               <div style={{ fontWeight: 900, fontSize: 14, textTransform: "uppercase" }}>
                 Premium Farming Feeds
               </div>
-              <div style={{ fontSize: 12 }}>
+              <div style={{ fontSize: 11 }}>
                 Turitu, Ikinu & Githiga - Kiambu
               </div>
-              <div style={{ fontSize: 12 }}>
+              <div style={{ fontSize: 11 }}>
                 P.O Box 1257-00900, Kiambu
               </div>
-              <div style={{ fontSize: 12 }}>
+              <div style={{ fontSize: 11 }}>
                 Tel: 0741550549 / 0708488688 / 0711633900
               </div>
-              <div style={{ fontSize: 12 }}>
+              <div style={{ fontSize: 11 }}>
                 Paybill: 400200 | Acc: 4003901
               </div>
-              <div style={{ fontSize: 12, marginTop: 4 }}>
+              <div style={{ fontSize: 11, marginTop: 4 }}>
                 {new Date(receipt.created_at).toLocaleString()}
               </div>
-              <div style={{ fontSize: 12 }}>
+              <div style={{ fontSize: 11 }}>
                 Receipt: #{receipt.id}
               </div>
             </div>
@@ -180,7 +180,7 @@ function ReceiptModal({ receipt, onClose }) {
             {/* ITEMS LIST */}
             {(receipt.items || []).map((i, idx) => (
               <div key={idx} style={{ marginBottom: 6 }}>
-                <div style={{ fontSize: "15px", fontWeight: 700 }}>{i.product_name}</div>
+                <div style={{ fontSize: "12px", fontWeight: 500 }}>{i.product_name}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "15px" }}>
                   <div style={{ flex: 3 }}>
                     {Number(i.quantity).toFixed(2)} {i.unit} @ KES {Number(i.unit_price).toFixed(2)}
@@ -195,7 +195,7 @@ function ReceiptModal({ receipt, onClose }) {
             <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />
 
             {/* TOTALS */}
-            <div style={{ marginTop: 4,fontSize: "13px" }}>
+            <div style={{ marginTop: 4,fontSize: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", }}>
                 <span>Subtotal:</span>
                 <span>KES {Number(receipt.subtotal).toFixed(2)}</span>
@@ -217,7 +217,7 @@ function ReceiptModal({ receipt, onClose }) {
             <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />
 
             {/* PAYMENTS - UPDATED WITH AMOUNT GIVEN AND CHANGE */}
-            <div style={{ marginTop: 4, fontSize:"13px" }}>
+            <div style={{ marginTop: 4, fontSize:"12px" }}>
               <div style={{ fontWeight: 700, fontSize: 10 }}>PAYMENTS</div>
               {cashPaid > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -236,7 +236,7 @@ function ReceiptModal({ receipt, onClose }) {
               {amountGiven >0 &&(<div style={{ 
                 display: "flex", 
                 justifyContent: "space-between", 
-                fontSize: 13, 
+                fontSize: 12, 
                 marginTop: 8,
                 paddingTop: 6,
                 borderTop: "1px dotted #000"
@@ -251,7 +251,7 @@ function ReceiptModal({ receipt, onClose }) {
                 <div style={{ 
                   display: "flex", 
                   justifyContent: "space-between", 
-                  fontSize: 13, 
+                  fontSize: 12, 
                   fontWeight: 500,
                   marginTop: 6,
                   // padding: "6px 8px",
@@ -270,7 +270,7 @@ function ReceiptModal({ receipt, onClose }) {
               </div>
               
               {receipt.status !== "PAID" && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, marginTop: 2 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, marginTop: 2 }}>
                   <span>Balance Due:</span>
                   <span>KES {(Number(receipt.total) - totalPaid).toFixed(2)}</span>
                 </div>
