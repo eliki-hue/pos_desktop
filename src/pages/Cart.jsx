@@ -647,7 +647,7 @@ function CheckoutModal({
               {/* Amount Given Input */}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>
-                  Amount Given by Customer (Cash):
+                  Amount Given by Customer (Cash only):
                 </label>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <div style={{ flex: 1, minWidth: 150 }}>
