@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import AppLayout from "../../components/AppLayout";
 import { api } from "../../api/client";
 import ProductFormModal from "./ProductFormModal";
@@ -6,6 +6,21 @@ import ProductFormModal from "./ProductFormModal";
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [modal, setModal] = useState(null); // null | product | "add"
+
+  const [q, setQ] = useState("");
+
+  const filteredProducts = useMemo(() => {
+    const query = q.trim().toLowerCase();
+
+    if (!query) return products;
+
+    return products.filter(
+      (p) =>
+        String(p.name || "").toLowerCase().includes(query) ||
+        String(p.sku || "").toLowerCase().includes(query) ||
+        String(p.category_name || "").toLowerCase().includes(query)
+    );
+  }, [products, q]);
 
   async function load() {
     const res = await api.get("/api/products/admin/");
@@ -24,8 +39,24 @@ export default function AdminProducts() {
 
   return (
     <AppLayout title="Products" subtitle="Manage all products">
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-        <strong>Products</strong>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <input
+          className="input"
+          placeholder="Search product name or SKU..."
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          style={{ maxWidth: 350, flex: 1 }}
+        />
+
         <button className="btn" onClick={() => setModal("add")}>
           + Add Product
         </button>
@@ -49,7 +80,7 @@ export default function AdminProducts() {
             </tr>
           </thead>
           <tbody>
-            {products.map((p) => (
+            {filteredProducts.map((p) => (
               <tr key={p.id}>
                 <td>
                   {p.image ? (
