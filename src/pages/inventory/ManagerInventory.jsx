@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import AppLayout from "../../components/AppLayout";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -50,6 +50,8 @@ export default function InventoryManager() {
 
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [q, setQ] = useState("");  //search states
 
   /* ========================================
      LOAD INVENTORY
@@ -239,7 +241,18 @@ export default function InventoryManager() {
     
     return parts.join(" + ");
   };
+  // search list 
+  const filteredItems = useMemo(() => {
+    const query = q.trim().toLowerCase();
 
+    if (!query) return items;
+
+    return items.filter(
+      (item) =>
+        String(item.product || "").toLowerCase().includes(query) ||
+        String(item.sku || "").toLowerCase().includes(query)
+    );
+  }, [items, q]);
   return (
     <AppLayout title="Inventory Management">
       {/* Branch Card */}
@@ -248,6 +261,28 @@ export default function InventoryManager() {
           <span className="text-muted">Branch</span>
           <h6 className="mb-0">{branchName}</h6>
         </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <input
+          className="input"
+          placeholder="Search product or SKU..."
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          style={{
+            maxWidth: 350,
+            flex: 1,
+          }}
+        />
       </div>
 
       {/* Inventory Table */}
@@ -269,7 +304,7 @@ export default function InventoryManager() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <tr key={item.product_id}>
                     <td>
                       <div style={{ fontWeight: 500 }}>
