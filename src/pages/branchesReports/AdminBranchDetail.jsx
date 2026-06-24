@@ -66,7 +66,7 @@ export default function AdminBranchDetail() {
         setBranches(res.data || []);
         if (!branchId && res.data?.length) {
           setSelectedBranch(res.data[0].id);
-          navigate(`/admin/branches/${res.data[0].id}`, { replace: true });
+          navigate(`/pos-admin/branch/${res.data[0].id}`, { replace: true });
         }
       } catch (err) {
         console.error(err);
@@ -142,7 +142,7 @@ export default function AdminBranchDetail() {
           value={selectedBranch}
           onChange={(e) => {
             setSelectedBranch(e.target.value);
-            navigate(`/admin/branches/${e.target.value}`);
+            navigate(`/pos-admin/branch/${e.target.value}`);
           }}
         >
           {branches.map((b) => (

@@ -213,7 +213,7 @@ export default function App() {
         />
 
         <Route
-          path="pos-admin/branches/:branchId"
+          path="pos-admin/branch/:branchId"
           element={
             <RequireRole allowedRoles={["ADMIN"]}>
               <AdminBranchDetail />

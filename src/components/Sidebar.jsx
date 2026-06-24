@@ -171,7 +171,7 @@ export default function Sidebar() {
                 <span>Products</span>
               </NavLink>
 
-              <NavLink to="/pos-admin/branches/1" style={linkStyle}>
+              <NavLink to="/pos-admin/branch/1" style={linkStyle}>
                 <Building2 size={20} />
                 <span>Branch Detail</span>
               </NavLink>
