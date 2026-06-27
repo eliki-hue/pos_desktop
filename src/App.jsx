@@ -42,6 +42,8 @@ import SaleDetail from './pages/SaleDetail';
 
 import MyAdjustmentRequests from './pages/MyAdjustmentRequests';
 import PendingAdjustments from './pages/PendingAdjustments';
+import { Toaster } from 'react-hot-toast';
+
 
 
 export default function App() {
@@ -233,6 +235,31 @@ export default function App() {
         <Route path="balance/sales/outstanding" element={<OutstandingSales />} />
         
         <Route path="balance/sales/:id" element={<SaleDetail />} />
+
+        <Route
+          path="pos-admin/reviews"
+          element={
+            <RequireAuth>
+              <RequireRole allowedRoles={["ADMIN"]}>
+                <Reviews />
+              </RequireRole>
+            </RequireAuth>
+          }
+          
+        />
+
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+              borderRadius: '12px',
+              padding: '16px',
+            },
+          }}
+        />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

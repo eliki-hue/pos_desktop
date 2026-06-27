@@ -18,7 +18,8 @@ import {
   GitBranch,
   Users,
   User,
-  Clock
+  Clock,
+  MessagesSquare
 } from 'lucide-react';
 import { useAuth } from "../auth/AuthContext";
 
@@ -207,7 +208,12 @@ export default function Sidebar() {
                 <Users size={20} />
                 <span>Manage Users</span>
               </NavLink>
+              <NavLink to="/pos-admin/reviews" style={linkStyle}>
+                <MessagesSquare size={20} />
+                <span>Ecommerce REviews</span>
+              </NavLink>
               
+    
               <NavLink to="/pos-admin/sessions" style={linkStyle}>
                 <Clock size={20} />
                 <span>User Sessions</span>
