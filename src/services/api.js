@@ -49,4 +49,52 @@ export const supplierAPI = {
   delete: (id) => api.delete(`/api/suppliers/${id}/`),  
 };
 
+
+// Review API
+export const reviewAPI = {
+  // Get all reviews with filters
+  getList: (params = {}) => {
+    return api.get('/reviews/', { params });
+  },
+
+  // Get single review
+  getDetail: (id) => {
+    return api.get(`/reviews/${id}/`);
+  },
+
+  // Approve/Disapprove review
+  toggleApprove: (id) => {
+    return api.post(`/reviews/${id}/approve/`);
+  },
+
+  // Feature/Unfeature review
+  toggleFeature: (id) => {
+    return api.post(`/reviews/${id}/feature/`);
+  },
+
+  // Get review statistics
+  getStats: () => {
+    return api.get('/reviews/stats/');
+  },
+
+  // Delete review
+  delete: (id) => {
+    return api.delete(`/reviews/${id}/`);
+  },
+
+  // Bulk actions
+  bulkApprove: (ids) => {
+    return api.post('/reviews/bulk-approve/', { ids });
+  },
+
+  bulkDelete: (ids) => {
+    return api.post('/reviews/bulk-delete/', { ids });
+  },
+
+  // Export reviews
+  export: (params) => {
+    return api.get('/reviews/export/', { params, responseType: 'blob' });
+  }
+};
+
 export default api;

@@ -21,10 +21,11 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { reviewAPI } from '../../services/reviewService';
-import AppLayout from '../../components/Layout/AppLayout';
-import LoadingSpinner from '../../components/Common/LoadingSpinner';
-import { formatDate } from '../../utils/formatters';
+import { reviewAPI } from '../services/api';
+
+import AppLayout from '../components/AppLayout';
+import LoadingSpinner from '../components/Common/LoadingSpinner';
+import { formatDate } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
 const Reviews = () => {
