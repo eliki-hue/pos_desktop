@@ -50,7 +50,7 @@ const PurchaseForm = ({ isEdit = false, onSuccess }) => {
 
   const fetchProducts = async () => {
     try {
-      const response = await productAPI.getList({ is_active: true });
+      const response = await purchaseProductAPI.getList();
       setProducts(response.data || []);
     } catch (err) {
       console.error('Failed to fetch products:', err);
