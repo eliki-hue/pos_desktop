@@ -1,4 +1,4 @@
-// src/pages/admin/Reviews.jsx
+// src/pages/AdminReviews.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -8,38 +8,38 @@ import {
   XCircle, 
   Search, 
   Filter,
-  TrendingUp,
-  TrendingDown,
   Calendar,
-  User,
   MapPin,
   MessageSquare,
-  Settings,
   Trash2,
   RefreshCw,
-  Clock,
   Download,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
 import { reviewAPI } from '../services/api';
-
-import AppLayout from '../components/AppLayout';
+import AppLayout from '../components/Layout/AppLayout';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
+import StatusBadge from '../components/Common/StatusBadge';
 import { formatDate } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
-const Reviews = () => {
+const AdminReviews = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [filters, setFilters] = useState({
     rating: '',
     is_featured: '',
+    is_approved: '',
     search: ''
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [selectedReviews, setSelectedReviews] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -57,10 +57,51 @@ const Reviews = () => {
         page_size: 20
       };
       const response = await reviewAPI.getList(params);
-      setReviews(response.data.results || response.data);
-      setTotalPages(Math.ceil(response.data.count / 20) || 1);
+      
+      // Handle different response structures
+      let reviewsData = [];
+      let count = 0;
+      
+      if (response.data) {
+        // If response has data property
+        if (Array.isArray(response.data)) {
+          reviewsData = response.data;
+          count = response.data.length;
+        } else if (response.data.results) {
+          // Django REST framework paginated response
+          reviewsData = response.data.results;
+          count = response.data.count || response.data.results.length;
+        } else if (response.data.data) {
+          // Nested data response
+          reviewsData = response.data.data;
+          count = response.data.data.length;
+        } else if (typeof response.data === 'object') {
+          // If it's an object, try to extract array
+          const values = Object.values(response.data);
+          const arrays = values.filter(v => Array.isArray(v));
+          if (arrays.length > 0) {
+            reviewsData = arrays[0];
+            count = reviewsData.length;
+          } else {
+            // If no array found, check if the object itself has array-like properties
+            reviewsData = [];
+            count = 0;
+          }
+        }
+      }
+      
+      // Ensure reviewsData is always an array
+      if (!Array.isArray(reviewsData)) {
+        reviewsData = [];
+      }
+      
+      setReviews(reviewsData);
+      setTotalItems(count);
+      setTotalPages(Math.ceil(count / 20) || 1);
+      
     } catch (error) {
       console.error('Failed to fetch reviews:', error);
+      setReviews([]);
       toast.error('Failed to load reviews');
     } finally {
       setLoading(false);
@@ -70,9 +111,18 @@ const Reviews = () => {
   const fetchStats = async () => {
     try {
       const response = await reviewAPI.getStats();
-      setStats(response.data);
+      if (response.data) {
+        setStats(response.data);
+      }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
+      // Set default stats to prevent errors
+      setStats({
+        total: 0,
+        approved: 0,
+        pending: 0,
+        average_rating: 0
+      });
     }
   };
 
@@ -197,7 +247,10 @@ const Reviews = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => window.location.reload()}
+                  onClick={() => {
+                    fetchReviews();
+                    fetchStats();
+                  }}
                   className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-white/30 transition-all"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -365,11 +418,11 @@ const Reviews = () => {
             <div className="col-span-full p-12">
               <LoadingSpinner />
             </div>
-          ) : (
+          ) : reviews && reviews.length > 0 ? (
             <AnimatePresence>
               {reviews.map((review, index) => (
                 <motion.div
-                  key={review.id}
+                  key={review.id || index}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
@@ -380,10 +433,10 @@ const Reviews = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-4 mb-3">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
-                          {review.customer_name.charAt(0).toUpperCase()}
+                          {review.customer_name ? review.customer_name.charAt(0).toUpperCase() : 'U'}
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900">{review.customer_name}</h3>
+                          <h3 className="font-semibold text-gray-900">{review.customer_name || 'Anonymous'}</h3>
                           <div className="flex items-center gap-2 text-sm text-gray-500">
                             {review.customer_location && (
                               <>
@@ -393,19 +446,19 @@ const Reviews = () => {
                             )}
                             <span className="text-gray-300">|</span>
                             <Calendar className="w-3 h-3" />
-                            <span>{formatDate(review.created_at)}</span>
+                            <span>{review.created_at ? formatDate(review.created_at) : 'N/A'}</span>
                           </div>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-2 mb-2">
-                        {renderStars(review.rating)}
+                        {renderStars(review.rating || 0)}
                         <span className="text-sm font-semibold text-gray-700 ml-2">
-                          {review.rating}.0
+                          {review.rating || 0}.0
                         </span>
                       </div>
                       
-                      <p className="text-gray-700 leading-relaxed">{review.review}</p>
+                      <p className="text-gray-700 leading-relaxed">{review.review || 'No review content'}</p>
                       
                       <div className="flex items-center gap-3 mt-3">
                         <StatusBadge 
@@ -497,14 +550,22 @@ const Reviews = () => {
                 </motion.div>
               ))}
             </AnimatePresence>
+          ) : (
+            <div className="col-span-full text-center py-12">
+              <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+                <MessageSquare className="h-12 w-12 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No reviews found</h3>
+              <p className="text-gray-500">No customer reviews match your current filters</p>
+            </div>
           )}
         </motion.div>
 
         {/* Pagination */}
-        {totalPages > 1 && !loading && (
+        {totalPages > 1 && !loading && reviews.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 px-6 py-4 flex justify-between items-center">
             <p className="text-sm text-gray-600">
-              Showing <span className="font-semibold">{reviews.length}</span> of <span className="font-semibold">{stats?.total || 0}</span> reviews
+              Showing <span className="font-semibold">{reviews.length}</span> of <span className="font-semibold">{totalItems}</span> reviews
             </p>
             <div className="flex gap-2">
               <motion.button
@@ -536,4 +597,4 @@ const Reviews = () => {
   );
 };
 
-export default Reviews;
+export default AdminReviews;
