@@ -17,6 +17,7 @@ import {
   Settings,
   Trash2,
   RefreshCw,
+  Clock,
   Download,
   ChevronLeft,
   ChevronRight
