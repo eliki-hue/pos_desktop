@@ -1,4 +1,4 @@
-// src/pages/AdminReviews.jsx
+// src/pages/admin/Reviews.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -8,26 +8,28 @@ import {
   XCircle, 
   Search, 
   Filter,
+  TrendingUp,
+  TrendingDown,
   Calendar,
+  User,
   MapPin,
   MessageSquare,
+  Settings,
   Trash2,
   RefreshCw,
+  Clock,
   Download,
   ChevronLeft,
-  ChevronRight,
-  Clock,
-  TrendingUp,
-  TrendingDown
+  ChevronRight
 } from 'lucide-react';
 import { reviewAPI } from '../services/api';
-import AppLayout from '../components/Layout/AppLayout';
+import AppLayout from '../components/AppLayout';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import StatusBadge from '../components/Common/StatusBadge';
 import { formatDate } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
-const AdminReviews = () => {
+const Reviews = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
@@ -58,39 +60,32 @@ const AdminReviews = () => {
       };
       const response = await reviewAPI.getList(params);
       
-      // Handle different response structures
+      // Handle different response structures safely
       let reviewsData = [];
       let count = 0;
       
       if (response.data) {
-        // If response has data property
         if (Array.isArray(response.data)) {
           reviewsData = response.data;
           count = response.data.length;
         } else if (response.data.results) {
-          // Django REST framework paginated response
           reviewsData = response.data.results;
           count = response.data.count || response.data.results.length;
         } else if (response.data.data) {
-          // Nested data response
           reviewsData = response.data.data;
           count = response.data.data.length;
-        } else if (typeof response.data === 'object') {
-          // If it's an object, try to extract array
+        } else {
+          // If it's a single object, try to find arrays
           const values = Object.values(response.data);
           const arrays = values.filter(v => Array.isArray(v));
           if (arrays.length > 0) {
             reviewsData = arrays[0];
             count = reviewsData.length;
-          } else {
-            // If no array found, check if the object itself has array-like properties
-            reviewsData = [];
-            count = 0;
           }
         }
       }
       
-      // Ensure reviewsData is always an array
+      // Ensure we always have an array
       if (!Array.isArray(reviewsData)) {
         reviewsData = [];
       }
@@ -116,7 +111,6 @@ const AdminReviews = () => {
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
-      // Set default stats to prevent errors
       setStats({
         total: 0,
         approved: 0,
@@ -218,12 +212,16 @@ const AdminReviews = () => {
   );
 
   const renderStars = (rating) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star 
-        key={i} 
-        className={`w-4 h-4 ${i < rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} 
-      />
-    ));
+    const stars = [];
+    for (let i = 0; i < 5; i++) {
+      stars.push(
+        <Star 
+          key={i} 
+          className={`w-4 h-4 ${i < rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} 
+        />
+      );
+    }
+    return stars;
   };
 
   return (
@@ -597,4 +595,4 @@ const AdminReviews = () => {
   );
 };
 
-export default AdminReviews;
+export default Reviews;
