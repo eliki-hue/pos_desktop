@@ -50,6 +50,21 @@ import Reviews from "./pages/AdminReviews";
 export default function App() {
   return (
     <BrowserRouter basename="/">
+
+      <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+              borderRadius: '12px',
+              padding: '16px',
+            },
+          }}
+        />
+
+
       <Routes>
         {/* Root */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -249,18 +264,7 @@ export default function App() {
           
         />
 
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-              borderRadius: '12px',
-              padding: '16px',
-            },
-          }}
-        />
+        
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
