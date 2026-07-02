@@ -210,7 +210,7 @@ export default function Sidebar() {
               </NavLink>
               <NavLink to="/pos-admin/reviews" style={linkStyle}>
                 <MessagesSquare size={20} />
-                <span>Ecommerce REviews</span>
+                <span>Ecommerce Reviews</span>
               </NavLink>
               
     

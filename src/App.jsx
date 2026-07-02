@@ -43,6 +43,7 @@ import SaleDetail from './pages/SaleDetail';
 import MyAdjustmentRequests from './pages/MyAdjustmentRequests';
 import PendingAdjustments from './pages/PendingAdjustments';
 import { Toaster } from 'react-hot-toast';
+import Reviews from "./pages/AdminReviews";
 
 
 
