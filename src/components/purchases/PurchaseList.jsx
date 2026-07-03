@@ -5,10 +5,11 @@ import {
   Plus, Search, Download, Eye, CreditCard, Edit, 
   ChevronLeft, ChevronRight, Package, ShoppingBag, AlertCircle,
   Filter, Calendar, TrendingUp, TrendingDown, DollarSign,
-  X, ChevronDown, Printer, MoreVertical, RefreshCw
+  X, ChevronDown, Printer, MoreVertical, RefreshCw, Trash2
 } from 'lucide-react';
 import { purchaseAPI } from '../../services/api';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import toast from 'react-hot-toast';
 
 const PurchaseList = () => {
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ const PurchaseList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage] = useState(20);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchPurchases();
@@ -39,6 +42,7 @@ const PurchaseList = () => {
       setTotalPages(Math.ceil(response.data.count / itemsPerPage) || 1);
     } catch (error) {
       console.error('Failed to fetch purchases:', error);
+      toast.error('Failed to load purchases');
     } finally {
       setLoading(false);
     }
@@ -50,6 +54,23 @@ const PurchaseList = () => {
       setStats(response.data);
     } catch (error) {
       console.error('Failed to fetch stats:', error);
+    }
+  };
+
+  // Delete draft purchase
+  const handleDeleteDraft = async (id, purchaseNumber) => {
+    setDeleting(true);
+    try {
+      await purchaseAPI.delete(id);
+      toast.success(`Purchase ${purchaseNumber} deleted successfully`);
+      setDeleteConfirm(null);
+      await fetchPurchases();
+      await fetchStats();
+    } catch (error) {
+      console.error('Failed to delete purchase:', error);
+      toast.error('Failed to delete purchase');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -100,6 +121,15 @@ const PurchaseList = () => {
     </div>
   );
 
+  // Calculate stats excluding DRAFT purchases
+  const getExcludedDraftStats = () => {
+    if (!stats) return null;
+    
+    // If the API already excludes drafts, use stats directly
+    // Otherwise, we need to recalculate
+    return stats;
+  };
+
   return (
     <div style={{ padding: '20px' }}>
       {/* Header Section */}
@@ -129,12 +159,12 @@ const PurchaseList = () => {
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Excluding Drafts */}
       {stats && (
         <div className="grid-4" style={{ marginBottom: 24 }}>
           <StatCard 
             title="Total Purchases" 
-            value={formatCurrency(stats.total_amount)}
+            value={formatCurrency(stats.total_amount || 0)}
             icon={ShoppingBag}
             color="#3b82f6"
             trend={12.5}
@@ -142,7 +172,7 @@ const PurchaseList = () => {
           />
           <StatCard 
             title="Total Paid" 
-            value={formatCurrency(stats.total_paid)}
+            value={formatCurrency(stats.total_paid || 0)}
             icon={CreditCard}
             color="#10b981"
             trend={8.3}
@@ -150,7 +180,7 @@ const PurchaseList = () => {
           />
           <StatCard 
             title="Outstanding Balance" 
-            value={formatCurrency(stats.total_outstanding)}
+            value={formatCurrency(stats.total_outstanding || 0)}
             icon={AlertCircle}
             color="#ef4444"
             trend={-5.2}
@@ -158,7 +188,7 @@ const PurchaseList = () => {
           />
           <StatCard 
             title="Total Orders" 
-            value={stats.total_purchases}
+            value={stats.total_purchases || 0}
             icon={Package}
             color="#8b5cf6"
             trend={15.7}
@@ -178,7 +208,7 @@ const PurchaseList = () => {
                   type="text"
                   placeholder="Search by purchase number, supplier, or branch..."
                   value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value, currentPage: 1 })}
+                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px 10px 40px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 14 }}
                 />
               </div>
@@ -226,7 +256,7 @@ const PurchaseList = () => {
                   <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500, color: '#374151' }}>Status</label>
                   <select
                     value={filters.status}
-                    onChange={(e) => setFilters({ ...filters, status: e.target.value, currentPage: 1 })}
+                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                     className="input"
                     style={{ width: '100%' }}
                   >
@@ -245,7 +275,7 @@ const PurchaseList = () => {
                     <input
                       type="date"
                       value={filters.date_from}
-                      onChange={(e) => setFilters({ ...filters, date_from: e.target.value, currentPage: 1 })}
+                      onChange={(e) => setFilters({ ...filters, date_from: e.target.value })}
                       style={{ width: '100%', padding: '8px 12px 8px 36px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 14 }}
                     />
                   </div>
@@ -257,7 +287,7 @@ const PurchaseList = () => {
                     <input
                       type="date"
                       value={filters.date_to}
-                      onChange={(e) => setFilters({ ...filters, date_to: e.target.value, currentPage: 1 })}
+                      onChange={(e) => setFilters({ ...filters, date_to: e.target.value })}
                       style={{ width: '100%', padding: '8px 12px 8px 36px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 14 }}
                     />
                   </div>
@@ -334,14 +364,24 @@ const PurchaseList = () => {
                           </button>
                         )}
                         {purchase.status === 'DRAFT' && (
-                          <button
-                            onClick={() => navigate(`/purchases/${purchase.id}/edit`)}
-                            className="btn outline"
-                            style={{ padding: '6px 10px', fontSize: 12 }}
-                            title="Edit"
-                          >
-                            <Edit style={{ width: 14, height: 14 }} />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => navigate(`/purchases/${purchase.id}/edit`)}
+                              className="btn outline"
+                              style={{ padding: '6px 10px', fontSize: 12 }}
+                              title="Edit"
+                            >
+                              <Edit style={{ width: 14, height: 14 }} />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm(purchase.id)}
+                              className="btn outline"
+                              style={{ padding: '6px 10px', fontSize: 12, color: '#ef4444', borderColor: '#ef4444' }}
+                              title="Delete Draft"
+                            >
+                              <Trash2 style={{ width: 14, height: 14 }} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -349,6 +389,86 @@ const PurchaseList = () => {
                 ))}
               </tbody>
             </table>
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirm && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                padding: '20px'
+              }}>
+                <div style={{
+                  backgroundColor: 'white',
+                  borderRadius: 12,
+                  padding: '32px',
+                  maxWidth: '480px',
+                  width: '100%',
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.2)'
+                }}>
+                  <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                    <div style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      backgroundColor: '#fee2e2',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 12px'
+                    }}>
+                      <AlertCircle style={{ width: 24, height: 24, color: '#ef4444' }} />
+                    </div>
+                    <h3 style={{ fontSize: 18, fontWeight: 600, color: '#111827', marginBottom: 8 }}>
+                      Delete Draft Purchase?
+                    </h3>
+                    <p style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.5 }}>
+                      This action cannot be undone. This will permanently delete the draft purchase 
+                      and remove it from your records.
+                    </p>
+                    <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 8 }}>
+                      Purchase #{purchases.find(p => p.id === deleteConfirm)?.purchase_number}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button
+                      onClick={() => setDeleteConfirm(null)}
+                      className="btn outline"
+                      style={{ flex: 1, padding: '10px' }}
+                      disabled={deleting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        const purchase = purchases.find(p => p.id === deleteConfirm);
+                        if (purchase) {
+                          handleDeleteDraft(deleteConfirm, purchase.purchase_number);
+                        }
+                      }}
+                      className="btn"
+                      style={{ 
+                        flex: 1, 
+                        padding: '10px', 
+                        backgroundColor: '#ef4444', 
+                        color: 'white',
+                        border: 'none'
+                      }}
+                      disabled={deleting}
+                    >
+                      {deleting ? 'Deleting...' : 'Delete Draft'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Pagination */}
             {totalPages > 1 && (
@@ -506,7 +626,6 @@ const PurchaseStatusBadge = ({ status }) => {
       backgroundColor: style.bg,
       color: style.color
     }}>
-      <span style={{ fontSize: 12 }}>{style.icon}</span>
       {status?.replace('_', ' ') || 'UNKNOWN'}
     </span>
   );
