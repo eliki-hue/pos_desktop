@@ -22,7 +22,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { reviewAPI } from '../services/api';
+import { reviewAPI, purchaseProductAPI } from '../services/api';
 import AppLayout from '../components/AppLayout';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import StatusBadge from '../components/Common/StatusBadge';
