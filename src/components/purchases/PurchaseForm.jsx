@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Save, ArrowLeft, Package, AlertCircle } from 'lucide-react';
-import { purchaseAPI, productAPI, supplierAPI, branchAPI } from '../../services/api';
+import { purchaseAPI, productAPI, supplierAPI, branchAPI, purchaseProductAPI } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
 import CreateSupplierModal from './CreateSupplierModal';
 import api from '../../services/api';
