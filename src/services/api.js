@@ -35,7 +35,7 @@ export const productAPI = {
   getList: (params) => api.get('/api/products/'),
 };
 export const purchaseProductAPI = {
-  getList: (params) => api.get('/api/products/purchases'),
+  getList: (params) => api.get('/api/products/purchases/'),
 };
 export const branchAPI = {
   getList: () => api.get('/api/branches/'),
