@@ -16,6 +16,12 @@ export function setupInterceptors() {
     if (csrfToken) {
       config.headers["X-CSRFToken"] = csrfToken;
     }
+    const branchId = localStorage.getItem("branch_id");
+
+    if (branchId) {
+      config.headers["X-Branch-ID"] = branchId;
+    }
+    
     return config;
   });
 

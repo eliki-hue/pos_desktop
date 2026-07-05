@@ -886,13 +886,22 @@ export default function Cart() {
 
 
   const loadHeldCarts = async () => {
-    try {
-      const res = await api.get("/api/cart/held/");
-      setHeldCarts(res.data);
-    } catch (err) {
-      console.error(err);
-      setMsg("Failed to load held sales.");
-    }
+      try {
+          const res = await api.get(
+              "/api/cart/held/",
+              {
+                  headers: {
+                      "X-Branch-ID": localStorage.getItem("branch_id"),
+                  },
+              }
+          );
+
+          setHeldCarts(res.data);
+
+      } catch (err) {
+          console.error(err);
+          setMsg("Failed to load held sales.");
+      }
   };
 
   const holdSale = async () => {
@@ -905,7 +914,12 @@ export default function Cart() {
               "/api/cart/hold/",
               {
                   hold_reference: holdReference,
-              }
+              },
+              {
+              headers: {
+                  "X-Branch-ID": localStorage.getItem("branch_id"),
+              },
+          }
           );
 
           toast.success(res.data.message);
@@ -943,7 +957,13 @@ export default function Cart() {
       try {
 
           const res = await api.post(
-              `/api/cart/held/${id}/resume/`
+              `/api/cart/held/${id}/resume/`,
+              {},
+              {
+                  headers: {
+                      "X-Branch-ID": localStorage.getItem("branch_id"),
+                  },
+              }
           );
 
           toast.success(res.data.message);
@@ -971,7 +991,14 @@ export default function Cart() {
 
   const deleteHeldSale = async (id) => {
       try {
-          await api.delete(`/api/cart/held/${id}/`);
+          await api.delete(
+            `/api/cart/held/${id}/`,
+            {
+                headers: {
+                    "X-Branch-ID": localStorage.getItem("branch_id"),
+                },
+            }
+        );
 
           toast.success("Held sale deleted.");
 

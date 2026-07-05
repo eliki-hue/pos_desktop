@@ -13,6 +13,12 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.get("/api/auth/me/");
       setUser(res.data);
+      if (res.data.branch) {
+        localStorage.setItem(
+          "branch_id",
+          String(res.data.branch.id)
+        );
+      }
       setMustChangePassword(res.data.must_change_password || false);
     } catch {
       setUser(null);
@@ -58,6 +64,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     await api.post("/api/auth/pos/logout/");
     setUser(null);
+    localStorage.removeItem("branch_id");
     setMustChangePassword(false);
   };
 
