@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import AppLayout from "../components/AppLayout";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import HoldSaleModal from "./cart/HoldSaleModal";
+import HeldSalesModal from "./cart/HeldSalesModal";
+import toast from "react-hot-toast";
 
 
 
@@ -830,6 +833,9 @@ function CheckoutModal({
   );
 }
 
+
+
+
 /* =====================================================
    CART PAGE - UPDATED FOR UNIT-AWARE PRICING
 ===================================================== */
@@ -842,6 +848,14 @@ export default function Cart() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+
+  // holding cart
+  const [holdOpen, setHoldOpen] = useState(false);
+  const [heldSalesOpen, setHeldSalesOpen] = useState(false);
+  const [heldCarts, setHeldCarts] = useState([]);
+  const [holdReference, setHoldReference] = useState("");
+  const [holdingSale, setHoldingSale] = useState(false);
+  const [resumingSale, setResumingSale] = useState(false);
 
   const [paymentMode, setPaymentMode] = useState("FULL");
   const [customer, setCustomer] = useState({
@@ -870,8 +884,114 @@ export default function Cart() {
     }
   };
 
+
+  const loadHeldCarts = async () => {
+    try {
+      const res = await api.get("/api/cart/held/");
+      setHeldCarts(res.data);
+    } catch (err) {
+      console.error(err);
+      setMsg("Failed to load held sales.");
+    }
+  };
+
+  const holdSale = async () => {
+
+      setHoldingSale(true);
+
+      try {
+
+          const res = await api.post(
+              "/api/cart/hold/",
+              {
+                  hold_reference: holdReference,
+              }
+          );
+
+          toast.success(res.data.message);
+
+          setHoldReference("");
+
+          setHoldOpen(false);
+
+          await loadCart();
+
+          await loadHeldCarts();
+
+      } catch (err) {
+
+          console.error(err);
+
+          setMsg(
+              err.response?.data?.detail ||
+              "Failed to hold sale."
+          );
+
+      } finally {
+
+          setHoldingSale(false);
+
+      }
+
+  };
+
+
+  const resumeHeldSale = async (id) => {
+
+      setResumingSale(true);
+
+      try {
+
+          const res = await api.post(
+              `/api/cart/held/${id}/resume/`
+          );
+
+          toast.success(res.data.message);
+
+          setCart(res.data.cart);
+
+          setHeldSalesOpen(false);
+
+          await loadHeldCarts();
+
+      } catch (err) {
+
+          console.error(err);
+
+          toast.error(err.response?.data?.detail || "Failed to resume sale.");
+
+      } finally {
+
+          setResumingSale(false);
+
+      }
+
+  };
+
+
+  const deleteHeldSale = async (id) => {
+      try {
+          await api.delete(`/api/cart/held/${id}/`);
+
+          toast.success("Held sale deleted.");
+
+          await loadHeldCarts();
+
+      } catch (err) {
+          console.error(err);
+
+          toast.error(
+            err.response?.data?.detail ||
+              "Failed to delete held sale."
+          );
+      }
+  };
+
   useEffect(() => {
-    if (!authLoading && isAuthenticated) loadCart();
+    if (!authLoading && isAuthenticated){
+       loadCart();
+       loadHeldCarts();
+    }
   }, [authLoading, isAuthenticated]);
 
   const items = cart?.items || [];
@@ -970,6 +1090,7 @@ export default function Cart() {
       setCheckoutOpen(false);
       setAmountGiven("");
       await loadCart();
+      await loadHeldCarts();
     } catch (err) {
       console.error(err);
       setMsg(err?.response?.data?.detail || "❌ Checkout failed");
@@ -1005,10 +1126,54 @@ export default function Cart() {
         setAmountGiven={setAmountGiven}
       />
 
+      <HoldSaleModal
+          open={holdOpen}
+          onClose={() => setHoldOpen(false)}
+          holdReference={holdReference}
+          setHoldReference={setHoldReference}
+          onHold={holdSale}
+          loading={holdingSale}
+      />
+
+      <HeldSalesModal
+          open={heldSalesOpen}
+          onClose={() => setHeldSalesOpen(false)}
+          carts={heldCarts}
+          onResume={resumeHeldSale}
+          onDelete={deleteHeldSale}
+          loading={resumingSale}
+      />
+
       {loading ? (
         <div className="muted">Loading cart...</div>
       ) : items.length === 0 ? (
+        <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "space-between" }}>
         <div className="muted">No items in cart.</div>
+        <button
+                className="btn"
+                onClick={() => {
+                    loadHeldCarts();
+                    setHeldSalesOpen(true);
+                }}
+            >
+                📂 Held Sales
+                {heldCarts.length > 0 && (
+                    <span
+                        style={{
+                            marginLeft: 8,
+                            background: "#dc2626",
+                            color: "#fff",
+                            borderRadius: 999,
+                            padding: "2px 8px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}
+                    >
+                        {heldCarts.length}
+                    </span>
+                )}
+            </button>
+            </div>
       ) : (
         <>
           <div className="card">
@@ -1096,20 +1261,74 @@ export default function Cart() {
             </div>
           </div>
 
-          <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
+          <div style={{ 
+              marginTop: 16,
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+          }}>
             <button
               className="btn btn-primary"
               onClick={() => setCheckoutOpen(true)}
             >
               Proceed to Checkout
             </button>
+
+            <button
+                className="btn btn-warning"
+                onClick={() => {
+
+                    if (!items.length) {
+                        setMsg("Cannot hold an empty cart.");
+                        return;
+                    }
+
+                    setMsg("");
+
+                    setHoldOpen(true);
+
+                }}
+            >
+                🟡 Hold Sale
+            </button>
+
+            <button
+                className="btn"
+                onClick={() => {
+                    loadHeldCarts();
+                    setHeldSalesOpen(true);
+                }}
+            >
+                📂 Held Sales
+                {heldCarts.length > 0 && (
+                    <span
+                        style={{
+                            marginLeft: 8,
+                            background: "#dc2626",
+                            color: "#fff",
+                            borderRadius: 999,
+                            padding: "2px 8px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}
+                    >
+                        {heldCarts.length}
+                    </span>
+                )}
+            </button>
             
             <button
-              className="btn muted"
-              onClick={loadCart}
-              disabled={loading}
+                className="btn muted"
+                disabled={loading}
+                onClick={async () => {
+
+                    await loadCart();
+
+                    await loadHeldCarts();
+
+                }}
             >
-              Refresh Cart
+                Refresh Cart
             </button>
           </div>
         </>
