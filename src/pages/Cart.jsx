@@ -135,11 +135,30 @@ function ReceiptModal({ receipt, onClose }) {
                 P.O Box 1257-00900, Kiambu
               </div>
               <div style={{ fontSize: 11 }}>
-                Tel: 0741550549 / 0708488688 / 0711633900
+                Tel:{" "}
+                {[
+                  receipt.branch_phone,
+                  receipt.branch_phone_2,
+                  receipt.branch_phone_3,
+                ]
+                  .filter(Boolean)
+                  .join(" / ")}
               </div>
               <div style={{ fontSize: 11 }}>
-                Paybill: 400200 | Acc: 4003901
-              </div>
+              {receipt.branch_paybill && (
+                <>
+                  <strong>Paybill:</strong> {receipt.branch_paybill}
+                </>
+              )}
+
+              {receipt.branch_paybill && receipt.branch_account_number && " | "}
+
+              {receipt.branch_account_number && (
+                <>
+                  <strong>Account:</strong> {receipt.branch_account_number}
+                </>
+              )}
+            </div>
               <div style={{ fontSize: 11, marginTop: 4 }}>
                 {new Date(receipt.created_at).toLocaleString()}
               </div>

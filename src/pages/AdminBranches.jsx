@@ -15,6 +15,10 @@ export default function AdminBranches() {
     name: "",
     branch_code: "",
     phone: "",
+    phone_2: "",
+    phone_3: "",
+    paybill: "",
+    account_number: "",
     email: "",
     address: "",
     county: "",
@@ -54,7 +58,7 @@ export default function AdminBranches() {
 
   const resetForm = () => {
     setFormData({
-      name: "", branch_code: "", phone: "", email: "", address: "",
+      name: "", branch_code: "", phone: "", phone_2: "", phone_3: "", paybill: "", account_number: "", email: "", address: "",
       county: "", city: "", google_maps_url: "", manager_name: "",
       is_active: true, is_ecommerce_branch: false, is_main_branch: false,
     });
@@ -70,7 +74,7 @@ export default function AdminBranches() {
     setEditingBranch(branch);
     setFormData({
       name: branch.name || "", branch_code: branch.branch_code || "",
-      phone: branch.phone || "", email: branch.email || "",
+      phone: branch.phone || "", phone_2: branch.phone_2 || "", phone_3: branch.phone_3 || "", paybill: branch.paybill || "", account_number: branch.account_number || "", email: branch.email || "",
       address: branch.address || "", county: branch.county || "",
       city: branch.city || "", google_maps_url: branch.google_maps_url || "",
       manager_name: branch.manager_name || "",
@@ -194,6 +198,10 @@ export default function AdminBranches() {
             <input className="input" placeholder="Branch name *" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
             <input className="input" placeholder="Branch code" value={formData.branch_code} onChange={(e) => setFormData({ ...formData, branch_code: e.target.value.toUpperCase() })} />
             <input className="input" placeholder="Phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+            <input className="input" placeholder="Alternative Phone" value={formData.phone_2} onChange={(e) => setFormData({ ...formData, phone_2: e.target.value })} />
+            <input className="input" placeholder="Additional Phone" value={formData.phone_3} onChange={(e) => setFormData({ ...formData, phone_3: e.target.value })} />
+            <input className="input" placeholder="Paybill" value={formData.paybill} onChange={(e) => setFormData({ ...formData, paybill: e.target.value })} />
+            <input className="input" placeholder="Account Number" value={formData.account_number} onChange={(e) => setFormData({ ...formData, account_number: e.target.value })} />
             <input className="input" placeholder="Email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
             <input className="input" placeholder="Address" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
             <input className="input" placeholder="City" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
@@ -233,6 +241,7 @@ export default function AdminBranches() {
                 <th>Name</th>
                 <th>Location</th>
                 <th>Contact</th>
+                <th>paybill</th>
                 <th>Manager</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -250,7 +259,9 @@ export default function AdminBranches() {
                     </div>
                   </td>
                   <td>{b.city || "—"}<br /><span style={{ fontSize: 11, color: "#666" }}>{b.county || ""}</span></td>
-                  <td>{b.phone || "—"}<br /><span style={{ fontSize: 11, color: "#666" }}>{b.email || ""}</span></td>
+                  <td>{b.phone || "—"}<br /><span>{b.phone_2 || "—"}<br /> <span>{b.phone_3 || "—"}</span><br />
+                    </span><span style={{ fontSize: 11, color: "#666" }}>{b.email || ""}</span></td>
+                  <td>{b.paybill || "—"}</td>
                   <td>{b.manager_name || "—"}</td>
                   <td>
                     <span style={{
