@@ -10,10 +10,10 @@ export default function AdminDashboard() {
 
   // Filter states
   const [filters, setFilters] = useState({
-    start: lastWeek,
+    start: today,
     end: today,
     branchId: "",
-    dateRange: "7d",
+    dateRange: "today",
     view: "overview",
   });
 
@@ -57,30 +57,32 @@ export default function AdminDashboard() {
   ];
 
   const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  };
+      setFilters((prev) => ({ ...prev, [key]: value }));
+    };
 
-  const handleDateRangeChange = (range) => {
+    const handleDateRangeChange = (range) => {
     const now = new Date();
     let start = new Date();
     let end = new Date();
 
     switch (range) {
       case "today":
-        start = new Date(now.setHours(0, 0, 0, 0));
-        end = new Date(now.setHours(23, 59, 59, 999));
+        start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(now);
+        end.setHours(23, 59, 59, 999);
         break;
       case "7d":
         start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        end = new Date();
+        end = new Date(now);
         break;
       case "30d":
         start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        end = new Date();
+        end = new Date(now);
         break;
       case "90d":
         start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        end = new Date();
+        end = new Date(now);
         break;
       default:
         return;
@@ -177,12 +179,35 @@ export default function AdminDashboard() {
       const [topProductsRes, overviewRes, branchesRes, cashiersRes] =
         await Promise.all([
           api.get("/api/reports/product-performance/", {
-            params: { start: filters.start, end: filters.end },
+            params: {
+              start: filters.start,
+              end: filters.end,
+              branch: filters.branchId || undefined,
+            },
           }),
-          api.get("/api/reports/admin-overview/"),
-          api.get("/api/reports/branches-performance/"),
+
+          api.get("/api/reports/admin-overview/", {
+            params: {
+              start: filters.start,
+              end: filters.end,
+              branch: filters.branchId || undefined,
+            },
+          }),
+
+          api.get("/api/reports/branches-performance/", {
+            params: {
+              start: filters.start,
+              end: filters.end,
+              branch: filters.branchId || undefined,
+            },
+          }),
+
           api.get("/api/reports/cashiers-performance/", {
-            params: { branch: filters.branchId, start: filters.start, end: filters.end },
+            params: {
+              branch: filters.branchId || undefined,
+              start: filters.start,
+              end: filters.end,
+            },
           }),
         ]);
 
@@ -194,7 +219,7 @@ export default function AdminDashboard() {
       if (selectedBranch) {
         await loadBranchSummary(selectedBranch);
       }
-
+      console.log("Current filters:", filters);
       // Fetch chart data
       await fetchChartData();
     } catch (err) {
