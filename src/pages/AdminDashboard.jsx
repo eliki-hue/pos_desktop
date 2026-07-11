@@ -2,11 +2,21 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import AppLayout from "../components/AppLayout";
 import { api } from "../api/client";
 
+
+const formatLocalDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
 export default function AdminDashboard() {
-  const today = new Date().toISOString().slice(0, 10);
-  const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const today = formatLocalDate(new Date());
+  const lastWeekDate = new Date();
+  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+
+  const lastWeek = formatLocalDate(lastWeekDate);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -61,38 +71,42 @@ export default function AdminDashboard() {
     };
 
     const handleDateRangeChange = (range) => {
-    const now = new Date();
-    let start = new Date();
-    let end = new Date();
+      const now = new Date();
 
-    switch (range) {
-      case "today":
-        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case "7d":
-        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        end = new Date(now);
-        break;
-      case "30d":
-        start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        end = new Date(now);
-        break;
-      case "90d":
-        start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        end = new Date(now);
-        break;
-      default:
-        return;
-    }
+      let start;
+      let end = new Date(now);
 
-    setFilters((prev) => ({
-      ...prev,
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10),
-      dateRange: range,
-    }));
-  };
+      switch (range) {
+        case "today":
+          start = new Date(now);
+          break;
+
+        case "7d":
+          start = new Date(now);
+          start.setDate(start.getDate() - 7);
+          break;
+
+        case "30d":
+          start = new Date(now);
+          start.setDate(start.getDate() - 30);
+          break;
+
+        case "90d":
+          start = new Date(now);
+          start.setDate(start.getDate() - 90);
+          break;
+
+        default:
+          return;
+      }
+
+      setFilters((prev) => ({
+        ...prev,
+        start: formatLocalDate(start),
+        end: formatLocalDate(end),
+        dateRange: range,
+      }));
+    };
 
   // Fetch chart data
   const fetchChartData = useCallback(async () => {
