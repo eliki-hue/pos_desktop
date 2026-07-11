@@ -50,6 +50,7 @@ export default function AdminDashboard() {
     { value: "7d", label: "Last 7 Days" },
     { value: "30d", label: "Last 30 Days" },
     { value: "90d", label: "Last 90 Days" },
+    { value: "this_year", label: "This Year" },
     { value: "custom", label: "Custom" },
   ];
 
@@ -94,6 +95,10 @@ export default function AdminDashboard() {
         case "90d":
           start = new Date(now);
           start.setDate(start.getDate() - 90);
+          break;
+        
+        case "this_year":
+          start = new Date(now.getFullYear(), 0, 1);
           break;
 
         default:
