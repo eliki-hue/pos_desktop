@@ -67,10 +67,8 @@ export default function AdminDashboard() {
 
     switch (range) {
       case "today":
-        start = new Date(now);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(now);
-        end.setHours(23, 59, 59, 999);
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         break;
       case "7d":
         start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
