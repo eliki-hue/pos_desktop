@@ -116,59 +116,101 @@ export default function AdminDashboard() {
   // Fetch chart data
   const fetchChartData = useCallback(async () => {
     try {
-      const res = await api.get("/api/reports/chart-data/", {
+      const { data } = await api.get("/api/reports/chart-data/", {
         params: {
           start: filters.start,
           end: filters.end,
-          branch: filters.branchId,
+          branch: filters.branchId || undefined,
           chart_type: chartType,
           metric: chartMetric,
         },
       });
-      setChartData(res.data);
-      calculateTrends(res.data);
+
+      setChartData(data);
+      calculateTrends(data);
     } catch (err) {
-      console.error("Failed to fetch chart data:", err);
+      console.error(
+        "Failed to fetch chart data:",
+        err.response?.data || err
+      );
+
+      setChartData(null);
+      setTrendData(null);
     }
-  }, [filters.start, filters.end, filters.branchId, chartType, chartMetric]);
+  }, [
+    filters.start,
+    filters.end,
+    filters.branchId,
+    chartType,
+    chartMetric,
+  ]);
 
   // Calculate trends from actual data
   const calculateTrends = (data) => {
-    if (!data || !data.values || data.values.length < 2) {
+    const values = data?.values;
+
+    if (!Array.isArray(values) || values.length === 0) {
       setTrendData(null);
       return;
     }
 
-    const values = data.values;
-    const firstValue = values[0];
-    const lastValue = values[values.length - 1];
-    
-    // Calculate percentage change
-    const change = firstValue !== 0 
-      ? ((lastValue - firstValue) / Math.abs(firstValue)) * 100
-      : 0;
+    const numericValues = values.map((value) => Number(value) || 0);
 
-    // Calculate average daily/weekly/monthly growth
-    const periods = values.length;
-    const totalGrowth = lastValue - firstValue;
-    const averageGrowth = periods > 1 ? totalGrowth / (periods - 1) : 0;
+    const activePeriods = numericValues
+      .map((value, index) => ({
+        value,
+        index,
+      }))
+      .filter((period) => period.value !== 0);
 
-    // Find best and worst periods
-    const maxValue = Math.max(...values);
-    const minValue = Math.min(...values);
-    const maxIndex = values.indexOf(maxValue);
-    const minIndex = values.indexOf(minValue);
+    const total = numericValues.reduce(
+      (sum, value) => sum + value,
+      0
+    );
+
+    const average =
+      numericValues.length > 0
+        ? total / numericValues.length
+        : 0;
+
+    const maxValue = Math.max(...numericValues);
+    const maxIndex = numericValues.indexOf(maxValue);
+
+    const minValue = Math.min(...numericValues);
+    const minIndex = numericValues.indexOf(minValue);
+
+    let change = 0;
+    let trend = "stable";
+
+    if (activePeriods.length >= 2) {
+      const previous =
+        activePeriods[activePeriods.length - 2].value;
+
+      const current =
+        activePeriods[activePeriods.length - 1].value;
+
+      if (previous !== 0) {
+        change =
+          ((current - previous) / Math.abs(previous)) * 100;
+      }
+
+      trend =
+        change > 5
+          ? "up"
+          : change < -5
+          ? "down"
+          : "stable";
+    }
 
     setTrendData({
-      change: change,
-      averageGrowth: averageGrowth,
-      maxValue: maxValue,
-      minValue: minValue,
-      maxPeriod: data.labels[maxIndex],
-      minPeriod: data.labels[minIndex],
-      total: values.reduce((a, b) => a + b, 0),
-      average: values.reduce((a, b) => a + b, 0) / values.length,
-      trend: change > 5 ? "up" : change < -5 ? "down" : "stable",
+      change,
+      trend,
+      total,
+      average,
+      maxValue,
+      minValue,
+      maxPeriod: data.labels?.[maxIndex] || "",
+      minPeriod: data.labels?.[minIndex] || "",
     });
   };
 
@@ -237,8 +279,7 @@ export default function AdminDashboard() {
         await loadBranchSummary(selectedBranch);
       }
       console.log("Current filters:", filters);
-      // Fetch chart data
-      await fetchChartData();
+    
     } catch (err) {
       console.error("Admin dashboard error:", err);
       setError("❌ Failed to load admin dashboard data");
@@ -253,7 +294,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchChartData();
-  }, [chartType, chartMetric]);
+  }, [fetchChartData]);
 
   // Memoized statistics for better performance
   const stats = useMemo(() => {
