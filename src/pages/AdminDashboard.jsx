@@ -11,6 +11,41 @@ const formatLocalDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getRecommendedChartType = (range, start, end) => {
+  switch (range) {
+    case "today":
+    case "7d":
+    case "30d":
+      return "daily";
+
+    case "90d":
+      return "weekly";
+
+    case "this_year":
+      return "monthly";
+
+    case "custom": {
+      if (!start || !end) return "daily";
+
+      const startDate = new Date(`${start}T00:00:00`);
+      const endDate = new Date(`${end}T00:00:00`);
+
+      const differenceInDays = Math.ceil(
+        (endDate - startDate) / (1000 * 60 * 60 * 24)
+      );
+
+      if (differenceInDays <= 31) return "daily";
+      if (differenceInDays <= 120) return "weekly";
+      if (differenceInDays <= 730) return "monthly";
+
+      return "yearly";
+    }
+
+    default:
+      return "daily";
+  }
+};
+
 export default function AdminDashboard() {
   const today = formatLocalDate(new Date());
   const lastWeekDate = new Date();
@@ -68,14 +103,33 @@ export default function AdminDashboard() {
   ];
 
   const handleFilterChange = (key, value) => {
-      setFilters((prev) => ({ ...prev, [key]: value }));
-    };
+    setFilters((prev) => {
+      const updatedFilters = {
+        ...prev,
+        [key]: value,
+      };
+
+      if (key === "start" || key === "end") {
+        updatedFilters.dateRange = "custom";
+
+        const recommendedChartType = getRecommendedChartType(
+          "custom",
+          updatedFilters.start,
+          updatedFilters.end
+        );
+
+        setChartType(recommendedChartType);
+      }
+
+      return updatedFilters;
+    });
+  };
 
     const handleDateRangeChange = (range) => {
       const now = new Date();
 
       let start;
-      let end = new Date(now);
+      const end = new Date(now);
 
       switch (range) {
         case "today":
@@ -96,7 +150,7 @@ export default function AdminDashboard() {
           start = new Date(now);
           start.setDate(start.getDate() - 90);
           break;
-        
+
         case "this_year":
           start = new Date(now.getFullYear(), 0, 1);
           break;
@@ -105,10 +159,21 @@ export default function AdminDashboard() {
           return;
       }
 
+      const formattedStart = formatLocalDate(start);
+      const formattedEnd = formatLocalDate(end);
+
+      const recommendedChartType = getRecommendedChartType(
+        range,
+        formattedStart,
+        formattedEnd
+      );
+
+      setChartType(recommendedChartType);
+
       setFilters((prev) => ({
         ...prev,
-        start: formatLocalDate(start),
-        end: formatLocalDate(end),
+        start: formattedStart,
+        end: formattedEnd,
         dateRange: range,
       }));
     };
@@ -148,20 +213,20 @@ export default function AdminDashboard() {
   // Calculate trends from actual data
   const calculateTrends = (data) => {
     const values = data?.values;
+    const labels = data?.labels;
 
-    if (!Array.isArray(values) || values.length === 0) {
+    if (
+      !Array.isArray(values) ||
+      !Array.isArray(labels) ||
+      values.length === 0
+    ) {
       setTrendData(null);
       return;
     }
 
-    const numericValues = values.map((value) => Number(value) || 0);
-
-    const activePeriods = numericValues
-      .map((value, index) => ({
-        value,
-        index,
-      }))
-      .filter((period) => period.value !== 0);
+    const numericValues = values.map(
+      (value) => Number(value) || 0
+    );
 
     const total = numericValues.reduce(
       (sum, value) => sum + value,
@@ -173,44 +238,79 @@ export default function AdminDashboard() {
         ? total / numericValues.length
         : 0;
 
-    const maxValue = Math.max(...numericValues);
-    const maxIndex = numericValues.indexOf(maxValue);
+    const activePeriods = numericValues
+      .map((value, index) => ({
+        value,
+        index,
+        label: labels[index],
+      }))
+      .filter((period) => period.value > 0);
 
-    const minValue = Math.min(...numericValues);
-    const minIndex = numericValues.indexOf(minValue);
+    if (activePeriods.length < 2) {
+      setTrendData({
+        hasComparison: false,
+        change: null,
+        trend: null,
+        total,
+        average,
+        maxValue:
+          activePeriods.length === 1
+            ? activePeriods[0].value
+            : 0,
+        minValue:
+          activePeriods.length === 1
+            ? activePeriods[0].value
+            : 0,
+        maxPeriod:
+          activePeriods.length === 1
+            ? activePeriods[0].label
+            : "",
+        minPeriod: "",
+      });
 
-    let change = 0;
-    let trend = "stable";
-
-    if (activePeriods.length >= 2) {
-      const previous =
-        activePeriods[activePeriods.length - 2].value;
-
-      const current =
-        activePeriods[activePeriods.length - 1].value;
-
-      if (previous !== 0) {
-        change =
-          ((current - previous) / Math.abs(previous)) * 100;
-      }
-
-      trend =
-        change > 5
-          ? "up"
-          : change < -5
-          ? "down"
-          : "stable";
+      return;
     }
 
+    const previous =
+      activePeriods[activePeriods.length - 2];
+
+    const current =
+      activePeriods[activePeriods.length - 1];
+
+    const change =
+      previous.value !== 0
+        ? ((current.value - previous.value) /
+            Math.abs(previous.value)) *
+          100
+        : 0;
+
+    const trend =
+      change > 5
+        ? "up"
+        : change < -5
+        ? "down"
+        : "stable";
+
+    const bestPeriod = activePeriods.reduce(
+      (best, period) =>
+        period.value > best.value ? period : best
+    );
+
+    const worstPeriod = activePeriods.reduce(
+      (worst, period) =>
+        period.value < worst.value ? period : worst
+    );
+
     setTrendData({
+      hasComparison: true,
       change,
       trend,
       total,
       average,
-      maxValue,
-      minValue,
-      maxPeriod: data.labels?.[maxIndex] || "",
-      minPeriod: data.labels?.[minIndex] || "",
+      maxValue: bestPeriod.value,
+      minValue: worstPeriod.value,
+      maxPeriod: bestPeriod.label,
+      minPeriod: worstPeriod.label,
     });
   };
 
@@ -352,6 +452,7 @@ export default function AdminDashboard() {
                   dateRange: "7d",
                   view: "overview",
                 });
+                setChartType("daily");
                 setSelectedBranch(null);
                 setBranchSummary(null);
               }}
@@ -470,48 +571,110 @@ export default function AdminDashboard() {
             {trendData && (
               <div className="trend-summary">
                 <div className="trend-card">
-                  <span className="trend-label">Total {chartMetric}</span>
+                  <span className="trend-label">
+                    Total {chartMetric}
+                  </span>
+
                   <span className="trend-value">
-                    {chartMetric === "revenue" 
+                    {chartMetric === "revenue"
                       ? `KES ${trendData.total.toLocaleString()}`
                       : trendData.total.toLocaleString()}
                   </span>
                 </div>
+
                 <div className="trend-card">
-                  <span className="trend-label">Average per Period</span>
+                  <span className="trend-label">
+                    Average per Period
+                  </span>
+
                   <span className="trend-value">
                     {chartMetric === "revenue"
-                      ? `KES ${trendData.average.toLocaleString()}`
-                      : trendData.average.toLocaleString()}
+                      ? `KES ${trendData.average.toLocaleString(
+                          undefined,
+                          {
+                            maximumFractionDigits: 2,
+                          }
+                        )}`
+                      : trendData.average.toLocaleString(
+                          undefined,
+                          {
+                            maximumFractionDigits: 2,
+                          }
+                        )}
                   </span>
                 </div>
-                <div className={`trend-card ${trendData.trend}`}>
-                  <span className="trend-label">Trend</span>
-                  <span className="trend-value">
-                    {trendData.change > 0 ? "↑" : trendData.change < 0 ? "↓" : "→"}
-                    {" "}{Math.abs(trendData.change).toFixed(1)}%
-                  </span>
-                  <span className="trend-sub">
-                    {trendData.trend === "up" ? "Improving" : 
-                     trendData.trend === "down" ? "Declining" : "Stable"}
-                  </span>
-                </div>
-                <div className="trend-card">
-                  <span className="trend-label">Best Period</span>
-                  <span className="trend-value">
-                    {trendData.maxPeriod}: {chartMetric === "revenue"
-                      ? `KES ${trendData.maxValue.toLocaleString()}`
-                      : trendData.maxValue.toLocaleString()}
-                  </span>
-                </div>
-                <div className="trend-card">
-                  <span className="trend-label">Worst Period</span>
-                  <span className="trend-value">
-                    {trendData.minPeriod}: {chartMetric === "revenue"
-                      ? `KES ${trendData.minValue.toLocaleString()}`
-                      : trendData.minValue.toLocaleString()}
-                  </span>
-                </div>
+
+                {trendData.hasComparison ? (
+                  <>
+                    <div
+                      className={`trend-card ${trendData.trend}`}
+                    >
+                      <span className="trend-label">
+                        Latest Trend
+                      </span>
+
+                      <span className="trend-value">
+                        {trendData.change > 0
+                          ? "↑"
+                          : trendData.change < 0
+                          ? "↓"
+                          : "→"}
+
+                        {" "}
+
+                        {Math.abs(trendData.change).toFixed(1)}%
+                      </span>
+
+                      <span className="trend-sub">
+                        {trendData.trend === "up"
+                          ? "Improving"
+                          : trendData.trend === "down"
+                          ? "Declining"
+                          : "Stable"}
+                      </span>
+                    </div>
+
+                    <div className="trend-card">
+                      <span className="trend-label">
+                        Best Period
+                      </span>
+
+                      <span className="trend-value">
+                        {trendData.maxPeriod}:{" "}
+                        {chartMetric === "revenue"
+                          ? `KES ${trendData.maxValue.toLocaleString()}`
+                          : trendData.maxValue.toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="trend-card">
+                      <span className="trend-label">
+                        Lowest Active Period
+                      </span>
+
+                      <span className="trend-value">
+                        {trendData.minPeriod}:{" "}
+                        {chartMetric === "revenue"
+                          ? `KES ${trendData.minValue.toLocaleString()}`
+                          : trendData.minValue.toLocaleString()}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="trend-card">
+                    <span className="trend-label">
+                      Trend
+                    </span>
+
+                    <span className="trend-value">
+                      Not enough data
+                    </span>
+
+                    <span className="trend-sub">
+                      At least two active periods are required
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
