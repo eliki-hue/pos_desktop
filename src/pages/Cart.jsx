@@ -383,6 +383,286 @@ function ReceiptModal({ receipt, onClose }) {
   );
 }
 
+
+/* =====================================================
+   ITEM DISCOUNT REQUEST MODAL
+===================================================== */
+function DiscountRequestModal({
+  open,
+  item,
+  onClose,
+  onSuccess,
+}) {
+  const [discountPerUnit, setDiscountPerUnit] = useState("");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setDiscountPerUnit("");
+      setReason("");
+    }
+  }, [open]);
+
+  if (!open || !item) {
+    return null;
+  }
+
+  const discountValue = Number(discountPerUnit) || 0;
+
+  const isValid =
+    discountValue > 0 &&
+    discountValue <= Number(item.unit_price) &&
+    reason.trim().length >= 5;
+
+  const submitRequest = async () => {
+    if (!isValid || submitting) {
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const response = await api.post(
+        `/api/cart/pos/discount-requests/items/${item.id}/request/`,
+        {
+          discount_per_unit: discountPerUnit,
+          reason: reason.trim(),
+        }
+      );
+
+      toast.success(
+        "Discount request submitted for approval."
+      );
+
+      await onSuccess(response.data);
+
+      onClose();
+    } catch (err) {
+      console.error(
+        "Failed to request item discount:",
+        err
+      );
+
+      const data = err.response?.data;
+
+      let message = "Failed to request discount.";
+
+      if (typeof data?.detail === "string") {
+        message = data.detail;
+      } else if (
+        Array.isArray(data?.discount_per_unit)
+      ) {
+        message = data.discount_per_unit[0];
+      } else if (Array.isArray(data?.reason)) {
+        message = data.reason[0];
+      } else if (typeof data === "string") {
+        message = data;
+      }
+
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 16,
+        zIndex: 10000,
+      }}
+    >
+      <div
+        className="card"
+        style={{
+          width: "100%",
+          maxWidth: 480,
+        }}
+      >
+        {/* HEADER */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontWeight: 900,
+                fontSize: 18,
+              }}
+            >
+              Request Item Discount
+            </div>
+
+            <div
+              className="muted"
+              style={{
+                fontSize: 13,
+                marginTop: 4,
+              }}
+            >
+              Manager or administrator approval required.
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Close
+          </button>
+        </div>
+
+        {/* ITEM INFORMATION */}
+        <div
+          style={{
+            marginTop: 16,
+            padding: 12,
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 10,
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 700,
+            }}
+          >
+            {item.product_name}
+          </div>
+
+          <div
+            className="muted"
+            style={{
+              marginTop: 6,
+              fontSize: 13,
+            }}
+          >
+            Quantity:{" "}
+            {Number(item.quantity).toFixed(3)}{" "}
+            {item.unit}
+          </div>
+
+          <div
+            className="muted"
+            style={{
+              fontSize: 13,
+            }}
+          >
+            Current price: KES{" "}
+            {Number(item.unit_price).toFixed(2)} /{" "}
+            {item.unit}
+          </div>
+        </div>
+
+        {/* DISCOUNT */}
+        <div style={{ marginTop: 16 }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 700,
+            }}
+          >
+            Discount Per {item.unit}
+          </label>
+
+          <input
+            className="input"
+            type="number"
+            min="0.01"
+            step="0.01"
+            max={item.unit_price}
+            value={discountPerUnit}
+            onChange={(event) =>
+              setDiscountPerUnit(event.target.value)
+            }
+            placeholder="Example: 50"
+            disabled={submitting}
+          />
+
+          <div
+            className="muted"
+            style={{
+              marginTop: 6,
+              fontSize: 12,
+            }}
+          >
+            Enter the discount for each {item.unit}.
+          </div>
+        </div>
+
+        {/* REASON */}
+        <div style={{ marginTop: 16 }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 700,
+            }}
+          >
+            Discount Reason
+          </label>
+
+          <textarea
+            className="input"
+            rows={4}
+            maxLength={1000}
+            value={reason}
+            onChange={(event) =>
+              setReason(event.target.value)
+            }
+            placeholder="Example: Bulk purchase customer"
+            disabled={submitting}
+            style={{
+              resize: "vertical",
+            }}
+          />
+
+          <div
+            className="muted"
+            style={{
+              marginTop: 6,
+              fontSize: 12,
+            }}
+          >
+            Minimum 5 characters.
+          </div>
+        </div>
+
+        {/* ACTION */}
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={!isValid || submitting}
+          onClick={submitRequest}
+          style={{
+            width: "100%",
+            marginTop: 20,
+          }}
+        >
+          {submitting
+            ? "Submitting Request..."
+            : "Submit Discount Request"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* =====================================================
    CHECKOUT MODAL WITH CHANGE CALCULATOR - FIXED
 ===================================================== */
@@ -867,6 +1147,8 @@ export default function Cart() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [discountRequestOpen,setDiscountRequestOpen] = useState(false);
+  const [selectedDiscountItem,setSelectedDiscountItem] = useState(null);
 
   // holding cart
   const [holdOpen, setHoldOpen] = useState(false);
@@ -1074,6 +1356,25 @@ export default function Cart() {
       : 0;
   };
 
+  const cancelDiscountRequest = async (requestId) => {
+    try {
+      await api.post(
+        `/api/cart/pos/discount-requests/${requestId}/cancel/`
+      );
+
+      toast.success("Discount request cancelled.");
+
+      await loadCart();
+
+    } catch (err) {
+      console.error(err);
+
+      toast.error(
+        err.response?.data?.detail ||
+        "Failed to cancel discount request."
+      );
+    }
+  };
 
   const updateQty = async (productId, quantity, unit) => {
     try {
@@ -1148,6 +1449,18 @@ export default function Cart() {
   return (
     <AppLayout title="Cart" subtitle="Review items and checkout">
       <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />
+
+      <DiscountRequestModal
+        open={discountRequestOpen}
+        item={selectedDiscountItem}
+        onClose={() => {
+          setDiscountRequestOpen(false);
+          setSelectedDiscountItem(null);
+        }}
+        onSuccess={async () => {
+          await loadCart();
+        }}
+      />
 
       <CheckoutModal
         open={checkoutOpen}
@@ -1231,69 +1544,256 @@ export default function Cart() {
                     <th>Quantity</th>
                     <th>Unit</th>
                     <th>Unit Price</th>
+                    <th>Discount</th>
                     <th>Subtotal</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((i) => (
-                    <tr key={i.id}>
-                      <td>
-                        {i.product_name}
-                        <div className="muted" style={{ fontSize: 12 }}>
-                          SKU: {i.sku}
-                        </div>
-                      </td>
-                      <td style={{ width: 120 }}>
-                        <input
-                          type="number"
-                          min="1"
-                          step={i.unit === "KG" ? "0.01" : "1"}
-                          value={Number(i.quantity)}
-                          onChange={(e) =>
-                            updateQty(i.product, e.target.value, i.unit)
-                          }
-                          style={{
-                            width: "80px",
-                            padding: "6px 10px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "10px",
-                            outline: "none",
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <span style={{ 
-                          background: i.unit === "BAG" ? "#e6f7ff" : i.unit === "PIECE" ? "#f6ffed" : "#f5f5f5",
-                          padding: "4px 8px",
-                          borderRadius: "6px",
-                          fontSize: 12,
-                          fontWeight: 500
-                        }}>
-                          {i.unit}
-                        </span>
-                      </td>
-                      <td>
-                        KES {Number(i.unit_price).toFixed(2)}/{i.unit}
-                      </td>
-                      <td>
-                        <strong>KES {Number(i.subtotal).toFixed(2)}</strong>
-                      </td>
-                      <td>
-                        <button
-                          className="btn btn-danger"
-                          size="sm"
-                          onClick={() => removeItem(i.product, i.unit)}
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((i) => {
+                    const hasDiscount =
+                      Number(i.discount_per_unit) > 0;
+
+                    const pendingDiscount =
+                      i.pending_discount_request;
+
+                    const hasPendingDiscount =
+                      Boolean(pendingDiscount);
+
+                    return (
+                      <tr key={i.id}>
+                        {/* PRODUCT */}
+                        <td>
+                          {i.product_name}
+
+                          <div
+                            className="muted"
+                            style={{ fontSize: 12 }}
+                          >
+                            SKU: {i.sku || "—"}
+                          </div>
+                        </td>
+
+                        {/* QUANTITY */}
+                        <td style={{ width: 120 }}>
+                          <input
+                            type="number"
+                            min="1"
+                            step={
+                              i.unit === "KG"
+                                ? "0.01"
+                                : "1"
+                            }
+                            value={Number(i.quantity)}
+                            onChange={(event) =>
+                              updateQty(
+                                i.product,
+                                event.target.value,
+                                i.unit
+                              )
+                            }
+                            style={{
+                              width: "80px",
+                              padding: "6px 10px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "10px",
+                              outline: "none",
+                            }}
+                          />
+                        </td>
+
+                        {/* UNIT */}
+                        <td>
+                          <span
+                            style={{
+                              background:
+                                i.unit === "BAG"
+                                  ? "#e6f7ff"
+                                  : i.unit === "PIECE"
+                                  ? "#f6ffed"
+                                  : "#f5f5f5",
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              fontSize: 12,
+                              fontWeight: 500,
+                            }}
+                          >
+                            {i.unit}
+                          </span>
+                        </td>
+
+                        {/* UNIT PRICE */}
+                        <td>
+                          {hasDiscount ? (
+                            <>
+                              <div
+                                style={{
+                                  textDecoration: "line-through",
+                                  color: "#64748b",
+                                  fontSize: 12,
+                                }}
+                              >
+                                KES{" "}
+                                {Number(i.unit_price).toFixed(2)}
+                              </div>
+
+                              <strong>
+                                KES{" "}
+                                {Number(
+                                  i.effective_unit_price
+                                ).toFixed(2)}
+                                /{i.unit}
+                              </strong>
+                            </>
+                          ) : (
+                            <>
+                              KES{" "}
+                              {Number(i.unit_price).toFixed(2)}
+                              /{i.unit}
+                            </>
+                          )}
+                        </td>
+
+                        {/* DISCOUNT */}
+                        <td>
+                          {hasDiscount ? (
+                            <div>
+                              <div
+                                style={{
+                                  fontWeight: 700,
+                                  color: "#15803d",
+                                }}
+                              >
+                                - KES {Number(i.discount_per_unit).toFixed(2)}/{i.unit}
+                              </div>
+
+                              <div
+                                className="muted"
+                                style={{ fontSize: 12 }}
+                              >
+                                Total: KES {Number(i.discount_total).toFixed(2)}
+                              </div>
+
+                              <div
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: 11,
+                                  color: "#15803d",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                ✔ APPROVED
+                              </div>
+                            </div>
+                          ) : hasPendingDiscount ? (
+                            <div>
+                              <div
+                                style={{
+                                  fontWeight: 700,
+                                  color: "#b45309",
+                                }}
+                              >
+                                KES {Number(
+                                  pendingDiscount.discount_per_unit
+                                ).toFixed(2)}/{i.unit}
+                              </div>
+
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: "#b45309",
+                                  marginTop: 4,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                ⏳ PENDING APPROVAL
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="muted">
+                              No discount
+                            </span>
+                          )}
+                        </td>
+
+                        {/* SUBTOTAL */}
+                        <td>
+                          <strong>
+                            KES {Number(i.subtotal).toFixed(2)}
+                          </strong>
+                        </td>
+
+                        {/* ACTIONS */}
+                        <td>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {!hasDiscount && !hasPendingDiscount && (
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() => {
+                                  setSelectedDiscountItem(i);
+                                  setDiscountRequestOpen(true);
+                                }}
+                              >
+                                Request Discount
+                              </button>
+                            )}
+
+                            {hasPendingDiscount && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  disabled
+                                  style={{
+                                    cursor: "not-allowed",
+                                    opacity: 0.7,
+                                  }}
+                                >
+                                  Pending
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="btn btn-warning"
+                                  onClick={() =>
+                                    cancelDiscountRequest(
+                                      pendingDiscount.id
+                                    )
+                                  }
+                                >
+                                  Cancel Request
+                                </button>
+                              </>
+                            )}
+                            
+                            <button
+                              type="button"
+                              className="btn btn-danger"
+                              onClick={() =>
+                                removeItem(
+                                  i.product,
+                                  i.unit
+                                )
+                              }
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan="4" style={{ textAlign: "right" }}>
+                    <td colSpan="5" style={{ textAlign: "right" }}>
                       <strong>Cart Total:</strong>
                     </td>
                     <td colSpan="2">

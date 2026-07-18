@@ -46,6 +46,9 @@ import { Toaster } from 'react-hot-toast';
 import Reviews from "./pages/AdminReviews";
 
 
+import DiscountRequests from "./pages/DiscountRequests";
+
+
 
 export default function App() {
   return (
@@ -162,6 +165,12 @@ export default function App() {
           element={<StockMovementReport />}
         />
 
+        <Route
+              path="/discount-requests"
+              element={<DiscountRequests />}
+        />
+
+
         {/* ================= Purchases Module ================= */}
         {/* Single purchase route with nested routes */}
         <Route
@@ -176,6 +185,8 @@ export default function App() {
           <Route path="new" element={<PurchaseForm />} />
           <Route path=":id" element={<PurchaseDetail />} />
           <Route path=":id/edit" element={<PurchaseForm isEdit={true} />} />
+
+          
         </Route>
 
         {/* ================= Admin ================= */}
@@ -251,6 +262,7 @@ export default function App() {
         <Route path="balance/sales/outstanding" element={<OutstandingSales />} />
         
         <Route path="balance/sales/:id" element={<SaleDetail />} />
+        
 
         <Route
           path="pos-admin/reviews"

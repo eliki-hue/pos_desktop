@@ -152,6 +152,11 @@ export default function Sidebar() {
                 <CheckCircle size={20} />
                 <span>Pending Approvals</span>
               </NavLink>
+
+              <NavLink to="/discount-requests" style={linkStyle}>
+                  <CheckCircle size={20} />
+                  <span>Discount Requests</span>
+              </NavLink>
             </>
           )}
 
@@ -196,6 +201,11 @@ export default function Sidebar() {
               <NavLink to="/adjustments/pending" style={linkStyle}>
                 <CheckCircle size={20} />
                 <span>Pending Approvals</span>
+              </NavLink>
+
+              <NavLink to="/discount-requests" style={linkStyle}>
+                  <CheckCircle size={20} />
+                  <span>Discount Requests</span>
               </NavLink>
 
 
