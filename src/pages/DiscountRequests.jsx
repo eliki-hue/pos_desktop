@@ -51,11 +51,9 @@ export default function DiscountRequests() {
       const term = search.toLowerCase();
 
       const matchesSearch =
-        r.product_name.toLowerCase().includes(term) ||
-        r.branch_name.toLowerCase().includes(term) ||
-        r.requested_by.username
-          .toLowerCase()
-          .includes(term);
+          (r.product_name ?? "").toLowerCase().includes(term) ||
+          (r.branch_name ?? "").toLowerCase().includes(term) ||
+          (r.cashier_name ?? "").toLowerCase().includes(term);
 
       return matchesStatus && matchesSearch;
     });
@@ -337,7 +335,7 @@ export default function DiscountRequests() {
                   </td>
 
                   <td style={td}>
-                    {request.requested_by.username}
+                    {request.cashier_name || request.requested_by?.username || "-"}
                   </td>
 
                   <td style={td}>

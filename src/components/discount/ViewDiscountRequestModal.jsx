@@ -1,35 +1,35 @@
 import React from 'react';
-import { X, Eye, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { X, Eye, CheckCircle, XCircle, Clock, AlertCircle, User, Building2, Package, DollarSign, Calendar, FileText } from 'lucide-react';
 
-// Status configuration matching your POS style
+// Status configuration
 const STATUS_CONFIG = {
   APPROVED: {
-    background: '#d1fae5',
+    bg: '#d1fae5',
     color: '#065f46',
     label: 'Approved',
     icon: CheckCircle
   },
   REJECTED: {
-    background: '#fee2e2',
+    bg: '#fee2e2',
     color: '#991b1b',
     label: 'Rejected',
     icon: XCircle
   },
   PENDING: {
-    background: '#fef3c7',
+    bg: '#fef3c7',
     color: '#92400e',
     label: 'Pending',
     icon: Clock
   },
   CANCELLED: {
-    background: '#f3f4f6',
+    bg: '#f3f4f6',
     color: '#374151',
     label: 'Cancelled',
     icon: X
   }
 };
 
-// Utility functions matching your POS formatting
+// Utility functions
 const formatCurrency = (amount) => {
   if (amount === undefined || amount === null) return 'KES 0.00';
   return `KES ${Number(amount).toFixed(2)}`;
@@ -47,7 +47,7 @@ const formatDate = (dateString) => {
   });
 };
 
-// Status Badge Component matching your POS style
+// Status Badge
 const StatusBadge = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
   const Icon = config.icon;
@@ -60,9 +60,9 @@ const StatusBadge = ({ status }) => {
         gap: 6,
         padding: '4px 12px',
         borderRadius: 20,
-        fontSize: 11,
-        fontWeight: 500,
-        backgroundColor: config.background,
+        fontSize: 12,
+        fontWeight: 600,
+        backgroundColor: config.bg,
         color: config.color
       }}
     >
@@ -71,22 +71,6 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
-
-// Info Row Component matching POS style
-const InfoRow = ({ label, value }) => (
-  <div style={styles.infoRow}>
-    <span style={styles.infoLabel}>{label}</span>
-    <span style={styles.infoValue}>{value || '-'}</span>
-  </div>
-);
-
-// Section Header matching POS style
-const SectionHeader = ({ children, icon: Icon }) => (
-  <div style={styles.sectionHeader}>
-    {Icon && <Icon size={18} style={{ marginRight: 8 }} />}
-    {children}
-  </div>
-);
 
 // Main Component
 const ViewDiscountRequestModal = ({ request, onClose }) => {
@@ -103,97 +87,102 @@ const ViewDiscountRequestModal = ({ request, onClose }) => {
             <Eye size={20} style={{ color: '#6b7280' }} />
             <h2 style={styles.title}>Discount Request Details</h2>
           </div>
-          <button
-            onClick={onClose}
-            style={styles.closeButton}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          >
+          <button onClick={onClose} style={styles.closeButton}>
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
         <div style={styles.content}>
-          {/* Status at top */}
-          <div style={styles.statusSection}>
+          {/* Status Row */}
+          <div style={styles.statusRow}>
+            <span style={styles.statusLabel}>Status</span>
             <StatusBadge status={request.status} />
           </div>
 
-          {/* Main Info Grid */}
-          <div style={styles.infoGrid}>
-            <InfoRow label="Product" value={request.product_name} />
-            <InfoRow label="Branch" value={request.branch_name} />
-            <InfoRow label="Cashier" value={request.requested_by?.username || '-'} />
-            <InfoRow 
-              label="Quantity" 
-              value={`${request.requested_quantity} ${request.requested_unit}`} 
-            />
-            <InfoRow 
-              label="Unit Price" 
-              value={formatCurrency(request.requested_unit_price)} 
-            />
-            <InfoRow 
-              label="Requested Discount" 
-              value={`${formatCurrency(request.discount_per_unit)} / ${request.requested_unit}`} 
-            />
-            <InfoRow label="Reason" value={request.reason} />
-            <InfoRow 
-              label="Requested At" 
-              value={formatDate(request.requested_at)} 
-            />
-            <InfoRow 
-              label="Resolved By" 
-              value={request.resolved_by?.username || '-'} 
-            />
-            <InfoRow 
-              label="Resolved At" 
-              value={request.resolved_at ? formatDate(request.resolved_at) : '-'} 
-            />
-            <InfoRow 
-              label="Resolution Note" 
-              value={request.resolution_note || '-'} 
-            />
-          </div>
+          {/* Details Table */}
+          <table style={styles.table}>
+            <tbody>
+              <tr>
+                <td style={styles.label}>Product</td>
+                <td style={styles.value}>{request.product_name}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Branch</td>
+                <td style={styles.value}>{request.branch_name}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Cashier</td>
+                <td style={styles.value}>{request.requested_by?.username || '-'}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Quantity</td>
+                <td style={styles.value}>{`${request.requested_quantity} ${request.requested_unit}`}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Unit Price</td>
+                <td style={styles.value}>{formatCurrency(request.requested_unit_price)}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Requested Discount</td>
+                <td style={styles.value}>{`${formatCurrency(request.discount_per_unit)} / ${request.requested_unit}`}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Reason</td>
+                <td style={styles.value}>{request.reason}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Requested At</td>
+                <td style={styles.value}>{formatDate(request.requested_at)}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Resolved By</td>
+                <td style={styles.value}>{request.resolved_by?.username || '-'}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Resolved At</td>
+                <td style={styles.value}>{request.resolved_at ? formatDate(request.resolved_at) : '-'}</td>
+              </tr>
+              <tr>
+                <td style={styles.label}>Resolution Note</td>
+                <td style={styles.value}>{request.resolution_note || '-'}</td>
+              </tr>
+            </tbody>
+          </table>
 
           {/* Current Cart Values Section */}
           {hasCurrentCartValues && (
-            <div style={styles.cartSection}>
-              <SectionHeader icon={AlertCircle}>Current Cart Values</SectionHeader>
-              <div style={styles.cartGrid}>
-                <InfoRow 
-                  label="Current Quantity" 
-                  value={`${request.current_quantity} ${request.current_unit}`} 
-                />
-                <InfoRow 
-                  label="Current Unit Price" 
-                  value={formatCurrency(request.current_unit_price)} 
-                />
-                <InfoRow 
-                  label="Current Discount" 
-                  value={formatCurrency(request.current_discount_per_unit)} 
-                />
-                <InfoRow 
-                  label="Current Subtotal" 
-                  value={formatCurrency(request.current_subtotal)} 
-                />
+            <>
+              <div style={styles.sectionDivider}>
+                <span style={styles.sectionTitle}>Current Cart Values</span>
               </div>
-            </div>
+              <table style={styles.table}>
+                <tbody>
+                  <tr>
+                    <td style={styles.label}>Current Quantity</td>
+                    <td style={styles.value}>{`${request.current_quantity} ${request.current_unit}`}</td>
+                  </tr>
+                  <tr>
+                    <td style={styles.label}>Current Unit Price</td>
+                    <td style={styles.value}>{formatCurrency(request.current_unit_price)}</td>
+                  </tr>
+                  <tr>
+                    <td style={styles.label}>Current Discount</td>
+                    <td style={styles.value}>{formatCurrency(request.current_discount_per_unit)}</td>
+                  </tr>
+                  <tr>
+                    <td style={styles.label}>Current Subtotal</td>
+                    <td style={styles.value}>{formatCurrency(request.current_subtotal)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </>
           )}
         </div>
 
         {/* Footer */}
         <div style={styles.footer}>
-          <button
-            onClick={onClose}
-            style={styles.closeBtn}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#e5e7eb';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#f3f4f6';
-            }}
-          >
+          <button onClick={onClose} style={styles.closeBtn}>
             Close
           </button>
         </div>
@@ -202,7 +191,7 @@ const ViewDiscountRequestModal = ({ request, onClose }) => {
   );
 };
 
-// Styles matching your POS system
+// Styles
 const styles = {
   overlay: {
     position: 'fixed',
@@ -215,11 +204,11 @@ const styles = {
     backdropFilter: 'blur(4px)',
   },
   modal: {
-    width: 650,
+    width: 600,
     maxWidth: '95%',
     maxHeight: '90vh',
     background: '#ffffff',
-    borderRadius: '12px',
+    borderRadius: 12,
     boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
     display: 'flex',
     flexDirection: 'column',
@@ -229,9 +218,8 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '20px 24px',
+    padding: '18px 24px',
     borderBottom: '1px solid #e5e7eb',
-    backgroundColor: '#fafafa',
     flexShrink: 0,
   },
   headerLeft: {
@@ -246,8 +234,8 @@ const styles = {
     color: '#111827',
   },
   closeButton: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: '50%',
     border: 'none',
     background: 'transparent',
@@ -263,76 +251,65 @@ const styles = {
     overflowY: 'auto',
     flex: 1,
   },
-  statusSection: {
-    marginBottom: 20,
-    display: 'flex',
-    justifyContent: 'center',
-  },
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr',
-    gap: 0,
-  },
-  infoRow: {
+  statusRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    padding: '10px 0',
-    borderBottom: '1px solid #f3f4f6',
+    alignItems: 'center',
+    padding: '12px 0',
+    borderBottom: '2px solid #e5e7eb',
+    marginBottom: 8,
   },
-  infoLabel: {
+  statusLabel: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#6b7280',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+  },
+  label: {
+    padding: '10px 0',
+    width: 140,
     fontSize: 13,
     fontWeight: 500,
     color: '#6b7280',
+    verticalAlign: 'top',
   },
-  infoValue: {
+  value: {
+    padding: '10px 0',
     fontSize: 13,
     fontWeight: 500,
     color: '#111827',
     textAlign: 'right',
-    maxWidth: '60%',
-    wordBreak: 'break-word',
   },
-  sectionHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '16px 0 12px 0',
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#111827',
+  sectionDivider: {
+    padding: '16px 0 8px 0',
+    marginTop: 8,
     borderTop: '2px solid #e5e7eb',
-    marginTop: 8,
   },
-  cartSection: {
-    marginTop: 8,
-  },
-  cartGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr',
-    gap: 0,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    padding: '0 12px',
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: '#111827',
   },
   footer: {
     display: 'flex',
     justifyContent: 'flex-end',
     padding: '16px 24px',
     borderTop: '1px solid #e5e7eb',
-    backgroundColor: '#fafafa',
     flexShrink: 0,
-    gap: 10,
   },
   closeBtn: {
     padding: '8px 24px',
     borderRadius: 8,
     border: '1px solid #e5e7eb',
-    background: '#f3f4f6',
+    background: '#ffffff',
     color: '#374151',
     fontSize: 13,
     fontWeight: 500,
     cursor: 'pointer',
     transition: 'all 0.2s',
-    fontFamily: 'inherit',
   },
 };
 

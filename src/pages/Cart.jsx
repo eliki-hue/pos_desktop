@@ -1554,11 +1554,21 @@ export default function Cart() {
                     const hasDiscount =
                       Number(i.discount_per_unit) > 0;
 
-                    const pendingDiscount =
-                      i.pending_discount_request;
+                    const discountRequest = i.discount_request;
+
+                    const requestStatus = discountRequest?.status;
 
                     const hasPendingDiscount =
-                      Boolean(pendingDiscount);
+                      requestStatus === "PENDING";
+
+                    const isRejected =
+                      requestStatus === "REJECTED";
+
+                    const isCancelled =
+                      requestStatus === "CANCELLED";
+
+                    const isApproved =
+                      requestStatus === "APPROVED";
 
                     return (
                       <tr key={i.id}>
@@ -1656,7 +1666,7 @@ export default function Cart() {
 
                         {/* DISCOUNT */}
                         <td>
-                          {hasDiscount ? (
+                          {hasDiscount || isApproved ? (
                             <div>
                               <div
                                 style={{
@@ -1677,15 +1687,16 @@ export default function Cart() {
                               <div
                                 style={{
                                   marginTop: 4,
-                                  fontSize: 11,
                                   color: "#15803d",
                                   fontWeight: 700,
                                 }}
                               >
-                                ✔ APPROVED
+                                ✅ APPROVED
                               </div>
                             </div>
+
                           ) : hasPendingDiscount ? (
+
                             <div>
                               <div
                                 style={{
@@ -1693,26 +1704,60 @@ export default function Cart() {
                                   color: "#b45309",
                                 }}
                               >
-                                KES {Number(
-                                  pendingDiscount.discount_per_unit
-                                ).toFixed(2)}/{i.unit}
+                                KES {Number(discountRequest.discount_per_unit).toFixed(2)}/{i.unit}
                               </div>
 
                               <div
                                 style={{
-                                  fontSize: 11,
-                                  color: "#b45309",
                                   marginTop: 4,
+                                  color: "#b45309",
                                   fontWeight: 700,
                                 }}
                               >
                                 ⏳ PENDING APPROVAL
                               </div>
                             </div>
+
+                          ) : isRejected ? (
+
+                            <div>
+                              <div
+                                style={{
+                                  color: "#dc2626",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                ❌ REJECTED
+                              </div>
+
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: "#6b7280",
+                                  marginTop: 4,
+                                }}
+                              >
+                                {discountRequest.resolution_note}
+                              </div>
+                            </div>
+
+                          ) : isCancelled ? (
+
+                            <div
+                              style={{
+                                color: "#6b7280",
+                                fontWeight: 700,
+                              }}
+                            >
+                              Cancelled
+                            </div>
+
                           ) : (
+
                             <span className="muted">
                               No discount
                             </span>
+
                           )}
                         </td>
 
@@ -1732,9 +1777,8 @@ export default function Cart() {
                               flexWrap: "wrap",
                             }}
                           >
-                            {!hasDiscount && !hasPendingDiscount && (
+                            {(isRejected || isCancelled || !discountRequest) && (
                               <button
-                                type="button"
                                 className="btn"
                                 onClick={() => {
                                   setSelectedDiscountItem(i);
@@ -1748,39 +1792,27 @@ export default function Cart() {
                             {hasPendingDiscount && (
                               <>
                                 <button
-                                  type="button"
                                   className="btn"
                                   disabled
-                                  style={{
-                                    cursor: "not-allowed",
-                                    opacity: 0.7,
-                                  }}
                                 >
                                   Pending
                                 </button>
 
                                 <button
-                                  type="button"
                                   className="btn btn-warning"
                                   onClick={() =>
-                                    cancelDiscountRequest(
-                                      pendingDiscount.id
-                                    )
+                                    cancelDiscountRequest(discountRequest.id)
                                   }
                                 >
                                   Cancel Request
                                 </button>
                               </>
                             )}
-                            
+
                             <button
-                              type="button"
                               className="btn btn-danger"
                               onClick={() =>
-                                removeItem(
-                                  i.product,
-                                  i.unit
-                                )
+                                removeItem(i.product, i.unit)
                               }
                             >
                               Remove

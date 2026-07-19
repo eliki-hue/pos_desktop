@@ -54,7 +54,7 @@ export default function ApproveDiscountModal({
 
             <tr>
               <td><strong>Cashier</strong></td>
-              <td>{request.requested_by.username}</td>
+              <td>{request.cashier_name || request.requested_by?.username || "-"}</td>
             </tr>
 
             <tr>
