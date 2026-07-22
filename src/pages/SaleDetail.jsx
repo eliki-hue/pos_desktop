@@ -6,6 +6,7 @@ import { api } from '../api/client';
 import AppLayout from '../components/AppLayout';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { useAuth } from '../auth/AuthContext';
+import CreditPaymentReceiptModal from './CreditPaymentReceiptModal'
 
 export default function SaleDetail() {
   const { id } = useParams();
@@ -22,6 +23,8 @@ export default function SaleDetail() {
 
   const userRole = user?.role?.toLowerCase();
   const isAdmin = userRole === 'admin';
+
+  const [paymentReceipt, setPaymentReceipt] = useState(null);
 
   const loadSale = async () => {
     setLoading(true);
@@ -60,7 +63,7 @@ export default function SaleDetail() {
     
     setSubmitting(true);
     try {
-      await api.post(`api/cart/sales/${id}/pay/`, {
+      const {data} =await api.post(`api/cart/sales/${id}/pay/`, {
         amount: amt,
         method: method,
         reference: reference || null
@@ -68,7 +71,8 @@ export default function SaleDetail() {
       setSuccess('Payment added successfully!');
       setAmount('');
       setReference('');
-      loadSale();
+      await loadSale();
+      await printReceipt(data.payment_id); //
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to add payment');
     } finally {
@@ -76,22 +80,18 @@ export default function SaleDetail() {
     }
   };
 
-  const printReceipt = async () => {
-    try {
-      const response = await api.get(`api/cart/sales/${id}/receipt/`, {
-        responseType: 'blob'
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const printWindow = window.open(url, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
+  const printReceipt = async (paymentId) => {
+      try {
+          const { data } = await api.get(
+              `/api/cart/payments/${paymentId}/receipt/`
+          );
+
+          setPaymentReceipt(data);
+
+      } catch (err) {
+          console.error(err);
+          setError("Failed to load receipt");
       }
-    } catch (err) {
-      console.error('Failed to print receipt', err);
-      setError('Failed to generate receipt');
-    }
   };
 
   if (loading) {
@@ -177,7 +177,7 @@ export default function SaleDetail() {
               </thead>
               <tbody>
                 {sale.items.map((item, idx) => (
-                  <tr key={idx}>
+                  <tr key={item.id || idx}>
                     <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                     <td style={{ textAlign: 'right' }}>{parseFloat(item.quantity).toFixed(2)} {item.unit || 'units'}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(parseFloat(item.unit_price))}</td>
@@ -232,31 +232,42 @@ export default function SaleDetail() {
             <table className="table">
               <thead>
                 <tr>
+                  <th>Receipt No.</th>
                   <th>Date</th>
                   <th style={{ textAlign: 'right' }}>Amount</th>
                   <th>Method</th>
                   <th>Reference</th>
+                  <th>Print</th>
                 </tr>
               </thead>
               <tbody>
                 {sale.payments.map((p, idx) => (
-                  <tr key={idx}>
+                  <tr key={p.id || idx}>
+                    <td>{p.receipt_number || '—'}</td>
                     <td>{formatDateTime(p.date || p.created_at)}</td>
                     <td style={{ textAlign: 'right', color: '#10b981', fontWeight: 500 }}>
                       {formatCurrency(parseFloat(p.amount))}
                     </td>
                     <td>{p.method}</td>
                     <td>{p.reference || '—'}</td>
+                    <td>
+                      <button
+                        className="btn outline"
+                        onClick={() => printReceipt(p.id)}
+                      >
+                        <Printer size={14} /> Print
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot style={{ backgroundColor: '#f9fafb' }}>
                 <tr>
-                  <td colSpan="1" style={{ textAlign: 'right', fontWeight: 600 }}>Total Paid:</td>
+                  <td colSpan="2" style={{ textAlign: 'right', fontWeight: 600 }}>Total Paid:</td>
                   <td style={{ textAlign: 'right', fontWeight: 'bold', fontSize: 16, color: '#10b981' }}>
                     {formatCurrency(paid)}
                   </td>
-                  <td colSpan="2"></td>
+                  <td colSpan="3"></td>
                 </tr>
               </tfoot>
             </table>
@@ -321,18 +332,6 @@ export default function SaleDetail() {
         </div>
       )}
 
-      {/* Print Receipt Button */}
-      {sale.payments && sale.payments.length > 0 && (
-        <div className="card">
-          <div style={{ padding: 16, display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn outline" onClick={printReceipt} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Printer size={16} />
-              Print Updated Receipt
-            </button>
-          </div>
-        </div>
-      )}
-
       <style>
         {`
           .grid-2 {
@@ -358,6 +357,14 @@ export default function SaleDetail() {
           }
         `}
       </style>
+      {paymentReceipt && (
+        <CreditPaymentReceiptModal
+            receipt={paymentReceipt}
+            onClose={() => setPaymentReceipt(null)}
+        />
+      )}
+
     </AppLayout>
   );
 }
+
