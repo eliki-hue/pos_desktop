@@ -224,7 +224,7 @@ export default function OutstandingSales() {
                 const total = parseFloat(sale.total) || 0;
                 const paid = parseFloat(sale.paid) || 0;
                 const balance = parseFloat(sale.balance) || 0;
-                const isCredit = balance >= total;
+                const status = sale.status;
                 
                 return (
                   <tr key={saleId}>
@@ -238,15 +238,27 @@ export default function OutstandingSales() {
                       {formatCurrency(balance)}
                     </td>
                     <td>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '2px 8px',
-                        borderRadius: 12,
-                        fontSize: 11,
-                        backgroundColor: isCredit ? '#fef3c7' : '#fee2e2',
-                        color: isCredit ? '#92400e' : '#991b1b'
-                      }}>
-                        {isCredit ? 'Credit' : 'Partial'}
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                          fontSize: 11,
+                          backgroundColor:
+                            status === 'PAID'
+                              ? '#d1fae5'
+                              : status === 'PARTIAL'
+                              ? '#fee2e2'
+                              : '#fef3c7',
+                          color:
+                            status === 'PAID'
+                              ? '#065f46'
+                              : status === 'PARTIAL'
+                              ? '#991b1b'
+                              : '#92400e',
+                        }}
+                      >
+                        {status}
                       </span>
                     </td>
                     {(isManager || isAdmin) && <td>{sale.cashier || '—'}</td>}
@@ -258,7 +270,7 @@ export default function OutstandingSales() {
                         style={{ padding: '4px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
                         <Eye size={14} />
-                        Pay
+                        {sale.status === 'PAID' ? 'View' : 'Pay'}
                       </button>
                     </td>
                   </tr>
@@ -267,12 +279,44 @@ export default function OutstandingSales() {
             </tbody>
             <tfoot style={{ backgroundColor: '#f9fafb' }}>
               <tr>
-                <td colSpan={(isManager || isAdmin) ? 3 : 2}><strong>Total</strong></td>
+                {/* Sale, Customer, ID */}
+                <td colSpan={3}>
+                  <strong>Total</strong>
+                </td>
+
+                {/* Phone */}
                 <td></td>
-                
-                <td style={{ textAlign: 'right' }}><strong>{formatCurrency(filteredSales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0))}</strong></td>
-                <td style={{ textAlign: 'right' }}><strong>{formatCurrency(filteredSales.reduce((sum, s) => sum + (parseFloat(s.paid) || 0), 0))}</strong></td>
-                <td style={{ textAlign: 'right' }}><strong>{formatCurrency(totalOutstanding)}</strong></td>
+
+                {/* Total */}
+                <td style={{ textAlign: 'right' }}>
+                  <strong>
+                    {formatCurrency(
+                      filteredSales.reduce(
+                        (sum, s) => sum + (parseFloat(s.total) || 0),
+                        0
+                      )
+                    )}
+                  </strong>
+                </td>
+
+                {/* Paid */}
+                <td style={{ textAlign: 'right' }}>
+                  <strong>
+                    {formatCurrency(
+                      filteredSales.reduce(
+                        (sum, s) => sum + (parseFloat(s.paid) || 0),
+                        0
+                      )
+                    )}
+                  </strong>
+                </td>
+
+                {/* Balance */}
+                <td style={{ textAlign: 'right' }}>
+                  <strong>{formatCurrency(totalOutstanding)}</strong>
+                </td>
+
+                {/* Remaining columns */}
                 <td colSpan={(isManager || isAdmin) ? 4 : 3}></td>
               </tr>
             </tfoot>
