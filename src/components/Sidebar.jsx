@@ -18,6 +18,7 @@ import {
   GitBranch,
   Users,
   User,
+  User2,
   Clock,
   MessagesSquare
 } from 'lucide-react';
@@ -143,6 +144,11 @@ export default function Sidebar() {
                 <span>Suppliers</span>
               </NavLink>
 
+               <NavLink to="/customers" style={linkStyle}>
+                  <User2 size={20} />
+                  <span>Customers</span>
+                </NavLink>
+
               <NavLink to="/balance/sales/outstanding" style={linkStyle}>
                 <CreditCard size={20} />
                 <span>Credit Sales</span>
@@ -191,6 +197,11 @@ export default function Sidebar() {
               <NavLink to="/suppliers" style={linkStyle}>
                 <Truck size={20} />
                 <span>Suppliers</span>
+              </NavLink>
+
+              <NavLink to="/customers" style={linkStyle}>
+                <User2 size={20} />
+                <span>Customers</span>
               </NavLink>
 
               <NavLink to="/balance/sales/outstanding" style={linkStyle}>

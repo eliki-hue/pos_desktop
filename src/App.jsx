@@ -48,7 +48,7 @@ import Reviews from "./pages/AdminReviews";
 
 import DiscountRequests from "./pages/DiscountRequests";
 
-
+import { CustomerList, CustomerDetails } from './customerModule';
 
 export default function App() {
   return (
@@ -188,6 +188,12 @@ export default function App() {
 
           
         </Route>
+          {/* customer routes  */}
+        <Route path="/customers" element={<CustomerList />} />
+        <Route path="/customers/:id" element={<CustomerDetails />} />
+        <Route path="/customers/:id/sales" element={<CustomerDetails />} />
+        <Route path="/customers/:id/payments" element={<CustomerDetails />} />
+        <Route path="/customers/:id/statement" element={<CustomerDetails />} />
 
         {/* ================= Admin ================= */}
         <Route
