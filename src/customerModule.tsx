@@ -487,7 +487,7 @@ export const CustomerDetails: React.FC = () => {
         onClose={() => setPaymentDialogOpen(false)}
         customerId={customerId}
         customerName={customer.name}
-        branchId={branchId}
+        // branchId={branchId}
       />
     </div>
     </AppLayout>
@@ -928,7 +928,7 @@ export const CustomerStatement: React.FC<{ customerId: number }> = ({ customerId
               <td style={styles.td}>{e.payment_method || '-'}</td>
               <td style={styles.td}>{parseFloat(e.credit_sale).toFixed(2)}</td>
               <td style={styles.td}>{parseFloat(e.payment).toFixed(2)}</td>
-              <td style={styles.td}>{parseFloat(e.running_balance).toFixed(2)}</td>
+              <td style={styles.td}>{parseFloat(e.balance).toFixed(2)}</td>
             </tr>
           ))}
           {entries.length === 0 && <tr><td colSpan={9} style={{ padding: 20, textAlign: 'center' }}>No entries</td></tr>}
@@ -953,8 +953,8 @@ export const ReceivePaymentDialog: React.FC<{
   onClose: () => void;
   customerId: number;
   customerName: string;
-  branchId: number;
-}> = ({ open, onClose, customerId, customerName, branchId }) => {
+  // branchId: number;
+}> = ({ open, onClose, customerId, customerName }) => {
   const { control, handleSubmit, reset } = useForm({
     resolver: zodResolver(paymentFormSchema),
     defaultValues: { amount: '', method: 'CASH', reference: '', notes: '' },
