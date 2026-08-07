@@ -129,6 +129,8 @@ export const customerApi = {
     axios.get(`${API_BASE}/customers/${id}/statement/`, { params }),
 };
 
+
+
 // ============================================================
 // REACT QUERY HOOKS
 // ============================================================
@@ -263,6 +265,7 @@ export const CustomerList: React.FC = () => {
   const [filters, setFilters] = useState<any>({});
   const [ordering, setOrdering] = useState('name');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
   const [hasBalance, setHasBalance] = useState(false);
   const [minBalance, setMinBalance] = useState('');
@@ -271,7 +274,7 @@ export const CustomerList: React.FC = () => {
   const params = {
     page: page + 1,
     page_size: pageSize,
-    search: search || undefined,
+    search: debouncedSearch.length >= 2 ? debouncedSearch : undefined,
     branch: branchFilter || undefined,
     has_balance: hasBalance || undefined,
     min_balance: minBalance ? Number(minBalance) : undefined,
@@ -279,6 +282,15 @@ export const CustomerList: React.FC = () => {
     ordering,
   };
   const { data, isLoading, error } = useCustomers(params);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(0); // reset page on new search
+    }, 300); //  300ms delay
+
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const handleSort = (field: string) => {
     const allowed = ['name', 'sales_count', 'total_purchases', 'total_paid', 'outstanding_balance', 'last_purchase'];
