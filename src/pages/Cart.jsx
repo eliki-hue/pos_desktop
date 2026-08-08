@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import HoldSaleModal from "./cart/HoldSaleModal";
 import HeldSalesModal from "./cart/HeldSalesModal";
 import toast from "react-hot-toast";
-
+import { useCustomers } from "../customerModule";
 
 
 /* =====================================================
@@ -666,6 +666,7 @@ function DiscountRequestModal({
 /* =====================================================
    CHECKOUT MODAL WITH CHANGE CALCULATOR - FIXED
 ===================================================== */
+
 function CheckoutModal({
   open,
   onClose,
@@ -685,7 +686,20 @@ function CheckoutModal({
   amountGiven,
   setAmountGiven,
 }) {
-  // Get denomination breakdown for change
+  // Memoized calculations
+  const cashRequired = useMemo(() => {
+    const nonCashPayments = payments
+      .filter((p) => p.method !== "CASH")
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    return Math.max(0, subtotal - nonCashPayments);
+  }, [payments, subtotal]);
+
+  const displayChange = useMemo(() => {
+    const given = Number(amountGiven) || 0;
+    return given > cashRequired ? given - cashRequired : 0;
+  }, [amountGiven, cashRequired]);
+
+  // Denomination breakdown
   const getDenominations = (amount) => {
     const denominations = [
       { value: 1000, name: "1000 KES" },
@@ -698,10 +712,8 @@ function CheckoutModal({
       { value: 5, name: "5 KES" },
       { value: 1, name: "1 KES" },
     ];
-    
-    let remaining = amount;
+    let remaining = Math.round(amount * 100) / 100;
     const breakdown = [];
-    
     for (const denom of denominations) {
       if (remaining >= denom.value) {
         const count = Math.floor(remaining / denom.value);
@@ -710,37 +722,37 @@ function CheckoutModal({
         remaining = Math.round(remaining * 100) / 100;
       }
     }
-    
     return breakdown;
   };
 
-  const getCashRequired = () => {
-    const nonCashPayments = payments
-      .filter((p) => p.method !== "CASH")
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    return Math.max(0, subtotal - nonCashPayments);
-  };
+  // Customer search
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-  // Calculate change on the fly
-  const getCalculatedChange = () => {
-    const given = parseFloat(amountGiven) || 0;
-    const cashRequired = getCashRequired();
-    return given > cashRequired ? given - cashRequired : 0;
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(customerSearch), 300);
+    return () => clearTimeout(timer);
+  }, [customerSearch]);
 
-  // Handle amount given change
+  const { data: customerResults } = useCustomers({
+    search: debouncedSearch.length >= 2 ? debouncedSearch : undefined,
+    page_size: 5,
+  });
+
+  const quickAmounts = [500, 1000, 2000, 5000];
+
   const handleAmountGivenChange = (value) => {
-    setAmountGiven(value);
+    if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
+      setAmountGiven(value);
+    }
   };
 
-  // Apply the amount given to payment
   const applyAmountToPayment = () => {
-    const given = parseFloat(amountGiven);
+    const given = Number(amountGiven);
     if (!isNaN(given) && given > 0) {
-      const cashRequired = getCashRequired();
       const updatedPayments = [...payments];
       const cashIndex = updatedPayments.findIndex((p) => p.method === "CASH");
-
       if (cashIndex >= 0) {
         updatedPayments[cashIndex] = {
           ...updatedPayments[cashIndex],
@@ -757,15 +769,24 @@ function CheckoutModal({
     }
   };
 
-  // Quick amount buttons
-  const quickAmounts = [500, 1000, 2000, 5000];
+  const handleConfirm = () => {
+    const payload = {
+      items: cart,
+      payments,
+      payment_mode: paymentMode,
+      customer: selectedCustomer?.id || null,
+      customer_name: customer.name,
+      customer_phone: customer.phone,
+      customer_id_number: customer.id_number,
+    };
+    onConfirm(payload);
+  };
 
-  // Validation
+  // Validation – partial payment fully supported
   const isValid = useMemo(() => {
     if (paymentMode === "FULL") {
       return balanceDue <= 0 && subtotal > 0;
     }
-
     if (paymentMode === "PARTIAL") {
       return (
         totalPaid > 0 &&
@@ -775,23 +796,15 @@ function CheckoutModal({
         customer.id_number
       );
     }
-
     if (paymentMode === "CREDIT") {
-      return (
-        customer.name &&
-        customer.phone &&
-        customer.id_number
-      );
+      return customer.name && customer.phone && customer.id_number;
     }
-
     return false;
   }, [paymentMode, totalPaid, balanceDue, subtotal, customer]);
 
   if (!open) return null;
 
-  const displayChange = getCalculatedChange();
-  const cashRequired = getCashRequired();
-  const isSufficient = parseFloat(amountGiven) >= cashRequired;
+  const isSufficient = Number(amountGiven) >= cashRequired;
 
   return (
     <div
@@ -817,59 +830,117 @@ function CheckoutModal({
       >
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <div style={{ fontWeight: 900, fontSize: 18 }}>Checkout</div>
-          <button className="btn btn-danger" onClick={onClose}>
-            Close
-          </button>
+          <button className="btn btn-danger" onClick={onClose}>Close</button>
         </div>
 
-        {/* PAYMENT MODE */}
         <div style={{ marginTop: 16 }}>
           <div style={{ fontWeight: 900, marginBottom: 8 }}>Payment Mode</div>
-
           {["FULL", "PARTIAL", "CREDIT"].map((m) => (
             <label key={m} style={{ marginRight: 16 }}>
               <input
                 type="radio"
                 checked={paymentMode === m}
-                onChange={() => {
-                  setPaymentMode(m);
-                  setAmountGiven("");
-                }}
-              />{" "}
-              {m}
+                onChange={() => { setPaymentMode(m); setAmountGiven(""); }}
+              /> {m}
             </label>
           ))}
 
           {(paymentMode === "PARTIAL" || paymentMode === "CREDIT") && (
             <div style={{ marginTop: 12 }}>
-              <input
-                className="input"
-                placeholder="Customer Name"
-                value={customer.name}
-                onChange={(e) =>
-                  setCustomer({ ...customer, name: e.target.value })
-                }
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  className="input"
+                  placeholder="Search customer..."
+                  value={customerSearch}
+                  onFocus={() => {
+                    if (customerSearch.length >= 2) setDebouncedSearch(customerSearch);
+                  }}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value);
+                    setSelectedCustomer(null);
+                  }}
+                />
+                {customerResults?.results?.length > 0 && debouncedSearch && !selectedCustomer && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      background: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 6,
+                      zIndex: 1000,
+                      maxHeight: 200,
+                      overflowY: "auto",
+                    }}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    {customerResults.results.map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => {
+                          setSelectedCustomer(c);
+                          setCustomer({
+                            name: c.name,
+                            phone: c.phone || "",
+                            id_number: c.national_id || "",
+                          });
+                          setCustomerSearch(`${c.name} (${c.phone || ""})`);
+                          setDebouncedSearch("");
+                        }}
+                        style={{ padding: 10, cursor: "pointer" }}
+                      >
+                        {c.name} ({c.phone || "No phone"})
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {debouncedSearch.length >= 2 && customerResults?.results?.length === 0 && (
+                  <div
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setCustomer({
+                        name: customerSearch,
+                        phone: "",
+                        id_number: "",
+                      });
+                      setCustomerSearch(customerSearch);
+                      setDebouncedSearch("");
+                    }}
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      background: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 6,
+                      padding: 10,
+                      cursor: "pointer",
+                      color: "#3b82f6",
+                      zIndex: 1000,
+                    }}
+                  >
+                    + Create "{customerSearch}"
+                  </div>
+                )}
+              </div>
               <input
                 className="input"
                 placeholder="Phone"
                 value={customer.phone}
-                onChange={(e) =>
-                  setCustomer({ ...customer, phone: e.target.value })
-                }
+                onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
               />
               <input
                 className="input"
                 placeholder="ID Number"
                 value={customer.id_number}
-                onChange={(e) =>
-                  setCustomer({ ...customer, id_number: e.target.value })
-                }
+                onChange={(e) => setCustomer({ ...customer, id_number: e.target.value })}
               />
             </div>
           )}
 
-          {/* CHANGE CALCULATOR */}
           {(paymentMode === "FULL" || paymentMode === "PARTIAL") && (
             <div
               style={{
@@ -881,72 +952,52 @@ function CheckoutModal({
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                <span>🧮</span>
-                <span>Change Calculator</span>
+                <span>🧮</span><span>Change Calculator</span>
               </div>
-
-              {/* Total Amount Display */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "8px 12px",
-                  background: "#e6f4ea",
-                  borderRadius: "8px",
-                  marginBottom: 12,
-                }}
-              >
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "8px 12px",
+                background: "#e6f4ea",
+                borderRadius: "8px",
+                marginBottom: 12,
+              }}>
                 <span style={{ fontWeight: 500 }}>Total Amount:</span>
-                <strong style={{ fontSize: 18, color: "#137333" }}>
-                  KES {subtotal.toFixed(2)}
-                </strong>
+                <strong style={{ fontSize: 18, color: "#137333" }}>KES {subtotal.toFixed(2)}</strong>
               </div>
-
-              {/* Non-Cash Payments Display */}
               {paymentMode === "PARTIAL" && (() => {
                 const nonCashTotal = payments
                   .filter(p => p.method !== "CASH")
                   .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
                 return nonCashTotal > 0 ? (
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 12px",
-                      background: "#dbeafe",
-                      borderRadius: "8px",
-                      marginBottom: 8,
-                    }}
-                  >
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 12px",
+                    background: "#dbeafe",
+                    borderRadius: "8px",
+                    marginBottom: 8,
+                  }}>
                     <span style={{ fontWeight: 500 }}>Non-Cash Payments:</span>
-                    <strong style={{ color: "#1e40af" }}>
-                      KES {nonCashTotal.toFixed(2)}
-                    </strong>
+                    <strong style={{ color: "#1e40af" }}>KES {nonCashTotal.toFixed(2)}</strong>
                   </div>
                 ) : null;
               })()}
-
-              {/* Cash Required Display */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "8px 12px",
-                  background: "#fef3c7",
-                  borderRadius: "8px",
-                  marginBottom: 12,
-                }}
-              >
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "8px 12px",
+                background: "#fef3c7",
+                borderRadius: "8px",
+                marginBottom: 12,
+              }}>
                 <span style={{ fontWeight: 500 }}>Cash Required:</span>
-                <strong style={{ fontSize: 16, color: "#92400e" }}>
-                  KES {cashRequired.toFixed(2)}
-                </strong>
+                <strong style={{ fontSize: 16, color: "#92400e" }}>KES {cashRequired.toFixed(2)}</strong>
               </div>
 
-              {/* Amount Given Input */}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>
                   Amount Given by Customer (Cash only):
@@ -957,17 +1008,23 @@ function CheckoutModal({
                       type="number"
                       step="0.01"
                       className="input"
-                      placeholder="Enter cash amount"
+                      placeholder="Enter cash amount (optional)"
                       value={amountGiven}
                       onChange={(e) => handleAmountGivenChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          applyAmountToPayment();
+                        }
+                      }}
                       style={{ fontSize: 16 }}
-                      autoFocus={paymentMode === "FULL"}
+                      onWheel={(e) => e.preventDefault()}
                     />
                   </div>
                   <button
                     className="btn btn-primary"
                     onClick={applyAmountToPayment}
-                    disabled={!amountGiven || parseFloat(amountGiven) <= 0}
+                    disabled={!amountGiven || Number(amountGiven) <= 0}
                     style={{ padding: "10px 16px" }}
                   >
                     Apply Cash
@@ -975,7 +1032,6 @@ function CheckoutModal({
                 </div>
               </div>
 
-              {/* Quick Amount Buttons */}
               <div style={{ marginBottom: 12 }}>
                 <span style={{ fontSize: 12, color: "#64748b" }}>Quick select:</span>
                 <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
@@ -985,11 +1041,7 @@ function CheckoutModal({
                       type="button"
                       className="btn"
                       onClick={() => handleAmountGivenChange(amt.toString())}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#e2e8f0",
-                        fontSize: 13,
-                      }}
+                      style={{ padding: "6px 12px", background: "#e2e8f0", fontSize: 13 }}
                     >
                       KES {amt}
                     </button>
@@ -997,55 +1049,26 @@ function CheckoutModal({
                 </div>
               </div>
 
-              {/* Change Display */}
-              {amountGiven && parseFloat(amountGiven) > 0 && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: "12px",
-                    borderRadius: "8px",
-                    background: isSufficient ? "#f0f9ff" : "#fef2f2",
-                    border: `1px solid ${isSufficient ? "#bae6fd" : "#fee2e2"}`,
-                  }}
-                >
+              {amountGiven && Number(amountGiven) > 0 && (
+                <div style={{
+                  marginTop: 12,
+                  padding: "12px",
+                  borderRadius: "8px",
+                  background: isSufficient ? "#f0f9ff" : "#fef2f2",
+                  border: `1px solid ${isSufficient ? "#bae6fd" : "#fee2e2"}`,
+                }}>
                   {isSufficient ? (
                     <>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 8,
-                        }}
-                      >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ fontWeight: 500 }}>💰 Change to give:</span>
-                        <strong style={{ fontSize: 20, color: "#0284c7" }}>
-                          KES {displayChange.toFixed(2)}
-                        </strong>
+                        <strong style={{ fontSize: 20, color: "#0284c7" }}>KES {displayChange.toFixed(2)}</strong>
                       </div>
-
                       {displayChange > 0 && (
                         <div style={{ marginTop: 8 }}>
-                          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
-                            Suggested breakdown:
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              flexWrap: "wrap",
-                              gap: 8,
-                              fontSize: 12,
-                            }}
-                          >
+                          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Suggested breakdown:</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12 }}>
                             {getDenominations(displayChange).map((denom, idx) => (
-                              <span
-                                key={idx}
-                                style={{
-                                  background: "#e2e8f0",
-                                  padding: "4px 8px",
-                                  borderRadius: "6px",
-                                }}
-                              >
+                              <span key={idx} style={{ background: "#e2e8f0", padding: "4px 8px", borderRadius: "6px" }}>
                                 {denom.count} × {denom.name}
                               </span>
                             ))}
@@ -1056,7 +1079,7 @@ function CheckoutModal({
                   ) : (
                     <div style={{ color: "#991b1b" }}>
                       ⚠️ Insufficient amount. Customer still owes:{" "}
-                      <strong>KES {(cashRequired - parseFloat(amountGiven)).toFixed(2)}</strong>
+                      <strong>KES {(cashRequired - Number(amountGiven)).toFixed(2)}</strong>
                     </div>
                   )}
                 </div>
@@ -1064,7 +1087,6 @@ function CheckoutModal({
             </div>
           )}
 
-          {/* Payment Methods */}
           {paymentMode !== "CREDIT" && (
             <div style={{ marginTop: 16 }}>
               <div style={{ fontWeight: 900, marginBottom: 8 }}>Payment Methods</div>
@@ -1082,7 +1104,6 @@ function CheckoutModal({
                     <option value="CASH">Cash</option>
                     <option value="MPESA">MPESA</option>
                   </select>
-
                   <input
                     className="input"
                     type="number"
@@ -1097,17 +1118,13 @@ function CheckoutModal({
                   />
                 </div>
               ))}
-
               <button
                 className="btn"
                 style={{ marginTop: 8 }}
-                onClick={() =>
-                  setPayments([...payments, { method: "CASH", amount: "" }])
-                }
+                onClick={() => setPayments([...payments, { method: "CASH", amount: "" }])}
               >
                 + Add Payment Method
               </button>
-
               <div className="muted" style={{ marginTop: 8 }}>
                 Subtotal: KES {subtotal.toFixed(2)} <br />
                 Paid: KES {totalPaid.toFixed(2)} <br />
@@ -1122,7 +1139,7 @@ function CheckoutModal({
             className="btn btn-primary"
             style={{ marginTop: 16, width: "100%" }}
             disabled={!isValid || checkingOut}
-            onClick={onConfirm}
+            onClick={handleConfirm}
           >
             {checkingOut ? "Processing..." : "Confirm Checkout"}
           </button>
@@ -1131,7 +1148,6 @@ function CheckoutModal({
     </div>
   );
 }
-
 
 
 

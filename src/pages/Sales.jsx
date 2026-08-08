@@ -185,13 +185,15 @@ export default function Sales() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [selectedSale, setSelectedSale] = useState(null);
-
+  const [count, setCount] = useState(0);
+  
   const loadSales = async () => {
     setLoading(true);
     setMsg("");
     try {
       const res = await api.get("/api/sales/");
-      setSales(res.data || []);
+      setSales(res.data.results || []);
+      setCount(res.data.count || 0);
     } catch (err) {
       setMsg(err?.response?.data?.detail || "❌ Failed to load sales");
     } finally {
@@ -275,7 +277,7 @@ export default function Sales() {
           <div>
             <div style={{ fontWeight: 900 }}>Sales List</div>
             <div className="muted">
-              Showing {sales.length} sale(s) for today
+              Showing {count} sale(s) for today
             </div>
           </div>
 
