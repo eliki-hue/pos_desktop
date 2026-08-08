@@ -186,21 +186,26 @@ export default function Sales() {
   const [msg, setMsg] = useState("");
   const [selectedSale, setSelectedSale] = useState(null);
   const [count, setCount] = useState(0);
-  
-  const loadSales = async () => {
+  const [next, setNext] = useState(null);
+  const [previous, setPrevious] = useState(null);
+
+  const loadSales = async (url = "/api/sales/") => {
     setLoading(true);
     setMsg("");
     try {
-      const res = await api.get("/api/sales/");
+      const res = await api.get(url);
+
       setSales(res.data.results || []);
       setCount(res.data.count || 0);
+      setNext(res.data.next);
+      setPrevious(res.data.previous);
+
     } catch (err) {
       setMsg(err?.response?.data?.detail || "❌ Failed to load sales");
     } finally {
       setLoading(false);
     }
   };
-
   const loadSummary = async () => {
     try {
       const res = await api.get("/api/sales/daily-summary/");
@@ -343,7 +348,27 @@ export default function Sales() {
               })}
             </tbody>
           </table>
+          
         )}
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
+  
+        <button
+          className="btn"
+          disabled={!previous}
+          onClick={() => loadSales(previous)}
+        >
+          ← Previous
+        </button>
+
+        <button
+          className="btn"
+          disabled={!next}
+          onClick={() => loadSales(next)}
+        >
+          Next →
+        </button>
+
+      </div>
       </div>
     </AppLayout>
   );
