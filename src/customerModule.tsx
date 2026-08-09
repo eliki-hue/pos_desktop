@@ -359,20 +359,23 @@ export const CustomerList: React.FC = () => {
             <label style={styles.label}>Max Balance</label>
             <input type="number" value={maxBalance} onChange={e => setMaxBalance(e.target.value)} style={styles.input} />
           </div>
-          <select
-            value={creditPeriod}
-            onChange={(e) => {
-              setCreditPeriod(e.target.value);
-              setPage(0); // reset pagination
-            }}
-            style={styles.select}
-          >
-            <option value="">All</option>
-            <option value="30">0–30 days</option>
-            <option value="60">31–60 days</option>
-            <option value="90">61–90 days</option>
-            <option value="90+">90+ days</option>
-          </select>
+          <div>
+            <label style={styles.label}>Credit Period</label>
+            <select
+              value={creditPeriod}
+              onChange={(e) => {
+                setCreditPeriod(e.target.value);
+                setPage(0); // reset pagination
+              }}
+              style={styles.select}
+            >
+              <option value="">All</option>
+              <option value="30">0–30 days</option>
+              <option value="60">31–60 days</option>
+              <option value="90">61–90 days</option>
+              <option value="90+">90+ days</option>
+            </select>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <label style={{ ...styles.label, marginRight: 8 }}>Has Balance</label>
             <input type="checkbox" checked={hasBalance} onChange={e => setHasBalance(e.target.checked)} />
