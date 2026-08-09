@@ -22,6 +22,7 @@ import {
   User, Clock, MessagesSquare, Eye, ArrowLeft, RefreshCw, Download,
    X, Check, AlertCircle, Phone, Badge, Calendar, Store,
   UserPlus, FileText, DollarSign, Search, Filter, Trash2, Edit,
+  AlignCenter,
 } from 'lucide-react';
 import { useAuth } from './auth/AuthContext'; 
 
@@ -270,6 +271,7 @@ export const CustomerList: React.FC = () => {
   const [hasBalance, setHasBalance] = useState(false);
   const [minBalance, setMinBalance] = useState('');
   const [maxBalance, setMaxBalance] = useState('');
+  const [creditPeriod, setCreditPeriod] = useState("");
 
   const params = {
     page: page + 1,
@@ -279,6 +281,7 @@ export const CustomerList: React.FC = () => {
     has_balance: hasBalance || undefined,
     min_balance: minBalance ? Number(minBalance) : undefined,
     max_balance: maxBalance ? Number(maxBalance) : undefined,
+    credit_period: creditPeriod || undefined,
     ordering,
   };
   const { data, isLoading, error } = useCustomers(params);
@@ -356,6 +359,20 @@ export const CustomerList: React.FC = () => {
             <label style={styles.label}>Max Balance</label>
             <input type="number" value={maxBalance} onChange={e => setMaxBalance(e.target.value)} style={styles.input} />
           </div>
+          <select
+            value={creditPeriod}
+            onChange={(e) => {
+              setCreditPeriod(e.target.value);
+              setPage(0); // reset pagination
+            }}
+            style={styles.select}
+          >
+            <option value="">All</option>
+            <option value="30">0–30 days</option>
+            <option value="60">31–60 days</option>
+            <option value="90">61–90 days</option>
+            <option value="90+">90+ days</option>
+          </select>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <label style={{ ...styles.label, marginRight: 8 }}>Has Balance</label>
             <input type="checkbox" checked={hasBalance} onChange={e => setHasBalance(e.target.checked)} />
@@ -379,6 +396,7 @@ export const CustomerList: React.FC = () => {
               <th style={styles.th} onClick={() => handleSort('total_purchases')}>Total Purchases</th>
               <th style={styles.th} onClick={() => handleSort('total_paid')}>Total Paid</th>
               <th style={styles.th} onClick={() => handleSort('outstanding_balance')}>Outstanding</th>
+              <th style={styles.th} onClick={() => handleSort('days_outstanding')}>Days Outstanding</th>
               <th style={styles.th} onClick={() => handleSort('last_purchase')}>Last Purchase</th>
               <th style={styles.th}>Actions</th>
             </tr>
@@ -393,6 +411,23 @@ export const CustomerList: React.FC = () => {
                 <td style={styles.td}>{parseFloat(c.total_purchases).toFixed(2)}</td>
                 <td style={styles.td}>{parseFloat(c.total_paid).toFixed(2)}</td>
                 <td style={styles.td}><OutstandingBalanceChip balance={c.outstanding_balance} /></td>
+                <td style={{ textAlign: "center" }}>
+                  <span
+                    style={{
+                      fontWeight: 800,
+                      color:
+                        c.days_outstanding > 90
+                          ? "#dc2626"
+                          : c.days_outstanding > 60
+                          ? "#f97316"
+                          : c.days_outstanding > 30
+                          ? "#eab308"
+                          : "#16a34a",
+                    }}
+                  >
+                    {c.days_outstanding} days
+                  </span>
+                </td>
                 <td style={styles.td}>{c.last_purchase ? format(parseISO(c.last_purchase), 'dd/MM/yyyy') : '-'}</td>
                 <td style={styles.td}>
                   <button className="btn outline" style={{ padding: '4px 8px' }} onClick={(e) => { e.stopPropagation(); navigate(`/customers/${c.id}`); }}>
