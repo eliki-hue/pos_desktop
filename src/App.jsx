@@ -50,6 +50,8 @@ import DiscountRequests from "./pages/DiscountRequests";
 
 import { CustomerList, CustomerDetails } from './customerModule';
 
+import AccountantDashboard from "./pages/AccountantDashboard";
+
 export default function App() {
   return (
     <BrowserRouter basename="/">
@@ -282,6 +284,18 @@ export default function App() {
           
         />
 
+
+        {/* ================= Accountant ================= */}
+        <Route
+          path="accountant/dashboard"
+          element={
+            <RequireAuth>
+              <RequireRole allowedRoles={["ACCOUNTANT"]}>
+                <AccountantDashboard />
+              </RequireRole>
+            </RequireAuth>
+          }
+/>
         
 
         {/* Fallback */}

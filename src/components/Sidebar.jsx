@@ -2,6 +2,7 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
+  Calculator,
   Package,
   ShoppingCart,
   Receipt,
@@ -44,10 +45,11 @@ export default function Sidebar() {
 
   const isCashier = role === "CASHIER";
   const isManager = role === "MANAGER";
+  const isAccountant = role === "ACCOUNTANT";
   const isAdmin = role === "ADMIN";
 
   // manager can see cashier pages too (common real POS flow)
-  const canUsePOS = isCashier || isManager || isAdmin;
+  const canUsePOS = isCashier || isManager || isAdmin ;
 
   return (
       <div
@@ -165,6 +167,21 @@ export default function Sidebar() {
               </NavLink>
             </>
           )}
+
+          {/* Accountant links */}
+          {isAccountant && (
+            <>
+              <div style={{ marginTop: 10 }} className="muted">
+                Accounting
+              </div>
+
+              <NavLink to="/accountant/dashboard" style={linkStyle}>
+                <Calculator size={20} />
+                <span>Accountant Dashboard</span>
+              </NavLink>
+            </>
+          )}
+
 
           {/* Admin links */}
           {isAdmin && (

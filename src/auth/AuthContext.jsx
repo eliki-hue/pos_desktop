@@ -58,7 +58,23 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     await api.post("/api/auth/pos/login/", { username, password });
-    await fetchMe();
+
+    const me = await api.get("/api/auth/me/");
+
+    setUser(me.data);
+
+    if (me.data.branch) {
+      localStorage.setItem(
+        "branch_id",
+        String(me.data.branch.id)
+      );
+    }
+
+    setMustChangePassword(
+      me.data.must_change_password || false
+    );
+
+    return me.data;
   };
 
   const logout = async () => {

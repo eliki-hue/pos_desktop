@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 
-const ROLES = ["admin", "manager", "cashier"];
+const ROLES = ["admin", "manager", "cashier", "accountant"];
 
 export default function UserFormModal({ user, branches, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -20,7 +20,7 @@ export default function UserFormModal({ user, branches, onClose, onSaved }) {
     setError("");
     setLoading(true);
 
-    if (form.role !== "admin" && !form.branch) {
+    if (!["admin", "accountant"].includes(form.role) && !form.branch) {
       setError("Branch is required for this role");
       setLoading(false);
       return;
@@ -117,7 +117,7 @@ export default function UserFormModal({ user, branches, onClose, onSaved }) {
 
         <select
           className="input"
-          disabled={form.role === "admin"}
+          disabled={["admin", "accountant"].includes(form.role)}
           value={form.branch || ""}
           onChange={(e) =>
             setForm({ ...form, branch: e.target.value })

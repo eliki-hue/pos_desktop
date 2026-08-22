@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login} = useAuth();
   const navigate = useNavigate();
 
   const [username, setUsername] = useState("");
@@ -19,8 +19,15 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(username, password);
-      navigate("/dashboard");
+      const loggedInUser = await login(username, password);
+
+      const role = (loggedInUser?.role || "").toUpperCase();
+
+      if (role === "ACCOUNTANT") {
+        navigate("/accountant/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
       setError(err?.response?.data?.detail || "Login failed");
     } finally {
