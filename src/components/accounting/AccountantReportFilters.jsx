@@ -60,6 +60,8 @@ const PRESETS = [
 export default function AccountantReportFilters({
   filters,
   onChange,
+  branches = [],
+  loadingBranches = false,
 }) {
   const applyPreset = (range) => {
     const dates = getRangeDates(range);
@@ -162,6 +164,40 @@ export default function AccountantReportFilters({
               handleDateChange("end", event.target.value)
             }
           />
+        </label>
+
+        <label>
+          <div
+            className="muted"
+            style={{ marginBottom: 5 }}
+          >
+            Branch
+          </div>
+
+          <select
+            className="input"
+            value={filters.branch || ""}
+            disabled={loadingBranches}
+            onChange={(event) =>
+              onChange({
+                ...filters,
+                branch: event.target.value,
+              })
+            }
+          >
+            <option value="">
+              All Branches
+            </option>
+
+            {branches.map((branch) => (
+              <option
+                key={branch.id}
+                value={branch.id}
+              >
+                {branch.name}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
     </div>
