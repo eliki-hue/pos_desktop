@@ -178,7 +178,7 @@ export default function App() {
         <Route
           path="purchases/*"
           element={
-            <RequireRole allowedRoles={["MANAGER", "ADMIN"]}>
+            <RequireRole allowedRoles={["MANAGER", "ADMIN","ACCOUNTANT"]}>
               <Purchases />
             </RequireRole>
           }
