@@ -191,7 +191,10 @@ export default function Sidebar() {
                 <User2 size={20} />
                 <span>Customers</span>
               </NavLink>
-
+              <NavLink to="/accountant/sales" style={linkStyle}>
+                <Receipt size={20} />
+                <span>Sales Records</span>
+              </NavLink>
               <NavLink to="/balance/sales/outstanding" style={linkStyle}>
                 <CreditCard size={20} />
                 <span>Credit Sales</span>

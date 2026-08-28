@@ -51,6 +51,7 @@ import DiscountRequests from "./pages/DiscountRequests";
 import { CustomerList, CustomerDetails } from './customerModule';
 
 import AccountantDashboard from "./pages/AccountantDashboard";
+import AccountantSales from "./pages/AccountantSales";
 
 export default function App() {
   return (
@@ -295,8 +296,20 @@ export default function App() {
               </RequireRole>
             </RequireAuth>
           }
-/>
+        />
         
+        <Route
+          path="accountant/sales"
+          element={
+            <RequireAuth>
+              <RequireRole
+                allowedRoles={["ACCOUNTANT", "ADMIN"]}
+              >
+                <AccountantSales />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
