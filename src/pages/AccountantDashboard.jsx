@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import AppLayout from "../components/AppLayout";
 import AccountantReportFilters from "../components/accounting/AccountantReportFilters";
 import { api } from "../api/axios";
+import CancelledSalesReport from "../components/accounting/CancelledSalesReport";
 
 /* -------------------------------------------------------------------------- */
 /* Date Helpers                                                               */
@@ -2839,7 +2840,12 @@ export default function AccountantDashboard() {
               </table>
             </div>
           )}
-      </div>
+        </div>
+        
+        <CancelledSalesReport
+          filters={filters}
+        /> 
+      
     </AppLayout>
   );
 }
