@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   RefreshCw, Eye, FileText, Calendar, PackageX, AlertCircle, 
   Clock, CheckCircle, XCircle, User, Package, DollarSign,
+  Banknote, Smartphone, RotateCcw,
   ChevronRight, Plus, Search, Filter, Trash2, Edit, 
   Percent, Minus, Maximize2, Ban, X, Info, ArrowRight, 
   ArrowLeftRight
@@ -40,6 +41,12 @@ export default function MyAdjustmentRequests() {
   const [requestToCancel, setRequestToCancel] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Refund execution (cashier)
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [selectedRefund, setSelectedRefund] = useState(null);
+  const [refundReference, setRefundReference] = useState('');
+  const [processingRefund, setProcessingRefund] = useState(false);
 
   const userRole = user?.role?.toLowerCase();
   const isCashier = userRole === 'cashier';
@@ -206,6 +213,75 @@ export default function MyAdjustmentRequests() {
       setError(err.response?.data?.error || err.response?.data?.message || 'Failed to submit adjustment request');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+
+  // Approved refunds awaiting cashier execution.
+  // This page currently loads the cashier's own requests via
+  // /api/adjustments/my-requests/ and filters them locally.
+  const pendingRefunds = requests.filter((req) =>
+    req.status === 'APPROVED' &&
+    req.refund_required === true &&
+    req.refund_status === 'PENDING'
+  );
+
+  const openRefundModal = (refundRequest) => {
+    setSelectedRefund(refundRequest);
+    setRefundReference('');
+    setError('');
+    setShowRefundModal(true);
+  };
+
+  const closeRefundModal = () => {
+    if (processingRefund) return;
+    setShowRefundModal(false);
+    setSelectedRefund(null);
+    setRefundReference('');
+  };
+
+  const handleExecuteRefund = async () => {
+    if (!selectedRefund) return;
+
+    const method = selectedRefund.refund_method;
+    const reference = refundReference.trim();
+
+    if (method === 'MPESA' && !reference) {
+      setError('Please enter the M-Pesa reference.');
+      return;
+    }
+
+    setProcessingRefund(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const payload = method === 'MPESA'
+        ? { reference }
+        : {};
+
+      await api.post(
+        `/api/adjustments/${selectedRefund.id}/execute-refund/`,
+        payload
+      );
+
+      setSuccess(
+        `Refund of ${formatCurrency(parseFloat(selectedRefund.refund_amount || 0))} completed successfully.`
+      );
+
+      closeRefundModal();
+      await loadRequests();
+
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err) {
+      console.error('Refund execution error:', err);
+      setError(
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        'Failed to complete refund'
+      );
+    } finally {
+      setProcessingRefund(false);
     }
   };
 
@@ -465,6 +541,46 @@ export default function MyAdjustmentRequests() {
             >
               <Calendar size={16} />
               Daily Sales
+            </button>
+          )}
+          {isCashier && (
+            <button
+              onClick={() => setActiveTab('refunds')}
+              style={{
+                padding: '12px 20px',
+                backgroundColor: activeTab === 'refunds' ? 'white' : 'transparent',
+                borderBottom: activeTab === 'refunds' ? '2px solid #10b981' : '2px solid transparent',
+                fontWeight: 500,
+                fontSize: 14,
+                color: activeTab === 'refunds' ? '#059669' : '#6b7280',
+                cursor: 'pointer',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              <RotateCcw size={16} />
+              Refunds
+              {pendingRefunds.length > 0 && (
+                <span
+                  style={{
+                    minWidth: 20,
+                    height: 20,
+                    padding: '0 6px',
+                    borderRadius: 10,
+                    backgroundColor: '#dc2626',
+                    color: 'white',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {pendingRefunds.length}
+                </span>
+              )}
             </button>
           )}
         </div>
@@ -841,6 +957,474 @@ export default function MyAdjustmentRequests() {
                 )}
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+
+      {/* Refunds Tab */}
+      {activeTab === 'refunds' && isCashier && (
+        <div className="card">
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: 16,
+              borderBottom: '1px solid #e5e7eb',
+              flexWrap: 'wrap',
+              gap: 12
+            }}
+          >
+            <div>
+              <strong style={{ fontSize: 16 }}>Pending Refunds</strong>
+              <div className="muted" style={{ fontSize: 12 }}>
+                Complete refunds that have already been approved by a manager
+              </div>
+            </div>
+
+            <button
+              className="btn outline"
+              onClick={loadRequests}
+              disabled={loading}
+              style={{
+                padding: '4px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              <RefreshCw size={14} />
+              Refresh
+            </button>
+          </div>
+
+          <div style={{ padding: 16, overflowX: 'auto' }}>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: 40 }}>
+                Loading refunds...
+              </div>
+            ) : pendingRefunds.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 50 }}>
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    margin: '0 auto 14px',
+                    borderRadius: 18,
+                    backgroundColor: '#ecfdf5',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <CheckCircle size={32} style={{ color: '#059669' }} />
+                </div>
+
+                <div style={{ fontWeight: 600, color: '#111827' }}>
+                  No refunds awaiting execution
+                </div>
+
+                <div
+                  className="muted"
+                  style={{ fontSize: 12, marginTop: 4 }}
+                >
+                  Approved refunds will appear here.
+                </div>
+              </div>
+            ) : (
+              <table className="table" style={{ width: '100%', minWidth: 900 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '8px 12px' }}>
+                      Sale #
+                    </th>
+                    <th style={{ textAlign: 'left', padding: '8px 12px' }}>
+                      Product
+                    </th>
+                    <th style={{ textAlign: 'right', padding: '8px 12px' }}>
+                      Refund
+                    </th>
+                    <th style={{ textAlign: 'left', padding: '8px 12px' }}>
+                      Method
+                    </th>
+                    <th style={{ textAlign: 'left', padding: '8px 12px' }}>
+                      Approved By
+                    </th>
+                    <th style={{ textAlign: 'left', padding: '8px 12px' }}>
+                      Approved At
+                    </th>
+                    <th style={{ textAlign: 'center', padding: '8px 12px' }}>
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {pendingRefunds.map((refund) => {
+                    const amount = parseFloat(
+                      refund.refund_amount || 0
+                    );
+
+                    const isMpesa =
+                      refund.refund_method === 'MPESA';
+
+                    return (
+                      <tr
+                        key={refund.id}
+                        style={{
+                          borderBottom: '1px solid #f3f4f6'
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: '10px 12px',
+                            fontWeight: 600
+                          }}
+                        >
+                          #{refund.sale_number || refund.sale_id || 'N/A'}
+                        </td>
+
+                        <td style={{ padding: '10px 12px' }}>
+                          {refund.product_name || 'Item removed'}
+                        </td>
+
+                        <td
+                          style={{
+                            padding: '10px 12px',
+                            textAlign: 'right',
+                            fontWeight: 700,
+                            color: '#dc2626'
+                          }}
+                        >
+                          {formatCurrency(amount)}
+                        </td>
+
+                        <td style={{ padding: '10px 12px' }}>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '4px 9px',
+                              borderRadius: 12,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              backgroundColor: isMpesa
+                                ? '#dbeafe'
+                                : '#fef3c7',
+                              color: isMpesa
+                                ? '#1d4ed8'
+                                : '#92400e'
+                            }}
+                          >
+                            {isMpesa ? (
+                              <Smartphone size={12} />
+                            ) : (
+                              <Banknote size={12} />
+                            )}
+                            {isMpesa ? 'M-Pesa' : 'Cash'}
+                          </span>
+                        </td>
+
+                        <td style={{ padding: '10px 12px' }}>
+                          {refund.approved_by_name || 'Manager'}
+                        </td>
+
+                        <td
+                          style={{
+                            padding: '10px 12px',
+                            fontSize: 12,
+                            color: '#6b7280'
+                          }}
+                        >
+                          {refund.approved_at
+                            ? formatDate(refund.approved_at)
+                            : 'N/A'}
+                        </td>
+
+                        <td
+                          style={{
+                            padding: '10px 12px',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => openRefundModal(refund)}
+                            style={{
+                              padding: '6px 12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              backgroundColor: '#059669'
+                            }}
+                          >
+                            <RotateCcw size={14} />
+                            Process Refund
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Refund Execution Modal */}
+      {showRefundModal && selectedRefund && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2200,
+            padding: 20
+          }}
+          onClick={closeRefundModal}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: 12,
+              width: '90%',
+              maxWidth: 500,
+              padding: 24
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 20
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 18,
+                    fontWeight: 700
+                  }}
+                >
+                  Complete Customer Refund
+                </h3>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: '#6b7280',
+                    marginTop: 4
+                  }}
+                >
+                  Sale #{selectedRefund.sale_number || selectedRefund.sale_id}
+                </div>
+              </div>
+
+              <button
+                onClick={closeRefundModal}
+                disabled={processingRefund}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  cursor: processingRefund ? 'not-allowed' : 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                padding: 16,
+                backgroundColor: '#f9fafb',
+                borderRadius: 10,
+                marginBottom: 18
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: 8
+                }}
+              >
+                <span style={{ color: '#6b7280', fontSize: 13 }}>
+                  Refund Amount
+                </span>
+
+                <strong
+                  style={{
+                    fontSize: 20,
+                    color: '#dc2626'
+                  }}
+                >
+                  {formatCurrency(
+                    parseFloat(selectedRefund.refund_amount || 0)
+                  )}
+                </strong>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: 8
+                }}
+              >
+                <span style={{ color: '#6b7280', fontSize: 13 }}>
+                  Method
+                </span>
+
+                <strong style={{ fontSize: 13 }}>
+                  {selectedRefund.refund_method === 'MPESA'
+                    ? 'M-Pesa'
+                    : 'Cash'}
+                </strong>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <span style={{ color: '#6b7280', fontSize: 13 }}>
+                  Approved By
+                </span>
+
+                <strong style={{ fontSize: 13 }}>
+                  {selectedRefund.approved_by_name || 'Manager'}
+                </strong>
+              </div>
+            </div>
+
+            {selectedRefund.refund_method === 'MPESA' ? (
+              <div style={{ marginBottom: 18 }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: 6,
+                    fontSize: 13,
+                    fontWeight: 600
+                  }}
+                >
+                  M-Pesa Reference *
+                </label>
+
+                <input
+                  type="text"
+                  className="input"
+                  value={refundReference}
+                  onChange={(e) =>
+                    setRefundReference(e.target.value)
+                  }
+                  placeholder="Enter the actual M-Pesa transaction reference"
+                  disabled={processingRefund}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '10px 12px'
+                  }}
+                />
+
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 11,
+                    color: '#6b7280'
+                  }}
+                >
+                  Enter the reference only after the M-Pesa refund
+                  has actually been sent to the customer.
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  marginBottom: 18,
+                  padding: 12,
+                  backgroundColor: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: '#92400e'
+                }}
+              >
+                Confirm that the customer has physically received the
+                cash refund before clicking Confirm Refund.
+              </div>
+            )}
+
+            {error && (
+              <div
+                style={{
+                  marginBottom: 16,
+                  padding: 10,
+                  backgroundColor: '#fee2e2',
+                  color: '#dc2626',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <AlertCircle size={16} />
+                {error}
+              </div>
+            )}
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 10
+              }}
+            >
+              <button
+                type="button"
+                className="btn outline"
+                onClick={closeRefundModal}
+                disabled={processingRefund}
+                style={{ padding: '8px 16px' }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleExecuteRefund}
+                disabled={processingRefund}
+                style={{
+                  padding: '8px 18px',
+                  backgroundColor: '#059669',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <CheckCircle size={15} />
+                {processingRefund
+                  ? 'Processing...'
+                  : 'Confirm Refund'}
+              </button>
+            </div>
           </div>
         </div>
       )}

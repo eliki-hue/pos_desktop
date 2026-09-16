@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Check, X, Eye, Clock, AlertCircle, 
   Package, User, Calendar, FileText, ArrowLeftRight, 
-  Percent, Ban, PackageX, Info } from 'lucide-react';
+  Percent, Ban, PackageX, Info, Banknote, Smartphone } from 'lucide-react';
 import { api } from '../api/client';
 import AppLayout from '../components/AppLayout';
 import { formatDate, formatCurrency } from '../utils/formatters';
@@ -18,6 +18,9 @@ export default function PendingAdjustments() {
   const [toast, setToast] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalRequest, setApprovalRequest] = useState(null);
+  const [refundMethod, setRefundMethod] = useState('');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -40,17 +43,88 @@ export default function PendingAdjustments() {
     loadRequests();
   }, []);
 
-  const handleApprove = async (id) => {
+  const isRefundCapableAction = (request) => {
+    return (
+      request.action === "REMOVE_ITEM" ||
+      request.action === "VOID_SALE" ||
+      (
+        request.action === "CHANGE_QUANTITY" &&
+        Number(request.requested_quantity) <
+          Number(request.current_quantity)
+      )
+    );
+  };
+
+  const openApprovalModal = (request) => {
+    const refundCapable = isRefundCapableAction(request);
+
+    if (refundCapable) {
+      setApprovalRequest(request);
+      setRefundMethod(request.refund_method || 'CASH');
+      setShowApprovalModal(true);
+      return;
+    }
+
+    handleApprove(request.id);
+  };
+
+  const closeApprovalModal = () => {
+    if (processingId !== null) return;
+
+    setShowApprovalModal(false);
+    setApprovalRequest(null);
+    setRefundMethod('');
+  };
+
+  const approveRequest = async (id, selectedRefundMethod = null) => {
     setProcessingId(id);
+
     try {
-      await api.post('/api/adjustments/approve/', { request_id: id });
-      showToast('Request approved successfully');
-      loadRequests();
+      await api.post('/api/adjustments/approve/', {
+        request_id: id,
+        refund_method: selectedRefundMethod,
+      });
+
+      showToast(
+        selectedRefundMethod
+          ? 'Request approved and refund prepared successfully'
+          : 'Request approved successfully'
+      );
+
+      setShowApprovalModal(false);
+      setApprovalRequest(null);
+      setRefundMethod('');
+
+      await loadRequests();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to approve', 'error');
+      showToast(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          'Failed to approve',
+        'error'
+      );
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const confirmApproval = () => {
+    if (!approvalRequest) return;
+
+    const refundCapable = isRefundCapableAction(approvalRequest);
+
+    if (refundCapable && !refundMethod) {
+      showToast(
+        'Please select a refund method.',
+        'error'
+      );
+      return;
+    }
+
+    approveRequest(
+      approvalRequest.id,
+      refundCapable ? refundMethod : null
+    );
   };
 
   const handleReject = async (id) => {
@@ -325,7 +399,7 @@ export default function PendingAdjustments() {
                         </button>
                         <button
                           className="btn"
-                          onClick={() => handleApprove(req.id)}
+                          onClick={() => openApprovalModal(req)}
                           disabled={processingId === req.id}
                           style={{ 
                             padding: '4px 10px', 
@@ -504,8 +578,7 @@ export default function PendingAdjustments() {
                   <button
                     className="btn"
                     onClick={() => {
-                      handleApprove(selectedRequest.id);
-                      setShowDetailModal(false);
+                      openApprovalModal(selectedRequest);
                     }}
                     disabled={processingId === selectedRequest.id}
                     style={{
@@ -555,6 +628,293 @@ export default function PendingAdjustments() {
                 style={{ padding: '8px 16px' }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund Approval Modal */}
+      {showApprovalModal && approvalRequest && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2200,
+            padding: 20,
+          }}
+          onClick={closeApprovalModal}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: 12,
+              width: '90%',
+              maxWidth: 520,
+              maxHeight: '90vh',
+              overflow: 'auto',
+              padding: 24,
+              boxShadow: '0 20px 40px rgba(0,0,0,0.18)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 18,
+                    fontWeight: 600,
+                  }}
+                >
+                  Approve Adjustment
+                </h3>
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontSize: 12,
+                    color: '#6b7280',
+                  }}
+                >
+                  Request #{approvalRequest.id}
+                </div>
+              </div>
+
+              <button
+                onClick={closeApprovalModal}
+                disabled={processingId !== null}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  cursor: processingId !== null ? 'not-allowed' : 'pointer',
+                  color: '#6b7280',
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: '#f9fafb',
+                padding: 14,
+                borderRadius: 8,
+                marginBottom: 18,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
+                }}
+              >
+                <span style={{ color: '#6b7280' }}>Sale</span>
+                <strong>
+                  #{approvalRequest.sale_number || approvalRequest.sale_id || 'N/A'}
+                </strong>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span style={{ color: '#6b7280' }}>Product</span>
+                <strong>
+                  {approvalRequest.product_name || 'Unknown Product'}
+                </strong>
+              </div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: '#fff7ed',
+                border: '1px solid #fed7aa',
+                borderRadius: 8,
+                padding: 14,
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <AlertCircle size={18} style={{ color: '#ea580c' }} />
+                <strong style={{ color: '#9a3412' }}>
+                  Customer Refund Required
+                </strong>
+              </div>
+
+              <div style={{ fontSize: 14, color: '#7c2d12' }}>
+                Refund Amount:{' '}
+                <strong>
+                  {formatCurrency(
+                    parseFloat(approvalRequest.refund_amount || 0)
+                  )}
+                </strong>
+              </div>
+
+              <p
+                style={{
+                  fontSize: 12,
+                  color: '#7c2d12',
+                  margin: '8px 0 0',
+                }}
+              >
+                Select how the cashier will return the money.
+                The M-Pesa transaction reference is entered later
+                by the cashier after the refund is actually sent.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Refund Method *
+              </label>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 12,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setRefundMethod('CASH')}
+                  style={{
+                    padding: 16,
+                    borderRadius: 10,
+                    border: refundMethod === 'CASH'
+                      ? '2px solid #16a34a'
+                      : '1px solid #d1d5db',
+                    backgroundColor: refundMethod === 'CASH'
+                      ? '#f0fdf4'
+                      : 'white',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <Banknote size={20} />
+                    <strong>Cash</strong>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: '#6b7280',
+                    }}
+                  >
+                    Cashier hands the refund directly to the customer.
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRefundMethod('MPESA')}
+                  style={{
+                    padding: 16,
+                    borderRadius: 10,
+                    border: refundMethod === 'MPESA'
+                      ? '2px solid #16a34a'
+                      : '1px solid #d1d5db',
+                    backgroundColor: refundMethod === 'MPESA'
+                      ? '#f0fdf4'
+                      : 'white',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <Smartphone size={20} />
+                    <strong>M-Pesa</strong>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: '#6b7280',
+                    }}
+                  >
+                    Cashier sends the refund and records the reference.
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 10,
+              }}
+            >
+              <button
+                className="btn outline"
+                onClick={closeApprovalModal}
+                disabled={processingId !== null}
+                style={{ padding: '8px 16px' }}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="btn"
+                onClick={confirmApproval}
+                disabled={processingId === approvalRequest.id}
+                style={{
+                  padding: '8px 20px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                }}
+              >
+                {processingId === approvalRequest.id
+                  ? 'Approving...'
+                  : 'Approve Request'}
               </button>
             </div>
           </div>
