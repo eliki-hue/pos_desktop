@@ -162,16 +162,16 @@ export default function MyAdjustmentRequests() {
       }
     }
     
-    if (adjustmentType === 'APPLY_DISCOUNT') {
-      if (!adjustmentDiscount || parseFloat(adjustmentDiscount) < 0) {
-        setError('Please enter a valid discount amount');
-        return;
-      }
-      if (parseFloat(adjustmentDiscount) > parseFloat(selectedItem.unit_price)) {
-        setError(`Discount cannot exceed unit price (${formatCurrency(selectedItem.unit_price)})`);
-        return;
-      }
-    }
+    // if (adjustmentType === 'APPLY_DISCOUNT') {
+    //   if (!adjustmentDiscount || parseFloat(adjustmentDiscount) < 0) {
+    //     setError('Please enter a valid discount amount');
+    //     return;
+    //   }
+    //   if (parseFloat(adjustmentDiscount) > parseFloat(selectedItem.unit_price)) {
+    //     setError(`Discount cannot exceed unit price (${formatCurrency(selectedItem.unit_price)})`);
+    //     return;
+    //   }
+    // }
     
     setSubmitting(true);
     try {
@@ -185,9 +185,9 @@ export default function MyAdjustmentRequests() {
       if (adjustmentType === 'CHANGE_QUANTITY') {
         endpoint = '/api/adjustments/request-quantity/';
         payload.requested_quantity = parseFloat(adjustmentQuantity);
-      } else if (adjustmentType === 'APPLY_DISCOUNT') {
-        endpoint = '/api/adjustments/request-discount/';
-        payload.requested_discount = parseFloat(adjustmentDiscount);
+      // } else if (adjustmentType === 'APPLY_DISCOUNT') {
+      //   endpoint = '/api/adjustments/request-discount/';
+      //   payload.requested_discount = parseFloat(adjustmentDiscount);
       } else if (adjustmentType === 'VOID_SALE') {
         endpoint = '/api/adjustments/request-void/';
         payload = {
@@ -331,7 +331,7 @@ export default function MyAdjustmentRequests() {
     const actions = {
       'CHANGE_QUANTITY': 'Change Quantity',
       'REMOVE_ITEM': 'Remove Item',
-      'APPLY_DISCOUNT': 'Apply Discount',
+      // 'APPLY_DISCOUNT': 'Apply Discount',
       'VOID_SALE': 'Void Sale'
     };
     return actions[action] || action || 'Unknown';
@@ -341,7 +341,7 @@ export default function MyAdjustmentRequests() {
     const icons = {
       'CHANGE_QUANTITY': <ArrowLeftRight size={12} />,
       'REMOVE_ITEM': <PackageX size={12} />,
-      'APPLY_DISCOUNT': <Percent size={12} />,
+      // 'APPLY_DISCOUNT': <Percent size={12} />,
       'VOID_SALE': <Ban size={12} />
     };
     return icons[action] || <FileText size={12} />;
@@ -353,8 +353,8 @@ export default function MyAdjustmentRequests() {
         return `Change quantity to ${request.requested_quantity}`;
       case 'REMOVE_ITEM':
         return `Remove item from sale`;
-      case 'APPLY_DISCOUNT':
-        return `Apply discount of ${formatCurrency(parseFloat(request.requested_discount || 0))} per unit`;
+      // case 'APPLY_DISCOUNT':
+        // return `Apply discount of ${formatCurrency(parseFloat(request.requested_discount || 0))} per unit`;
       case 'VOID_SALE':
         return 'Void entire sale';
       default:
@@ -385,17 +385,17 @@ export default function MyAdjustmentRequests() {
             { label: 'Reason', value: request.reason || 'No reason provided' },
           ]
         };
-      case 'APPLY_DISCOUNT':
-        return {
-          title: 'Discount Request',
-          icon: <Percent size={24} className="text-green-500" />,
-          details: [
-            { label: 'Product', value: request.product_name },
-            { label: 'Current Discount', value: request.current_discount ? formatCurrency(parseFloat(request.current_discount)) : 'None' },
-            { label: 'Requested Discount per Unit', value: formatCurrency(parseFloat(request.requested_discount || 0)) },
-            { label: 'Reason', value: request.reason || 'No reason provided' },
-          ]
-        };
+      // case 'APPLY_DISCOUNT':
+      //   return {
+      //     title: 'Discount Request',
+      //     icon: <Percent size={24} className="text-green-500" />,
+      //     details: [
+      //       { label: 'Product', value: request.product_name },
+      //       { label: 'Current Discount', value: request.current_discount ? formatCurrency(parseFloat(request.current_discount)) : 'None' },
+      //       { label: 'Requested Discount per Unit', value: formatCurrency(parseFloat(request.requested_discount || 0)) },
+      //       { label: 'Reason', value: request.reason || 'No reason provided' },
+      //     ]
+      //   };
       case 'VOID_SALE':
         return {
           title: 'Sale Void Request',
@@ -710,8 +710,6 @@ export default function MyAdjustmentRequests() {
                               </>
                             ) : req.action === 'REMOVE_ITEM' ? (
                               <>Remove {req.requested_quantity || 'all'} units</>
-                            ) : req.action === 'APPLY_DISCOUNT' ? (
-                              <>Apply {formatCurrency(parseFloat(req.requested_discount || 0))} discount</>
                             ) : req.action === 'VOID_SALE' ? (
                               <>Void entire sale</>
                             ) : (
@@ -1501,7 +1499,7 @@ export default function MyAdjustmentRequests() {
                 >
                   <option value="REMOVE_ITEM">Remove Item</option>
                   <option value="CHANGE_QUANTITY">Change Quantity</option>
-                  <option value="APPLY_DISCOUNT">Apply Discount</option>
+                  
                   <option value="VOID_SALE">Void Sale</option>
                 </select>
               </div>
@@ -1556,7 +1554,7 @@ export default function MyAdjustmentRequests() {
                 </div>
               )}
               
-              {adjustmentType === 'APPLY_DISCOUNT' && selectedItem && (
+              {/* {adjustmentType === 'APPLY_DISCOUNT' && selectedItem && (
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>
                     Discount per Unit *
@@ -1575,7 +1573,7 @@ export default function MyAdjustmentRequests() {
                     style={{ width: '100%', padding: '8px 12px' }}
                   />
                 </div>
-              )}
+              )} */}
               
               {adjustmentType === 'VOID_SALE' && (
                 <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fee2e2', borderRadius: 8 }}>

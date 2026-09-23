@@ -1,980 +1,707 @@
-// pages/PendingAdjustments.jsx
-import React, { useState, useEffect } from 'react';
-import { RefreshCw, Check, X, Eye, Clock, AlertCircle, 
-  Package, User, Calendar, FileText, ArrowLeftRight, 
-  Percent, Ban, PackageX, Info, Banknote, Smartphone } from 'lucide-react';
-import { api } from '../api/client';
-import AppLayout from '../components/AppLayout';
-import { formatDate, formatCurrency } from '../utils/formatters';
-import { useAuth } from '../auth/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import api from "../services/api";
+import AppLayout from "../components/AppLayout";
 
-export default function PendingAdjustments() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+const DISCOUNT_ACTION = "APPLY_DISCOUNT";
+const PENDING_STATUS = "PENDING";
+
+export default function DiscountRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
-  const [toast, setToast] = useState(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [search, setSearch] = useState("");
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [approvalRequest, setApprovalRequest] = useState(null);
-  const [refundMethod, setRefundMethod] = useState('');
+  const [modalType, setModalType] = useState(null); // APPROVE | REJECT | VIEW
+  const [note, setNote] = useState("");
 
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const loadRequests = async () => {
-    setLoading(true);
+  const loadRequests = useCallback(async () => {
     try {
-      const res = await api.get('/api/adjustments/pending/');
-      setRequests(res.data || []);
+      setLoading(true);
+      setError("");
+
+      // Single source of truth: SaleAdjustmentRequest.
+      const res = await api.get("/api/adjustments/pending/");
+
+      const allRequests = Array.isArray(res.data) ? res.data : [];
+
+      // This page owns only APPLY_DISCOUNT requests.
+      const discountRequests = allRequests.filter(
+        (request) => request.action === DISCOUNT_ACTION
+      );
+
+      setRequests(discountRequests);
     } catch (err) {
-      console.error('Failed to load requests', err);
+      console.error("Failed to load discount requests:", err);
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.detail ||
+          "Failed to load discount requests."
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadRequests();
-  }, []);
 
-  const isRefundCapableAction = (request) => {
-    return (
-      request.action === "REMOVE_ITEM" ||
-      request.action === "VOID_SALE" ||
-      (
-        request.action === "CHANGE_QUANTITY" &&
-        Number(request.requested_quantity) <
-          Number(request.current_quantity)
-      )
-    );
+    const interval = window.setInterval(loadRequests, 30000);
+    return () => window.clearInterval(interval);
+  }, [loadRequests]);
+
+  const filteredRequests = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    if (!term) return requests;
+
+    return requests.filter((request) => {
+      const product = String(request.product_name ?? "").toLowerCase();
+      const cashier = String(
+        request.requested_by_name ??
+          request.cashier_name ??
+          request.requested_by?.username ??
+          ""
+      ).toLowerCase();
+      const reason = String(request.reason ?? "").toLowerCase();
+      const saleNumber = String(
+        request.sale_number ?? request.sale ?? request.sale_id ?? ""
+      ).toLowerCase();
+
+      return (
+        product.includes(term) ||
+        cashier.includes(term) ||
+        reason.includes(term) ||
+        saleNumber.includes(term)
+      );
+    });
+  }, [requests, search]);
+
+  const pendingCount = requests.filter(
+    (request) => request.status === PENDING_STATUS
+  ).length;
+
+  const openModal = (type, request) => {
+    setSelectedRequest(request);
+    setModalType(type);
+    setNote("");
+    setError("");
+    setSuccess("");
   };
 
-  const openApprovalModal = (request) => {
-    const refundCapable = isRefundCapableAction(request);
-
-    if (refundCapable) {
-      setApprovalRequest(request);
-      setRefundMethod(request.refund_method || 'CASH');
-      setShowApprovalModal(true);
-      return;
-    }
-
-    handleApprove(request.id);
-  };
-
-  const closeApprovalModal = () => {
+  const closeModal = () => {
     if (processingId !== null) return;
-
-    setShowApprovalModal(false);
-    setApprovalRequest(null);
-    setRefundMethod('');
+    setSelectedRequest(null);
+    setModalType(null);
+    setNote("");
   };
 
-  const approveRequest = async (id, selectedRefundMethod = null) => {
-    setProcessingId(id);
+  const approveRequest = async () => {
+    if (!selectedRequest) return;
+
+    const requestId = selectedRequest.id;
+    setProcessingId(requestId);
+    setError("");
+    setSuccess("");
 
     try {
-      await api.post('/api/adjustments/approve/', {
-        request_id: id,
-        refund_method: selectedRefundMethod,
+      // Canonical approval endpoint for SaleAdjustmentRequest.
+      await api.post("/api/adjustments/approve/", {
+        request_id: requestId,
+        ...(note.trim() ? { note: note.trim() } : {}),
       });
 
-      showToast(
-        selectedRefundMethod
-          ? 'Request approved and refund prepared successfully'
-          : 'Request approved successfully'
-      );
-
-      setShowApprovalModal(false);
-      setApprovalRequest(null);
-      setRefundMethod('');
-
+      setSuccess("Discount request approved successfully.");
+      closeModal();
       await loadRequests();
     } catch (err) {
-      showToast(
+      console.error("Failed to approve discount request:", err);
+      setError(
         err.response?.data?.error ||
-          err.response?.data?.message ||
-          'Failed to approve',
-        'error'
+          err.response?.data?.detail ||
+          "Failed to approve discount request."
       );
     } finally {
       setProcessingId(null);
     }
   };
 
-  const confirmApproval = () => {
-    if (!approvalRequest) return;
+  const rejectRequest = async () => {
+    if (!selectedRequest) return;
 
-    const refundCapable = isRefundCapableAction(approvalRequest);
+    const requestId = selectedRequest.id;
+    setProcessingId(requestId);
+    setError("");
+    setSuccess("");
 
-    if (refundCapable && !refundMethod) {
-      showToast(
-        'Please select a refund method.',
-        'error'
-      );
-      return;
-    }
-
-    approveRequest(
-      approvalRequest.id,
-      refundCapable ? refundMethod : null
-    );
-  };
-
-  const handleReject = async (id) => {
-    setProcessingId(id);
     try {
-      await api.post('/api/adjustments/reject/', { request_id: id });
-      showToast('Request rejected');
-      loadRequests();
+      // Canonical rejection endpoint for SaleAdjustmentRequest.
+      await api.post("/api/adjustments/reject/", {
+        request_id: requestId,
+        ...(note.trim() ? { note: note.trim() } : {}),
+      });
+
+      setSuccess("Discount request rejected successfully.");
+      closeModal();
+      await loadRequests();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to reject', 'error');
+      console.error("Failed to reject discount request:", err);
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.detail ||
+          "Failed to reject discount request."
+      );
     } finally {
       setProcessingId(null);
     }
   };
-
-  const handleViewSale = (saleId) => {
-    if (saleId) {
-      navigate(`/balance/sales/${saleId}`);
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    const s = status?.toUpperCase();
-    if (s === 'PENDING') {
-      return { bg: '#fef3c7', color: '#92400e', text: 'Pending', icon: Clock };
-    }
-    if (s === 'APPROVED') {
-      return { bg: '#d1fae5', color: '#065f46', text: 'Approved', icon: Check };
-    }
-    if (s === 'REJECTED') {
-      return { bg: '#fee2e2', color: '#991b1b', text: 'Rejected', icon: X };
-    }
-    return { bg: '#f3f4f6', color: '#374151', text: status || 'Unknown', icon: AlertCircle };
-  };
-
-  const getActionDisplay = (action) => {
-    const actions = {
-      'CHANGE_QUANTITY': 'Change Quantity',
-      'REMOVE_ITEM': 'Remove Item',
-      'APPLY_DISCOUNT': 'Apply Discount',
-      'VOID_SALE': 'Void Sale'
-    };
-    return actions[action] || action || 'Unknown';
-  };
-
-  const getActionIcon = (action) => {
-    const icons = {
-      'CHANGE_QUANTITY': <ArrowLeftRight size={14} />,
-      'REMOVE_ITEM': <PackageX size={14} />,
-      'APPLY_DISCOUNT': <Percent size={14} />,
-      'VOID_SALE': <Ban size={14} />
-    };
-    return icons[action] || <FileText size={14} />;
-  };
-
-  const getActionDescription = (request) => {
-    switch (request.action) {
-      case 'CHANGE_QUANTITY':
-        return `Change from ${request.current_quantity || '?'} → ${request.requested_quantity}`;
-      case 'REMOVE_ITEM':
-        return `Remove ${request.requested_quantity || 'all'} units`;
-      case 'APPLY_DISCOUNT':
-        return `Apply ${formatCurrency(parseFloat(request.requested_discount || 0))} discount`;
-      case 'VOID_SALE':
-        return 'Void entire sale';
-      default:
-        return '';
-    }
-  };
-
-  const getDetailDescription = (request) => {
-    switch (request.action) {
-      case 'CHANGE_QUANTITY':
-        return {
-          title: 'Quantity Change Request',
-          icon: <ArrowLeftRight size={24} className="text-blue-500" />,
-          details: [
-            { label: 'Current Quantity', value: request.current_quantity || 'N/A' },
-            { label: 'Requested Quantity', value: request.requested_quantity },
-            { label: 'Change', value: `${request.requested_quantity} (from ${request.current_quantity || 'N/A'})` },
-            { label: 'Reason', value: request.reason || 'No reason provided' },
-          ]
-        };
-      case 'REMOVE_ITEM':
-        return {
-          title: 'Item Removal Request',
-          icon: <PackageX size={24} className="text-red-500" />,
-          details: [
-            { label: 'Product', value: request.product_name },
-            { label: 'Quantity to Remove', value: request.requested_quantity || 'All' },
-            { label: 'Reason', value: request.reason || 'No reason provided' },
-          ]
-        };
-      case 'APPLY_DISCOUNT':
-        return {
-          title: 'Discount Request',
-          icon: <Percent size={24} className="text-green-500" />,
-          details: [
-            { label: 'Product', value: request.product_name },
-            { label: 'Requested Discount per Unit', value: formatCurrency(parseFloat(request.requested_discount || 0)) },
-            { label: 'Reason', value: request.reason || 'No reason provided' },
-          ]
-        };
-      case 'VOID_SALE':
-        return {
-          title: 'Sale Void Request',
-          icon: <Ban size={24} className="text-red-500" />,
-          details: [
-            { label: 'Sale #', value: `#${request.sale_number || request.sale_id}` },
-            { label: 'Reason', value: request.reason || 'No reason provided' },
-          ]
-        };
-      default:
-        return {
-          title: 'Request Details',
-          icon: <Info size={24} className="text-gray-500" />,
-          details: [
-            { label: 'Action', value: getActionDisplay(request.action) },
-            { label: 'Reason', value: request.reason || 'No reason provided' },
-          ]
-        };
-    }
-  };
-
-  const StatusBadge = ({ status }) => {
-    const config = getStatusBadge(status);
-    const Icon = config.icon;
-    return (
-      <span style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '3px 10px',
-        borderRadius: 12,
-        fontSize: 11,
-        fontWeight: 500,
-        backgroundColor: config.bg,
-        color: config.color
-      }}>
-        <Icon size={12} />
-        {config.text}
-      </span>
-    );
-  };
-
-  const userRole = user?.role?.toLowerCase();
-  const isManagerOrAdmin = userRole === 'manager' || userRole === 'admin';
-
-  if (!isManagerOrAdmin) {
-    return (
-      <AppLayout title="Pending Adjustments" subtitle="Review item removal requests">
-        <div className="card" style={{ textAlign: 'center', padding: 60 }}>
-          <p style={{ color: '#dc2626' }}>Access denied. Manager or Admin only.</p>
-        </div>
-      </AppLayout>
-    );
-  }
 
   return (
-    <AppLayout title="Pending Adjustments" subtitle="Review and approve adjustment requests">
-      {toast && (
-        <div style={{
-          position: 'fixed',
-          top: 20,
-          right: 20,
-          zIndex: 9999,
-          padding: '10px 16px',
-          borderRadius: 8,
-          backgroundColor: toast.type === 'success' ? '#10b981' : '#ef4444',
-          color: 'white',
-          fontSize: 13,
-          animation: 'slideIn 0.3s ease-out',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-        }}>
-          {toast.message}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <strong style={{ fontSize: 20 }}>Pending Requests</strong>
-          <div className="muted">Review adjustment requests from cashiers</div>
-        </div>
-        <button className="btn outline" onClick={loadRequests} disabled={loading}>
-          <RefreshCw size={16} style={{ marginRight: 8 }} />
-          Refresh
-        </button>
-      </div>
-
-      <div className="card" style={{ overflowX: 'auto' }}>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 40 }}>Loading...</div>
-        ) : requests.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <div style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              width: 60,
-              height: 60,
-              backgroundColor: '#f3f4f6',
-              borderRadius: 16,
-              marginBottom: 12
-            }}>
-              <span style={{ fontSize: 30 }}>✅</span>
+    <AppLayout>
+      <div style={{ padding: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 20,
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0 }}>Discount Requests</h2>
+            <div style={{ color: "#6B7280", marginTop: 6, fontSize: 14 }}>
+              Manager/Admin approval for cashier discount requests.
             </div>
-            <p style={{ color: '#6b7280' }}>No pending requests</p>
-            <p style={{ fontSize: 13, color: '#9ca3af' }}>All requests have been processed</p>
+          </div>
+
+          <button className="btn" onClick={loadRequests} disabled={loading}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {success && (
+          <div
+            style={{
+              padding: 12,
+              marginBottom: 16,
+              background: "#DCFCE7",
+              color: "#166534",
+              borderRadius: 8,
+            }}
+          >
+            {success}
+          </div>
+        )}
+
+        {error && (
+          <div
+            style={{
+              padding: 12,
+              marginBottom: 16,
+              background: "#FEE2E2",
+              color: "#991B1B",
+              borderRadius: 8,
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          <SummaryCard
+            title="Pending Discount Requests"
+            value={pendingCount}
+            color="#F59E0B"
+          />
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 20,
+          }}
+        >
+          <input
+            placeholder="Search product, cashier, sale or reason..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            style={{
+              flex: 1,
+              minWidth: 280,
+              padding: 10,
+              borderRadius: 8,
+              border: "1px solid #ddd",
+            }}
+          />
+        </div>
+
+        {loading ? (
+          <div style={{ padding: 40, textAlign: "center" }}>
+            Loading discount requests...
+          </div>
+        ) : filteredRequests.length === 0 ? (
+          <div
+            style={{
+              padding: 40,
+              textAlign: "center",
+              color: "#6B7280",
+              background: "#fff",
+              borderRadius: 12,
+              border: "1px solid #e5e7eb",
+            }}
+          >
+            No pending discount requests found.
           </div>
         ) : (
-          <table className="table" style={{ width: '100%', minWidth: 900 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '8px 12px' }}>#</th>
-                <th style={{ textAlign: 'left', padding: '8px 12px' }}>Request ID</th>
-                <th style={{ textAlign: 'left', padding: '8px 12px' }}>Sale #</th>
-                <th style={{ textAlign: 'left', padding: '8px 12px' }}>Product</th>
-                <th style={{ textAlign: 'left', padding: '8px 12px' }}>Action</th>
-                <th style={{ textAlign: 'left', padding: '8px 12px' }}>Request Details</th>
-                <th style={{ textAlign: 'left', padding: '8px 12px' }}>Requested By</th>
-                <th style={{ textAlign: 'left', padding: '8px 12px' }}>Date</th>
-                <th style={{ textAlign: 'center', padding: '8px 12px' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map((req, index) => {
-                const badge = getStatusBadge(req.status);
-                return (
-                  <tr key={req.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '8px 12px', fontWeight: 500, fontSize: 13 }}>{index + 1}</td>
-                    <td style={{ padding: '8px 12px', fontWeight: 500 }}>#{req.id}</td>
-                    <td style={{ padding: '8px 12px' }}>{req.sale_number || req.sale_id || 'N/A'}</td>
-                    <td style={{ padding: '8px 12px' }}>{req.product_name || 'Unknown Product'}</td>
-                    <td style={{ padding: '8px 12px' }}>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        padding: '2px 8px',
-                        borderRadius: 4,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        backgroundColor: '#dbeafe',
-                        color: '#1e40af'
-                      }}>
-                        {getActionIcon(req.action)}
-                        {getActionDisplay(req.action)}
-                      </span>
-                    </td>
-                    <td style={{ padding: '8px 12px' }}>
-                      <span style={{ fontSize: 12, color: '#6b7280' }}>
-                        {getActionDescription(req)}
-                      </span>
-                    </td>
-                    <td style={{ padding: '8px 12px' }}>{req.requested_by || '—'}</td>
-                    <td style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>
-                      {req.created_at ? formatDate(req.created_at) : 'N/A'}
-                    </td>
-                    <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <button
-                          className="btn outline"
-                          onClick={() => {
-                            setSelectedRequest(req);
-                            setShowDetailModal(true);
+          <div
+            style={{
+              overflowX: "auto",
+              background: "#fff",
+              borderRadius: 12,
+              border: "1px solid #e5e7eb",
+            }}
+          >
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                minWidth: 900,
+              }}
+            >
+              <thead>
+                <tr
+                  style={{
+                    background: "#F9FAFB",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  <th style={th}>Product</th>
+                  <th style={th}>Cashier</th>
+                  <th style={th}>Sale</th>
+                  <th style={th}>Discount</th>
+                  <th style={th}>Reason</th>
+                  <th style={th}>Requested</th>
+                  <th style={th}>Status</th>
+                  <th style={th}>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredRequests.map((request) => {
+                  const cashier =
+                    request.requested_by_name ??
+                    request.cashier_name ??
+                    request.requested_by?.username ??
+                    "-";
+
+                  const saleNumber =
+                    request.sale_number ??
+                    request.sale_id ??
+                    request.sale ??
+                    "-";
+
+                  const requestedDiscount = Number(
+                    request.requested_discount ?? 0
+                  );
+
+                  const requestedAt =
+                    request.created_at ?? request.requested_at;
+
+                  return (
+                    <tr
+                      key={request.id}
+                      style={{ borderBottom: "1px solid #f3f4f6" }}
+                    >
+                      <td style={td}>
+                        <div style={{ fontWeight: 600 }}>
+                          {request.product_name || "-"}
+                        </div>
+                        <div
+                          style={{
+                            color: "#6B7280",
+                            fontSize: 12,
+                            marginTop: 4,
                           }}
-                          style={{ padding: '4px 8px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                          title="View Details"
                         >
-                          <Eye size={14} />
-                          View
-                        </button>
-                        <button
-                          className="btn"
-                          onClick={() => openApprovalModal(req)}
-                          disabled={processingId === req.id}
-                          style={{ 
-                            padding: '4px 10px', 
-                            fontSize: 11, 
-                            display: 'inline-flex', 
-                            alignItems: 'center', 
-                            gap: 4,
-                            backgroundColor: '#10b981',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 6,
-                            cursor: processingId === req.id ? 'not-allowed' : 'pointer',
-                            opacity: processingId === req.id ? 0.6 : 1
+                          Item #{request.item ?? "-"}
+                        </div>
+                      </td>
+
+                      <td style={td}>{cashier}</td>
+
+                      <td style={td}>#{saleNumber}</td>
+
+                      <td style={td}>
+                        <div style={{ fontWeight: 700, color: "#15803d" }}>
+                          KES {requestedDiscount.toFixed(2)}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#6B7280",
+                            marginTop: 4,
                           }}
-                          title="Approve"
                         >
-                          <Check size={14} />
-                          {processingId === req.id ? '...' : 'Approve'}
-                        </button>
-                        <button
-                          className="btn"
-                          onClick={() => handleReject(req.id)}
-                          disabled={processingId === req.id}
-                          style={{ 
-                            padding: '4px 10px', 
-                            fontSize: 11, 
-                            display: 'inline-flex', 
-                            alignItems: 'center', 
-                            gap: 4,
-                            backgroundColor: '#ef4444',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 6,
-                            cursor: processingId === req.id ? 'not-allowed' : 'pointer',
-                            opacity: processingId === req.id ? 0.6 : 1
+                          per unit
+                        </div>
+                      </td>
+
+                      <td style={td}>
+                        <div style={{ maxWidth: 240, whiteSpace: "normal" }}>
+                          {request.reason || "-"}
+                        </div>
+                      </td>
+
+                      <td style={td}>
+                        {requestedAt
+                          ? new Date(requestedAt).toLocaleString()
+                          : "-"}
+                      </td>
+
+                      <td style={td}>
+                        <span
+                          style={{
+                            ...badgeStyle(request.status),
+                            padding: "5px 10px",
+                            borderRadius: 30,
+                            fontSize: 12,
+                            fontWeight: 600,
                           }}
-                          title="Reject"
                         >
-                          <X size={14} />
-                          Reject
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot style={{ backgroundColor: '#f9fafb' }}>
-              <tr>
-                <td colSpan="9" style={{ padding: '12px 16px', fontSize: 13, color: '#6b7280' }}>
-                  Showing {requests.length} pending requests
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+                          {request.status || "-"}
+                        </span>
+                      </td>
+
+                      <td style={td}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <button
+                            className="btn"
+                            onClick={() => openModal("APPROVE", request)}
+                            disabled={processingId === request.id}
+                          >
+                            Approve
+                          </button>
+
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => openModal("REJECT", request)}
+                            disabled={processingId === request.id}
+                          >
+                            Reject
+                          </button>
+
+                          <button
+                            className="btn"
+                            onClick={() => openModal("VIEW", request)}
+                            disabled={processingId === request.id}
+                          >
+                            View
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {modalType && selectedRequest && (
+          <RequestModal
+            type={modalType}
+            request={selectedRequest}
+            note={note}
+            setNote={setNote}
+            processing={processingId === selectedRequest.id}
+            onClose={closeModal}
+            onApprove={approveRequest}
+            onReject={rejectRequest}
+          />
         )}
       </div>
-
-      {/* Detail Modal */}
-      {showDetailModal && selectedRequest && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 2100,
-            padding: '20px',
-          }}
-          onClick={() => setShowDetailModal(false)}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: 12,
-              width: '90%',
-              maxWidth: 550,
-              maxHeight: '90vh',
-              overflow: 'auto',
-              padding: 24,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <FileText size={20} style={{ color: '#3b82f6' }} />
-                Request Details
-              </h3>
-              <button onClick={() => setShowDetailModal(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#6b7280' }}>×</button>
-            </div>
-
-            {/* Request Summary */}
-            <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f9fafb', borderRadius: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                <span style={{ color: '#6b7280' }}>Request ID</span>
-                <span style={{ fontWeight: 500 }}>#{selectedRequest.id}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                <span style={{ color: '#6b7280' }}>Status</span>
-                <StatusBadge status={selectedRequest.status} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                <span style={{ color: '#6b7280' }}>Requested By</span>
-                <span style={{ fontWeight: 500 }}>{selectedRequest.requested_by || '—'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                <span style={{ color: '#6b7280' }}>Requested At</span>
-                <span style={{ fontWeight: 500 }}>{selectedRequest.created_at ? formatDate(selectedRequest.created_at) : 'N/A'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                <span style={{ color: '#6b7280' }}>Sale #</span>
-                <span style={{ fontWeight: 500 }}>{selectedRequest.sale_number || selectedRequest.sale_id || 'N/A'}</span>
-              </div>
-            </div>
-
-            {/* Action Specific Details */}
-            <div style={{ marginBottom: 16, padding: 16, backgroundColor: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                {getDetailDescription(selectedRequest).icon}
-                <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
-                  {getDetailDescription(selectedRequest).title}
-                </h4>
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {getDetailDescription(selectedRequest).details.map((detail, index) => (
-                  <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                    <span style={{ color: '#6b7280', fontSize: 13 }}>{detail.label}</span>
-                    <span style={{ fontWeight: 500, fontSize: 13 }}>{detail.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Additional Info */}
-            {selectedRequest.action === 'CHANGE_QUANTITY' && (
-              <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#dbeafe', borderRadius: 8, border: '1px solid #93c5fd' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <ArrowLeftRight size={14} style={{ color: '#2563eb' }} />
-                  <span style={{ fontSize: 13, color: '#1e40af' }}>
-                    This request will change the quantity from <strong>{selectedRequest.current_quantity || '?'}</strong> to <strong>{selectedRequest.requested_quantity}</strong>
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {selectedRequest.action === 'VOID_SALE' && (
-              <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fee2e2', borderRadius: 8, border: '1px solid #fca5a5' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <AlertCircle size={14} style={{ color: '#dc2626' }} />
-                  <span style={{ fontSize: 13, color: '#991b1b' }}>
-                    This request will void the entire sale. All items will be removed and inventory will be restored.
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
-              <button 
-                className="btn outline" 
-                onClick={() => handleViewSale(selectedRequest.sale_id)}
-                disabled={!selectedRequest.sale_id}
-                style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Eye size={16} />
-                View Sale
-              </button>
-              {selectedRequest.status === 'PENDING' && (
-                <>
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      openApprovalModal(selectedRequest);
-                    }}
-                    disabled={processingId === selectedRequest.id}
-                    style={{
-                      padding: '8px 20px',
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: 6,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      cursor: processingId === selectedRequest.id ? 'not-allowed' : 'pointer',
-                      opacity: processingId === selectedRequest.id ? 0.6 : 1
-                    }}
-                  >
-                    <Check size={16} />
-                    {processingId === selectedRequest.id ? 'Processing...' : 'Approve'}
-                  </button>
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      handleReject(selectedRequest.id);
-                      setShowDetailModal(false);
-                    }}
-                    disabled={processingId === selectedRequest.id}
-                    style={{
-                      padding: '8px 20px',
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: 6,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      cursor: processingId === selectedRequest.id ? 'not-allowed' : 'pointer',
-                      opacity: processingId === selectedRequest.id ? 0.6 : 1
-                    }}
-                  >
-                    <X size={16} />
-                    Reject
-                  </button>
-                </>
-              )}
-              <button 
-                className="btn outline" 
-                onClick={() => setShowDetailModal(false)}
-                style={{ padding: '8px 16px' }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Refund Approval Modal */}
-      {showApprovalModal && approvalRequest && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 2200,
-            padding: 20,
-          }}
-          onClick={closeApprovalModal}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: 12,
-              width: '90%',
-              maxWidth: 520,
-              maxHeight: '90vh',
-              overflow: 'auto',
-              padding: 24,
-              boxShadow: '0 20px 40px rgba(0,0,0,0.18)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 20,
-              }}
-            >
-              <div>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: 18,
-                    fontWeight: 600,
-                  }}
-                >
-                  Approve Adjustment
-                </h3>
-                <div
-                  style={{
-                    marginTop: 4,
-                    fontSize: 12,
-                    color: '#6b7280',
-                  }}
-                >
-                  Request #{approvalRequest.id}
-                </div>
-              </div>
-
-              <button
-                onClick={closeApprovalModal}
-                disabled={processingId !== null}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: 24,
-                  cursor: processingId !== null ? 'not-allowed' : 'pointer',
-                  color: '#6b7280',
-                  lineHeight: 1,
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: '#f9fafb',
-                padding: 14,
-                borderRadius: 8,
-                marginBottom: 18,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: 8,
-                }}
-              >
-                <span style={{ color: '#6b7280' }}>Sale</span>
-                <strong>
-                  #{approvalRequest.sale_number || approvalRequest.sale_id || 'N/A'}
-                </strong>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span style={{ color: '#6b7280' }}>Product</span>
-                <strong>
-                  {approvalRequest.product_name || 'Unknown Product'}
-                </strong>
-              </div>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: '#fff7ed',
-                border: '1px solid #fed7aa',
-                borderRadius: 8,
-                padding: 14,
-                marginBottom: 20,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 8,
-                }}
-              >
-                <AlertCircle size={18} style={{ color: '#ea580c' }} />
-                <strong style={{ color: '#9a3412' }}>
-                  Customer Refund Required
-                </strong>
-              </div>
-
-              <div style={{ fontSize: 14, color: '#7c2d12' }}>
-                Refund Amount:{' '}
-                <strong>
-                  {formatCurrency(
-                    parseFloat(approvalRequest.refund_amount || 0)
-                  )}
-                </strong>
-              </div>
-
-              <p
-                style={{
-                  fontSize: 12,
-                  color: '#7c2d12',
-                  margin: '8px 0 0',
-                }}
-              >
-                Select how the cashier will return the money.
-                The M-Pesa transaction reference is entered later
-                by the cashier after the refund is actually sent.
-              </p>
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                Refund Method *
-              </label>
-
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 12,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setRefundMethod('CASH')}
-                  style={{
-                    padding: 16,
-                    borderRadius: 10,
-                    border: refundMethod === 'CASH'
-                      ? '2px solid #16a34a'
-                      : '1px solid #d1d5db',
-                    backgroundColor: refundMethod === 'CASH'
-                      ? '#f0fdf4'
-                      : 'white',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      marginBottom: 6,
-                    }}
-                  >
-                    <Banknote size={20} />
-                    <strong>Cash</strong>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: '#6b7280',
-                    }}
-                  >
-                    Cashier hands the refund directly to the customer.
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setRefundMethod('MPESA')}
-                  style={{
-                    padding: 16,
-                    borderRadius: 10,
-                    border: refundMethod === 'MPESA'
-                      ? '2px solid #16a34a'
-                      : '1px solid #d1d5db',
-                    backgroundColor: refundMethod === 'MPESA'
-                      ? '#f0fdf4'
-                      : 'white',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      marginBottom: 6,
-                    }}
-                  >
-                    <Smartphone size={20} />
-                    <strong>M-Pesa</strong>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: '#6b7280',
-                    }}
-                  >
-                    Cashier sends the refund and records the reference.
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: 10,
-              }}
-            >
-              <button
-                className="btn outline"
-                onClick={closeApprovalModal}
-                disabled={processingId !== null}
-                style={{ padding: '8px 16px' }}
-              >
-                Cancel
-              </button>
-
-              <button
-                className="btn"
-                onClick={confirmApproval}
-                disabled={processingId === approvalRequest.id}
-                style={{
-                  padding: '8px 20px',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                }}
-              >
-                {processingId === approvalRequest.id
-                  ? 'Approving...'
-                  : 'Approve Request'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style>
-        {`
-          @keyframes slideIn {
-            from {
-              transform: translateX(100%);
-              opacity: 0;
-            }
-            to {
-              transform: translateX(0);
-              opacity: 1;
-            }
-          }
-          .table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-          .table th {
-            background-color: #f9fafb;
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #6b7280;
-            border-bottom: 2px solid #e5e7eb;
-          }
-          .table td {
-            border-bottom: 1px solid #f3f4f6;
-          }
-          .table tbody tr:hover {
-            background-color: #f9fafb;
-          }
-          .btn {
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-          }
-          .btn-outline {
-            background-color: transparent;
-            color: #6b7280;
-            border: 1px solid #e5e7eb;
-          }
-          .btn-outline:hover {
-            background-color: #f3f4f6;
-          }
-          .btn-outline:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-        `}
-      </style>
     </AppLayout>
   );
 }
+
+function RequestModal({
+  type,
+  request,
+  note,
+  setNote,
+  processing,
+  onClose,
+  onApprove,
+  onReject,
+}) {
+  const isApprove = type === "APPROVE";
+  const isReject = type === "REJECT";
+
+  const title = isApprove
+    ? "Approve Discount Request"
+    : isReject
+      ? "Reject Discount Request"
+      : "Discount Request Details";
+
+  return (
+    <div style={overlayStyle}>
+      <div style={modalStyle}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            marginBottom: 20,
+          }}
+        >
+          <h3 style={{ margin: 0 }}>{title}</h3>
+          <button
+            type="button"
+            className="btn"
+            onClick={onClose}
+            disabled={processing}
+          >
+            Close
+          </button>
+        </div>
+
+        <div style={detailGridStyle}>
+          <Detail label="Request ID" value={`#${request.id}`} />
+          <Detail
+            label="Product"
+            value={request.product_name || "Deleted Product"}
+          />
+          <Detail
+            label="Cashier"
+            value={
+              request.requested_by_name ??
+                request.cashier_name ??
+                request.requested_by?.username ??
+                "-"
+            }
+          />
+          <Detail
+            label="Sale"
+            value={`#${
+              request.sale_number ?? request.sale_id ?? request.sale ?? "-"
+            }`}
+          />
+          <Detail
+            label="Requested Discount"
+            value={`KES ${Number(request.requested_discount ?? 0).toFixed(2)} per unit`}
+          />
+          <Detail label="Reason" value={request.reason || "-"} />
+          <Detail label="Status" value={request.status || "-"} />
+        </div>
+
+        {(isApprove || isReject) && (
+          <div style={{ marginTop: 20 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 14,
+                fontWeight: 600,
+                marginBottom: 8,
+              }}
+            >
+              Note (optional)
+            </label>
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder={
+                isApprove
+                  ? "Optional approval note..."
+                  : "Optional rejection reason..."
+              }
+              disabled={processing}
+              style={textareaStyle}
+            />
+          </div>
+        )}
+
+        {(isApprove || isReject) && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 10,
+              marginTop: 20,
+            }}
+          >
+            <button
+              type="button"
+              className="btn"
+              onClick={onClose}
+              disabled={processing}
+            >
+              Cancel
+            </button>
+
+            {isApprove ? (
+              <button
+                type="button"
+                className="btn"
+                onClick={onApprove}
+                disabled={processing}
+              >
+                {processing ? "Approving..." : "Confirm Approval"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={onReject}
+                disabled={processing}
+              >
+                {processing ? "Rejecting..." : "Confirm Rejection"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Detail({ label, value }) {
+  return (
+    <div
+      style={{
+        padding: 12,
+        background: "#F9FAFB",
+        borderRadius: 8,
+      }}
+    >
+      <div
+        style={{
+          color: "#6B7280",
+          fontSize: 12,
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontWeight: 600 }}>{value}</div>
+    </div>
+  );
+}
+
+function SummaryCard({ title, value, color }) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 12,
+        padding: 20,
+        border: "1px solid #e5e7eb",
+        borderLeft: `5px solid ${color}`,
+      }}
+    >
+      <div
+        style={{
+          color: "#6b7280",
+          fontSize: 14,
+        }}
+      >
+        {title}
+      </div>
+
+      <div
+        style={{
+          fontSize: 28,
+          fontWeight: 700,
+          marginTop: 10,
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function badgeStyle(status) {
+  switch (status) {
+    case "APPROVED":
+      return { background: "#DCFCE7", color: "#166534" };
+    case "REJECTED":
+      return { background: "#FEE2E2", color: "#991B1B" };
+    case "PENDING":
+      return { background: "#FEF3C7", color: "#92400E" };
+    case "CANCELLED":
+      return { background: "#E5E7EB", color: "#374151" };
+    default:
+      return { background: "#F3F4F6", color: "#374151" };
+  }
+}
+
+const overlayStyle = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.45)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 20,
+  zIndex: 2000,
+};
+
+const modalStyle = {
+  width: "100%",
+  maxWidth: 700,
+  maxHeight: "90vh",
+  overflowY: "auto",
+  background: "#fff",
+  borderRadius: 14,
+  padding: 24,
+  boxShadow: "0 20px 50px rgba(0,0,0,0.2)",
+};
+
+const detailGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+  gap: 12,
+};
+
+const textareaStyle = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: 10,
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  resize: "vertical",
+};
+
+const th = {
+  textAlign: "left",
+  padding: "14px",
+  fontWeight: 600,
+  fontSize: 14,
+};
+
+const td = {
+  padding: "14px",
+  verticalAlign: "top",
+};
