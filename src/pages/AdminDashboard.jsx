@@ -890,7 +890,7 @@ export default function AdminDashboard() {
           {expandedSection === "products" && (
             <div className="products-section">
               <div className="section-header">
-                <h4>🏷️ Top Products</h4>
+                <h4>🏷️ Products Performance</h4>
                 <div className="section-actions">
                   <button className="btn-secondary">Export</button>
                   <button className="btn-secondary">View All</button>
