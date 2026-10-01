@@ -65,6 +65,11 @@ export default function AdminDashboard() {
   // Data states
   const [company, setCompany] = useState(null);
   const [topProducts, setTopProducts] = useState([]);
+  const [topProductsPage, setTopProductsPage] = useState(1);
+  const [topProductsTotal, setTopProductsTotal] = useState(0);
+  const [topProductsNext, setTopProductsNext] = useState(null);
+  const [topProductsPrevious, setTopProductsPrevious] = useState(null);
+  const [topProductsMaxRevenue, setTopProductsMaxRevenue] = useState(0);
   const [overview, setOverview] = useState(null);
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState(null);
@@ -335,13 +340,14 @@ export default function AdminDashboard() {
     setError("");
 
     try {
-      const [topProductsRes, overviewRes, branchesRes, cashiersRes] =
+      const [productPerformanceRes, overviewRes, branchesRes, cashiersRes] =
         await Promise.all([
           api.get("/api/reports/product-performance/", {
             params: {
               start: filters.start,
               end: filters.end,
               branch: filters.branchId || undefined,
+              page: topProductsPage,
             },
           }),
 
@@ -370,7 +376,11 @@ export default function AdminDashboard() {
           }),
         ]);
 
-      setTopProducts(Array.isArray(topProductsRes.data) ? topProductsRes.data : []);
+      setTopProducts(productPerformanceRes.data?.results || []);
+      setTopProductsTotal(productPerformanceRes.data?.count || 0);
+      setTopProductsNext(productPerformanceRes.data?.next || null);
+      setTopProductsPrevious(productPerformanceRes.data?.previous || null);
+      setTopProductsMaxRevenue(Number(productPerformanceRes.data?.max_revenue || 0));
       setOverview(overviewRes.data || null);
       setBranches(Array.isArray(branchesRes.data) ? branchesRes.data : []);
       setCashiers(Array.isArray(cashiersRes.data) ? cashiersRes.data : []);
@@ -390,12 +400,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadReports();
-  }, [filters.start, filters.end, filters.branchId]);
+  }, [filters.start, filters.end, filters.branchId, topProductsPage]);
 
   useEffect(() => {
     fetchChartData();
   }, [fetchChartData]);
-
+ useEffect(() => {
+    setTopProductsPage(1);
+  }, [filters.start, filters.end, filters.branchId]);
+  
   // Memoized statistics for better performance
   const stats = useMemo(() => {
     if (!overview) return null;
@@ -899,7 +912,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {topProducts.slice(0, 10).map((p, index) => (
+                      {topProducts.map((p, index) => (
                         <tr key={p.product_id}>
                           <td>
                             <span className="product-id">#{p.product_id}</span>
@@ -916,10 +929,14 @@ export default function AdminDashboard() {
                               <div
                                 className="performance-fill"
                                 style={{
-                                  width: `${Math.min(
-                                    (p.revenue / topProducts[0]?.revenue) * 100,
-                                    100
-                                  )}%`,
+                                  width: `${
+                                    topProductsMaxRevenue > 0
+                                      ? Math.min(
+                                          (Number(p.revenue) / topProductsMaxRevenue) * 100,
+                                          100
+                                        )
+                                      : 0
+                                  }%`,
                                   backgroundColor:
                                     index === 0
                                       ? "#10b981"
@@ -936,6 +953,43 @@ export default function AdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                  <div className="flex items-center justify-between mt-4">
+
+                    <div className="text-sm text-gray-500">
+                      Showing {topProducts.length} of {topProductsTotal} products
+                    </div>
+
+                    <div className="flex items-center gap-2">
+
+                      <button
+                        type="button"
+                        disabled={!topProductsPrevious}
+                        onClick={() =>
+                          setTopProductsPage((page) => Math.max(1, page - 1))
+                        }
+                        className="px-3 py-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+
+                      <span className="px-3 py-2 text-sm">
+                        Page {topProductsPage}
+                      </span>
+
+                      <button
+                        type="button"
+                        disabled={!topProductsNext}
+                        onClick={() =>
+                          setTopProductsPage((page) => page + 1)
+                        }
+                        className="px-3 py-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+
+                    </div>
+
+                  </div>
                 </div>
               )}
             </div>
