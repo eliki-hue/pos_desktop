@@ -50,6 +50,11 @@ export default function AdminBranchDetail() {
 
   const [summary, setSummary] = useState(null);
   const [products, setProducts] = useState([]);
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsTotal, setProductsTotal] = useState(0);
+  const [productsNext, setProductsNext] = useState(null);
+  const [productsPrevious, setProductsPrevious] = useState(null);
+  const [productsMaxRevenue, setProductsMaxRevenue] = useState(0);
   const [cashiers, setCashiers] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -101,7 +106,12 @@ export default function AdminBranchDetail() {
             params: { branch_id: selectedBranch, start, end },
           }),
           api.get("/api/reports/product-performance/", {
-            params: { branch: selectedBranch, start, end },
+            params: {
+              branch: selectedBranch,
+              start,
+              end,
+              page: productsPage,
+            },
           }),
           api.get("/api/reports/cashiers-performance/", {
             params: { branch: selectedBranch, start, end },
@@ -109,7 +119,15 @@ export default function AdminBranchDetail() {
         ]);
 
         setSummary(summaryRes.data ?? {});
-        setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+        const productData = productsRes.data;
+
+        setProducts(productData?.results || []);
+        setProductsTotal(productData?.count || 0);
+        setProductsNext(productData?.next || null);
+        setProductsPrevious(productData?.previous || null);
+        setProductsMaxRevenue(
+          Number(productData?.max_revenue || 0)
+        );
         setCashiers(Array.isArray(cashiersRes.data) ? cashiersRes.data : []);
       } catch (err) {
         console.error(err);
@@ -120,6 +138,11 @@ export default function AdminBranchDetail() {
     }
 
     loadBranchData();
+  }, [selectedBranch, start, end, productsPage]);
+
+
+  useEffect(() => {
+    setProductsPage(1);
   }, [selectedBranch, start, end]);
 
   /* ================= DERIVED DATA ================= */
@@ -240,15 +263,146 @@ export default function AdminBranchDetail() {
              
             </div>
 
-            <DataTable
-              title="Product Performance"
-              headers={["Product", "Sold Qty", "Revenue"]}
-              rows={products.map((p) => [
-                p.product,
-                p.sold_qty,
-                `KES ${Number(p.revenue).toFixed(2)}`,
-              ])}
-            />
+            <div className="card" style={{ marginTop: 20 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ fontWeight: 900 }}>
+                  Product Performance
+                </div>
+
+                <div className="muted">
+                  {productsTotal} products with sales
+                </div>
+              </div>
+
+              {products.length === 0 ? (
+                <div className="muted" style={{ marginTop: 15 }}>
+                  No product sales data available.
+                </div>
+              ) : (
+                <>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>Sold Qty</th>
+                        <th>Revenue</th>
+                        <th>Performance</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {products.map((p) => {
+                        const percentage =
+                          productsMaxRevenue > 0
+                            ? Math.min(
+                                (Number(p.revenue) / productsMaxRevenue) * 100,
+                                100
+                              )
+                            : 0;
+
+                        return (
+                          <tr key={p.product_id}>
+                            <td>{p.product}</td>
+
+                            <td>{p.sold_qty}</td>
+
+                            <td>
+                              KES{" "}
+                              {Number(p.revenue).toLocaleString(
+                                undefined,
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }
+                              )}
+                            </td>
+
+                            <td style={{ minWidth: 150 }}>
+                              <div
+                                style={{
+                                  height: 8,
+                                  background: "#e5e7eb",
+                                  borderRadius: 4,
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: `${percentage}%`,
+                                    height: "100%",
+                                    background: "#10b981",
+                                    borderRadius: 4,
+                                  }}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {/* Pagination */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: 16,
+                    }}
+                  >
+                    <div className="muted">
+                      Showing{" "}
+                      {(productsPage - 1) * 20 + 1}
+                      {"–"}
+                      {(productsPage - 1) * 20 + products.length}
+                      {" of "}
+                      {productsTotal}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                      }}
+                    >
+                      <button
+                        className="btn"
+                        disabled={!productsPrevious}
+                        onClick={() =>
+                          setProductsPage((page) =>
+                            Math.max(1, page - 1)
+                          )
+                        }
+                      >
+                        Previous
+                      </button>
+
+                      <span>
+                        Page {productsPage}
+                      </span>
+
+                      <button
+                        className="btn"
+                        disabled={!productsNext}
+                        onClick={() =>
+                          setProductsPage((page) => page + 1)
+                        }
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             <DataTable
               title="Cashier Performance"
