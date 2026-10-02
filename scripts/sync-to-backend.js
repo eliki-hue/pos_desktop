@@ -1,21 +1,62 @@
 import fs from "fs-extra";
 import path from "path";
 
-// CHANGE THIS to match your backend folder
-const BACKEND_ROOT = path.resolve("..", "POS_and_ecom-backend");
+// Backend folders
+const PRODUCTION_BACKEND = path.resolve("..", "POS_and_ecom-backend");
+const DEMO_BACKEND = path.resolve("..", "POS_demo-backend");
 
 // Where Vite outputs files
 const DIST_DIR = path.resolve("dist");
 
-// Where Django expects POS static files
-const TARGET_DIR = path.join(BACKEND_ROOT, "pos_dist", "pos");
+// Where Django expects POS frontend files
+const PRODUCTION_TARGET = path.join(
+    PRODUCTION_BACKEND,
+    "pos_dist",
+    "pos"
+);
 
-console.log("📦 Syncing POS build to backend...");
-console.log("From:", DIST_DIR);
-console.log("To:", TARGET_DIR);
+const DEMO_TARGET = path.join(
+    DEMO_BACKEND,
+    "pos_dist",
+    "pos"
+);
 
-fs.removeSync(TARGET_DIR);
-fs.ensureDirSync(TARGET_DIR);
-fs.copySync(DIST_DIR, TARGET_DIR);
+console.log("📦 Syncing POS build...");
+console.log("Source:", DIST_DIR);
 
-console.log("✅ POS build synced successfully");
+if (!fs.existsSync(DIST_DIR)) {
+    console.error("❌ Build directory does not exist:", DIST_DIR);
+    console.error("Run the Vite build first.");
+    process.exit(1);
+}
+
+// -----------------------------
+// Production
+// -----------------------------
+console.log("");
+console.log("🚀 Syncing production...");
+console.log("To:", PRODUCTION_TARGET);
+
+fs.removeSync(PRODUCTION_TARGET);
+fs.ensureDirSync(PRODUCTION_TARGET);
+fs.copySync(DIST_DIR, PRODUCTION_TARGET);
+
+console.log("✅ Production build synced");
+
+// -----------------------------
+// Demo
+// -----------------------------
+console.log("");
+console.log("🧪 Syncing demo...");
+console.log("To:", DEMO_TARGET);
+
+fs.removeSync(DEMO_TARGET);
+fs.ensureDirSync(DEMO_TARGET);
+fs.copySync(DIST_DIR, DEMO_TARGET);
+
+console.log("✅ Demo build synced");
+
+console.log("");
+console.log("====================================");
+console.log("✅ POS build synced to BOTH systems");
+console.log("====================================");
