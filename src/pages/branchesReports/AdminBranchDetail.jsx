@@ -310,7 +310,11 @@ export default function AdminBranchDetail() {
                           <tr key={p.product_id}>
                             <td>{p.product}</td>
 
-                            <td>{p.sold_qty}</td>
+                            <td>
+                                {p.quantity_display || "0 kg"}                           
+
+                              
+                            </td>
 
                             <td>
                               KES{" "}

@@ -919,7 +919,9 @@ export default function AdminDashboard() {
                           </td>
                           <td className="product-name">{p.product}</td>
                           <td>
-                            <span className="quantity-badge">{p.sold_qty}</span>
+                              
+                              {p.quantity_display || "0 kg"}                           
+                              
                           </td>
                           <td className="revenue-cell">
                             KES {Number(p.revenue).toLocaleString()}
