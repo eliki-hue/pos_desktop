@@ -208,7 +208,11 @@ function ReceiptModal({ receipt, onClose }) {
                 <div style={{ fontSize: "15px", fontWeight: 700 }}>{i.product_name}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "15px", marginTop: 2 }}>
                   <div style={{ flex: 3, fontWeight: 500 }}>
-                    {Number(i.quantity).toFixed(2)} {i.unit} @ KES {Number(i.unit_price).toFixed(2)}
+                    {Number(i.quantity).toFixed(2)} {i.unit === "PIECE"
+                      ? "pcs"
+                      : i.unit === "BAG"
+                      ? "bags"
+                      : "kg"} @ KES {Number(i.unit_price).toFixed(2)}
                   </div>
                   <div style={{ flex: 1, textAlign: "right", fontWeight: 700 }}>
                     KES {Number(i.subtotal).toFixed(2)}

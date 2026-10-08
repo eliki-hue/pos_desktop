@@ -125,7 +125,14 @@ function SaleDetailModal({ sale, onClose }) {
               {(sale.items || []).map((i) => (
                 <tr key={i.id}>
                   <td>{i.product_name}</td>
-                  <td>{i.quantity}</td>
+                  <td>
+                    {Number(i.quantity).toFixed(2)}{" "}
+                    {i.unit === "PIECE"
+                      ? "pcs"
+                      : i.unit === "BAG"
+                      ? "bags"
+                      : "kg"}
+                  </td>
                   <td>KES {i.unit_price}</td>
                   <td>KES {i.subtotal}</td>
                 </tr>
