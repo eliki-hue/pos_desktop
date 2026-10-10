@@ -205,7 +205,7 @@ function ReceiptModal({ receipt, onClose }) {
                 <div style={{ fontSize: "12px", fontWeight: 500 }}>{i.product_name}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "15px" }}>
                   <div style={{ flex: 3 }}>
-                    {Number(i.quantity).toFixed(2)} {i.unit === "PIECE"
+                    {Number(i.quantity).toFixed(3)} {i.unit === "PIECE"
                       ? "pcs"
                       : i.unit === "BAG"
                       ? "bags"

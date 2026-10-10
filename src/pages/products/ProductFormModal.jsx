@@ -438,7 +438,7 @@ export default function ProductFormModal({ product, onClose }) {
             <input
               className="input"
               type="number"
-              step="0.01"
+              step="0.001"
               placeholder="Piece weight (KG)"
               value={form.piece_weight_kg}
               onChange={(e) => updateField("piece_weight_kg", e.target.value)}
