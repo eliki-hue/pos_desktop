@@ -1285,7 +1285,7 @@ function CheckoutModal({
 
 
 
-function PaymentAttemptModal({ attempt, open, onClose, onRefresh, checkingStatus }) {
+function PaymentAttemptModal({ attempt, open, onClose, onRefresh, onRetry, checkingStatus }) {
   if (!attempt || !open) return null;
 
   const status = String(attempt.status || "unknown").toLowerCase();
@@ -1340,7 +1340,7 @@ function PaymentAttemptModal({ attempt, open, onClose, onRefresh, checkingStatus
           {attempt.phone_number && <div><strong>Phone:</strong> {attempt.phone_number}</div>}
           {attempt.receipt_number && <div><strong>M-Pesa receipt:</strong> {attempt.receipt_number}</div>}
           {attempt.balance_due != null && <div><strong>Sale balance due:</strong> KES {Number(attempt.balance_due).toFixed(2)}</div>}
-          {attempt.failure_message && <div style={{ color: "#991b1b" }}><strong>Details:</strong> {attempt.failure_message}</div>}
+          {attempt.failure_message && !attempt.cashier_message && <div style={{ color: "#991b1b" }}><strong>Details:</strong> {attempt.failure_message}</div>}
           {attempt.message && status === "unknown" && <div>{attempt.message}</div>}
         </div>
         {attempt.pollTimedOut && status !== "succeeded" && (
@@ -1351,6 +1351,11 @@ function PaymentAttemptModal({ attempt, open, onClose, onRefresh, checkingStatus
         {attempt.id && (
           <button type="button" className="btn" onClick={onRefresh} disabled={checkingStatus} style={{ marginTop: 16, width: "100%" }}>
             {checkingStatus ? "Checking..." : "Refresh Payment Status"}
+          </button>
+        )}
+        {["failed", "cancelled", "expired"].includes(status) && (
+          <button type="button" className="btn btn-primary" onClick={onRetry} style={{ marginTop: 16, width: "100%" }}>
+            Retry M-Pesa for this cart
           </button>
         )}
         <button
@@ -1882,6 +1887,15 @@ export default function Cart() {
         open={paymentStatusOpen}
         onClose={() => setPaymentStatusOpen(false)}
         onRefresh={refreshPaymentStatus}
+        onRetry={() => {
+          setPaymentStatusOpen(false);
+          setPaymentMode("FULL");
+          setPayments([]);
+          setStkPushEnabled(true);
+          setStkAmount(String(paymentAttempt?.balance_due || cart?.total || paymentAttempt?.amount || ""));
+          setStkPhoneNumber(paymentAttempt?.phone_number || "");
+          setCheckoutOpen(true);
+        }}
         checkingStatus={checkingPaymentStatus}
       />
 
