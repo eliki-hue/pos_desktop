@@ -1,12 +1,29 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import AppLayout from "../components/AppLayout";
 import { api } from "../api/client";
+import { getPaymentAttemptStatus } from "../api/paymentAttempts";
 import { useAuth } from "../auth/AuthContext";
 import HoldSaleModal from "./cart/HoldSaleModal";
 import HeldSalesModal from "./cart/HeldSalesModal";
 import toast from "react-hot-toast";
 import { useCustomers } from "../customerModule";
 
+function createIdempotencyUuid() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+
+  const bytes = new Uint8Array(16);
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 /* =====================================================
    RECEIPT MODAL - OPTIMIZED FOR 80mm THERMAL PRINTER
@@ -205,11 +222,7 @@ function ReceiptModal({ receipt, onClose }) {
                 <div style={{ fontSize: "12px", fontWeight: 500 }}>{i.product_name}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "15px" }}>
                   <div style={{ flex: 3 }}>
-                    {Number(i.quantity).toFixed(3)} {i.unit === "PIECE"
-                      ? "pcs"
-                      : i.unit === "BAG"
-                      ? "bags"
-                      : "kg"} @ KES {Number(i.unit_price).toFixed(2)}
+                    {Number(i.quantity).toFixed(2)} {i.unit} @ KES {Number(i.unit_price).toFixed(2)}
                   </div>
                   <div style={{ flex: 1, textAlign: "right", fontWeight: 500 }}>
                     KES {Number(i.subtotal).toFixed(2)}
@@ -689,14 +702,25 @@ function CheckoutModal({
   msg,
   amountGiven,
   setAmountGiven,
+  stkPushEnabled,
+  setStkPushEnabled,
+  stkPhoneNumber,
+  setStkPhoneNumber,
+  stkAmount,
+  setStkAmount,
+  checkoutOutcomeUnknown,
 }) {
-  // Memoized calculations
+  const stkValue = stkPushEnabled ? Math.max(0, Number(stkAmount) || 0) : 0;
+
+  // Only cash still required is considered for change calculation. An STK
+  // request is not money received until the backend verifies it.
   const cashRequired = useMemo(() => {
     const nonCashPayments = payments
       .filter((p) => p.method !== "CASH")
       .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    return Math.max(0, subtotal - nonCashPayments);
-  }, [payments, subtotal]);
+    const pendingStkAmount = stkPushEnabled ? Math.max(0, Number(stkAmount) || 0) : 0;
+    return Math.max(0, subtotal - nonCashPayments - pendingStkAmount);
+  }, [payments, subtotal, stkPushEnabled, stkAmount]);
 
   const displayChange = useMemo(() => {
     const given = Number(amountGiven) || 0;
@@ -786,25 +810,39 @@ function CheckoutModal({
     onConfirm(payload);
   };
 
-  // Validation – partial payment fully supported
+  // Validate the total of funds already collected plus any requested STK amount.
+  const stkDetailsValid = !stkPushEnabled || (
+    paymentMode !== "CREDIT" &&
+    String(stkPhoneNumber || "").trim().length >= 9 &&
+    stkValue > 0 &&
+    Number.isInteger(stkValue)
+  );
+
   const isValid = useMemo(() => {
+    if (!stkDetailsValid) return false;
+
     if (paymentMode === "FULL") {
-      return balanceDue <= 0 && subtotal > 0;
+      return subtotal > 0 && Math.abs(balanceDue) < 0.01 && (totalPaid + stkValue) > 0;
     }
     if (paymentMode === "PARTIAL") {
       return (
-        totalPaid > 0 &&
-        totalPaid < subtotal &&
-        customer.name &&
-        customer.phone &&
-        customer.id_number
+        totalPaid + stkValue > 0 &&
+        totalPaid + stkValue < subtotal &&
+        Boolean(customer.name?.trim()) &&
+        Boolean(customer.phone?.trim()) &&
+        Boolean(customer.id_number?.trim())
       );
     }
     if (paymentMode === "CREDIT") {
-      return customer.name && customer.phone && customer.id_number;
+      return (
+        !stkPushEnabled &&
+        Boolean(customer.name?.trim()) &&
+        Boolean(customer.phone?.trim()) &&
+        Boolean(customer.id_number?.trim())
+      );
     }
     return false;
-  }, [paymentMode, totalPaid, balanceDue, subtotal, customer]);
+  }, [paymentMode, totalPaid, stkValue, stkPushEnabled, stkDetailsValid, balanceDue, subtotal, customer]);
 
   if (!open) return null;
 
@@ -844,7 +882,14 @@ function CheckoutModal({
               <input
                 type="radio"
                 checked={paymentMode === m}
-                onChange={() => { setPaymentMode(m); setAmountGiven(""); }}
+                onChange={() => {
+                  setPaymentMode(m);
+                  setAmountGiven("");
+                  if (m === "CREDIT") {
+                    setStkPushEnabled(false);
+                    setStkAmount("");
+                  }
+                }}
               /> {m}
             </label>
           ))}
@@ -943,6 +988,77 @@ function CheckoutModal({
                 onChange={(e) => setCustomer({ ...customer, id_number: e.target.value })}
               />
             </div>
+          )}
+
+
+          {/* AUTOMATED M-PESA STK PUSH */}
+          {paymentMode !== "CREDIT" && (
+            <section style={{ marginTop: 16, padding: 14, border: "1px solid #bfdbfe", borderRadius: 10, background: "#eff6ff" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800 }}>
+                <input
+                  type="checkbox"
+                  checked={stkPushEnabled}
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    setStkPushEnabled(enabled);
+                    setAmountGiven("");
+                    if (enabled) {
+                      const defaultAmount = paymentMode === "FULL"
+                        ? subtotal
+                        : Math.max(0, subtotal - totalPaid);
+                      setStkAmount(defaultAmount > 0 ? defaultAmount.toFixed(2) : "");
+                      if (paymentMode === "FULL") setPayments([]);
+                    } else {
+                      setStkAmount("");
+                      if (paymentMode === "FULL" && subtotal > 0) {
+                        setPayments([{ method: "CASH", amount: subtotal.toFixed(2) }]);
+                      }
+                    }
+                  }}
+                />
+                Request automated M-Pesa STK Push
+              </label>
+              {stkPushEnabled && (
+                <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                  <label>
+                    <span style={{ display: "block", fontWeight: 600, marginBottom: 5 }}>Customer M-Pesa phone number</span>
+                    <input
+                      className="input"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="2547XXXXXXXX or 07XXXXXXXX"
+                      value={stkPhoneNumber}
+                      onChange={(event) => setStkPhoneNumber(event.target.value)}
+                      maxLength={16}
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span style={{ display: "block", fontWeight: 600, marginBottom: 5 }}>STK Push amount (KES)</span>
+                    <input
+                      className="input"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      step="1"
+                      placeholder="Whole KES amount to request"
+                      value={stkAmount}
+                      onChange={(event) => setStkAmount(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <div style={{ fontSize: 12, color: "#1e40af" }}>
+                    This sends a payment request. It is not counted as money received until the backend verifies the M-Pesa result.
+                  </div>
+                  {paymentMode === "PARTIAL" && subtotal > 0 && Math.abs(totalPaid + stkValue - subtotal) < 0.01 && (
+                    <div style={{ color: "#92400e", fontSize: 12, fontWeight: 700 }}>
+                      This amount would cover the full sale. Switch to FULL or reduce the STK amount.
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
           )}
 
           {(paymentMode === "FULL" || paymentMode === "PARTIAL") && (
@@ -1130,22 +1246,35 @@ function CheckoutModal({
                 + Add Payment Method
               </button>
               <div className="muted" style={{ marginTop: 8 }}>
-                Subtotal: KES {subtotal.toFixed(2)} <br />
-                Paid: KES {totalPaid.toFixed(2)} <br />
-                Balance: KES {balanceDue.toFixed(2)}
+                Sale total: KES {subtotal.toFixed(2)} <br />
+                Collected now: KES {totalPaid.toFixed(2)} <br />
+                {stkPushEnabled && <>STK request (not yet paid): KES {stkValue.toFixed(2)} <br /></>}
+                Remaining after requested payments: KES {balanceDue.toFixed(2)}
               </div>
             </div>
           )}
 
-          {msg && <div style={{ marginTop: 10, color: "red" }}>{msg}</div>}
+          {msg && <div role="alert" style={{ marginTop: 10, color: "#b91c1c" }}>{msg}</div>}
+          {checkoutOutcomeUnknown && (
+            <div role="alert" style={{ marginTop: 10, padding: 10, borderRadius: 8, background: "#fff7ed", color: "#9a3412" }}>
+              Checkout outcome is unknown. Do not submit again until you verify the sale/payment in the system.
+            </div>
+          )}
 
           <button
+            type="button"
             className="btn btn-primary"
             style={{ marginTop: 16, width: "100%" }}
-            disabled={!isValid || checkingOut}
+            disabled={!isValid || checkingOut || checkoutOutcomeUnknown}
             onClick={handleConfirm}
           >
-            {checkingOut ? "Processing..." : "Confirm Checkout"}
+            {checkingOut
+              ? (stkPushEnabled ? "Sending STK Push..." : "Processing...")
+              : checkoutOutcomeUnknown
+                ? "Checkout Requires Verification"
+                : stkPushEnabled
+                  ? "Send M-Pesa STK Push"
+                  : "Confirm Checkout"}
           </button>
         </div>
       </div>
@@ -1154,6 +1283,89 @@ function CheckoutModal({
 }
 
 
+
+
+function PaymentAttemptModal({ attempt, open, onClose, onRefresh, checkingStatus }) {
+  if (!attempt || !open) return null;
+
+  const status = String(attempt.status || "unknown").toLowerCase();
+  const configs = {
+    pending: { title: "Payment pending", color: "#92400e", background: "#fffbeb" },
+    initiating: { title: "Sending STK Push", color: "#1d4ed8", background: "#eff6ff" },
+    processing: { title: "Waiting for M-Pesa confirmation", color: "#1d4ed8", background: "#eff6ff" },
+    succeeded: { title: "Payment confirmed", color: "#166534", background: "#f0fdf4" },
+    failed: { title: "Payment failed", color: "#991b1b", background: "#fef2f2" },
+    cancelled: { title: "Payment cancelled", color: "#92400e", background: "#fffbeb" },
+    expired: { title: "Payment expired", color: "#92400e", background: "#fffbeb" },
+    unknown: { title: "Payment status not confirmed", color: "#9a3412", background: "#fff7ed" },
+  };
+  const current = configs[status] || configs.unknown;
+  const terminalStatuses = ["succeeded", "failed", "cancelled", "expired"];
+  const isWaitingForResponse =
+    Boolean(attempt.id) &&
+    !terminalStatuses.includes(status) &&
+    !attempt.pollTimedOut;
+  const explanation = attempt.cashier_message || (
+    status === "succeeded"
+      ? "The backend has confirmed the payment. You can close this window."
+      : ["failed", "cancelled", "expired"].includes(status)
+        ? "This attempt is not confirmed as paid. Check sale/payment history before collecting money or creating another payment."
+        : status === "unknown"
+          ? "The payment result is not yet known. Do not initiate another STK Push for this sale. Refresh the status or ask an authorised manager to reconcile this attempt."
+          : "Ask the customer to complete the M-Pesa prompt on their phone. This window will keep checking the backend for the final result. Do not submit checkout again while this attempt is pending."
+  );
+
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="payment-attempt-title" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 10001 }}>
+      <div className="card" style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ fontWeight: 900, fontSize: 19, marginBottom: 14 }}>M-Pesa Payment</div>
+        <div id="payment-attempt-title" style={{ padding: 12, borderRadius: 8, color: current.color, background: current.background, fontWeight: 800 }}>{current.title}</div>
+        <p style={{ marginTop: 12 }}>{explanation}</p>
+        {isWaitingForResponse && (
+          <div role="status" aria-live="polite" style={{ marginTop: 12, padding: 10, borderRadius: 8, background: "#eff6ff", color: "#1d4ed8", fontSize: 13 }}>
+            Automatically checking payment status every few seconds. This sale is not treated as paid until the backend confirms the M-Pesa result.
+          </div>
+        )}
+        <div style={{ display: "grid", gap: 7, marginTop: 12 }}>
+          {attempt.sale_id != null && <div><strong>Sale:</strong> #{attempt.sale_id}</div>}
+          {attempt.sale_status && (
+            <div>
+              <strong>Sale status:</strong>{" "}
+              {String(attempt.sale_status).toUpperCase() === "PAID"
+                ? "PAID"
+                : String(attempt.sale_status).replace(/_/g, " ")}
+            </div>
+          )}
+          {attempt.amount != null && <div><strong>STK amount:</strong> KES {Number(attempt.amount).toFixed(2)}</div>}
+          {attempt.phone_number && <div><strong>Phone:</strong> {attempt.phone_number}</div>}
+          {attempt.receipt_number && <div><strong>M-Pesa receipt:</strong> {attempt.receipt_number}</div>}
+          {attempt.balance_due != null && <div><strong>Sale balance due:</strong> KES {Number(attempt.balance_due).toFixed(2)}</div>}
+          {attempt.failure_message && <div style={{ color: "#991b1b" }}><strong>Details:</strong> {attempt.failure_message}</div>}
+          {attempt.message && status === "unknown" && <div>{attempt.message}</div>}
+        </div>
+        {attempt.pollTimedOut && status !== "succeeded" && (
+          <div role="status" style={{ marginTop: 12, padding: 10, background: "#fff7ed", borderRadius: 8, color: "#9a3412" }}>
+            Automatic status checks timed out. This does not prove that payment failed.
+          </div>
+        )}
+        {attempt.id && (
+          <button type="button" className="btn" onClick={onRefresh} disabled={checkingStatus} style={{ marginTop: 16, width: "100%" }}>
+            {checkingStatus ? "Checking..." : "Refresh Payment Status"}
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={onClose}
+          disabled={isWaitingForResponse}
+          style={{ marginTop: 8, width: "100%", opacity: isWaitingForResponse ? 0.65 : 1, cursor: isWaitingForResponse ? "not-allowed" : "pointer" }}
+        >
+          {isWaitingForResponse ? "Waiting for M-Pesa response..." : "Close"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /* =====================================================
    CART PAGE - UPDATED FOR UNIT-AWARE PRICING
@@ -1167,6 +1379,16 @@ export default function Cart() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [stkPushEnabled, setStkPushEnabled] = useState(false);
+  const [stkPhoneNumber, setStkPhoneNumber] = useState("");
+  const [stkAmount, setStkAmount] = useState("");
+  const [paymentAttempt, setPaymentAttempt] = useState(null);
+  const [paymentStatusOpen, setPaymentStatusOpen] = useState(false);
+  const [checkingPaymentStatus, setCheckingPaymentStatus] = useState(false);
+  const [checkoutOutcomeUnknown, setCheckoutOutcomeUnknown] = useState(false);
+  const checkoutInFlightRef = useRef(false);
+  const stkIdempotencyRef = useRef({ signature: null, key: null });
+  const paymentPollRef = useRef({ attemptId: null, startedAt: 0 });
   const [discountRequestOpen,setDiscountRequestOpen] = useState(false);
   const [selectedDiscountItem,setSelectedDiscountItem] = useState(null);
 
@@ -1349,16 +1571,16 @@ export default function Cart() {
   }, [items]);
 
   useEffect(() => {
-    if (paymentMode === "FULL" && subtotal > 0) {
+    if (paymentMode === "FULL" && subtotal > 0 && !stkPushEnabled) {
       setPayments([{ method: "CASH", amount: subtotal.toFixed(2) }]);
     }
-  }, [paymentMode, subtotal]);
+  }, [paymentMode, subtotal, stkPushEnabled]);
 
   const totalPaid = useMemo(() => {
     return payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   }, [payments]);
 
-  const balanceDue = subtotal - totalPaid;
+  const balanceDue = subtotal - totalPaid - (stkPushEnabled && paymentMode !== "CREDIT" ? (Number(stkAmount) || 0) : 0);
   const getCalculatedChange = () => {
     const given = parseFloat(amountGiven) || 0;
 
@@ -1366,9 +1588,12 @@ export default function Cart() {
       .filter((p) => p.method !== "CASH")
       .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
+    const pendingStkAmount = stkPushEnabled && paymentMode !== "CREDIT"
+      ? Math.max(0, Number(stkAmount) || 0)
+      : 0;
     const cashRequired = Math.max(
       0,
-      subtotal - nonCashPayments
+      subtotal - nonCashPayments - pendingStkAmount
     );
 
     return given > cashRequired
@@ -1424,15 +1649,19 @@ export default function Cart() {
   };
 
   const confirmCheckout = async () => {
+    if (checkoutInFlightRef.current || checkoutOutcomeUnknown) return;
+    if (!cart?.id) {
+      setMsg("The active cart could not be identified. Refresh the cart before checkout.");
+      return;
+    }
+
+    checkoutInFlightRef.current = true;
     setCheckingOut(true);
     setMsg("");
 
     try {
-      const givenAmount = parseFloat(amountGiven) || 0;
-      // Calculate change based on balanceDue (already accounts for all payments)
-      // const calculatedChange = givenAmount > balanceDue ? givenAmount - balanceDue : 0;
+      const givenAmount = Number.parseFloat(amountGiven) || 0;
       const calculatedChange = getCalculatedChange();
-
       const payload = {
         cart_id: cart.id,
         payment_mode: paymentMode,
@@ -1441,34 +1670,220 @@ export default function Cart() {
       };
 
       if (paymentMode !== "CREDIT") {
-        payload.payments = payments.map((p) => ({
-          method: p.method,
-          amount: Number(p.amount),
-        }));
+        payload.payments = payments
+          .filter((payment) => Number(payment.amount) > 0)
+          .map((payment) => ({
+            method: payment.method,
+            amount: Number(payment.amount),
+          }));
       }
 
-      if (paymentMode !== "FULL") {
-        payload.customer = customer;
+      if (paymentMode !== "FULL") payload.customer = customer;
+
+      if (stkPushEnabled) {
+        const requestedAmount = Number(stkAmount);
+        const phone = String(stkPhoneNumber || "").trim();
+
+        if (paymentMode === "CREDIT") throw new Error("STK Push is not available for credit sales.");
+        if (!Number.isFinite(requestedAmount) || requestedAmount <= 0 || !Number.isInteger(requestedAmount)) {
+          throw new Error("Enter a positive whole-KES STK Push amount.");
+        }
+        if (!phone || phone.length < 9) throw new Error("Enter a valid customer M-Pesa phone number.");
+
+        const signature = JSON.stringify([cart.id, requestedAmount.toFixed(2), phone]);
+        if (!stkIdempotencyRef.current.key || stkIdempotencyRef.current.signature !== signature) {
+          stkIdempotencyRef.current = { signature, key: createIdempotencyUuid() };
+        }
+        payload.stk_push = {
+          amount: requestedAmount.toFixed(2),
+          phone_number: phone,
+          idempotency_key: stkIdempotencyRef.current.key,
+        };
       }
 
       const res = await api.post("/api/cart/pos/checkout/", payload);
+      const responseAttempt = res.data?.payment_attempt;
 
-      setReceipt(res.data.receipt);
-      setCheckoutOpen(false);
-      setAmountGiven("");
+      if (stkPushEnabled) {
+        if (!responseAttempt?.id) {
+          setCheckoutOutcomeUnknown(true);
+          setPaymentAttempt({
+            id: null,
+            status: "unknown",
+            amount: Number(stkAmount) || null,
+            phone_number: stkPhoneNumber,
+            sale_id: res.data?.sale_id ?? null,
+            message: "Checkout returned without a payment-attempt ID. Verify the sale before taking further payment action.",
+          });
+          setPaymentStatusOpen(true);
+        } else {
+          stkIdempotencyRef.current = { signature: null, key: null };
+          setPaymentAttempt({
+            ...responseAttempt,
+            sale_id: res.data?.sale_id ?? null,
+            receipt: res.data?.receipt ?? null,
+            message: res.data?.message ?? "STK Push requested.",
+            pollTimedOut: false,
+          });
+          setPaymentStatusOpen(true);
+          setCheckoutOutcomeUnknown(false);
+          setStkPushEnabled(false);
+          setStkAmount("");
+          setStkPhoneNumber("");
+          setReceipt(null);
+        }
+        setCheckoutOpen(false);
+        setAmountGiven("");
+      } else {
+        setPaymentAttempt(null);
+        setPaymentStatusOpen(false);
+        setReceipt(res.data.receipt);
+        setCheckoutOpen(false);
+        setAmountGiven("");
+      }
+
       await loadCart();
       await loadHeldCarts();
     } catch (err) {
       console.error(err);
-      setMsg(err?.response?.data?.detail || "❌ Checkout failed");
+      const statusCode = err?.response?.status;
+      if (!err?.response || statusCode >= 500) {
+        setCheckoutOutcomeUnknown(true);
+        setPaymentAttempt({
+          id: null,
+          status: "unknown",
+          amount: stkPushEnabled ? Number(stkAmount) || null : null,
+          phone_number: stkPushEnabled ? stkPhoneNumber : "",
+          message: "The server response did not establish whether checkout completed. Verify the sale/payment before trying again.",
+        });
+        setPaymentStatusOpen(true);
+        setCheckoutOpen(false);
+        setMsg("Checkout outcome is unknown. Do not submit again until you verify whether the sale was created.");
+      } else {
+        const detail = err?.response?.data?.detail ?? err?.response?.data?.error;
+        setMsg(
+          typeof detail === "string"
+            ? detail
+            : detail && typeof detail === "object"
+              ? Object.entries(detail).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : String(value)}`).join("; ")
+              : err.message || "Checkout failed."
+        );
+      }
     } finally {
       setCheckingOut(false);
+      checkoutInFlightRef.current = false;
     }
   };
+
+  const notifyTerminalPaymentStatus = (status) => {
+    if (status === "succeeded") toast.success("M-Pesa payment confirmed by the backend.");
+    else if (["failed", "cancelled", "expired"].includes(status)) {
+      toast.error(`M-Pesa payment status: ${status}. Check payment history before collecting again.`);
+    }
+  };
+
+  const refreshPaymentStatus = async () => {
+    if (!paymentAttempt?.id || checkingPaymentStatus) return;
+    setCheckingPaymentStatus(true);
+    try {
+      let latest = await getPaymentAttemptStatus(paymentAttempt.id);
+      let nextStatus = String(latest.status || "unknown").toLowerCase();
+
+      // After success, fetch once more so the popup uses the sale balance
+      // after the backend has completed recording the payment.
+      if (nextStatus === "succeeded") {
+        const confirmed = await getPaymentAttemptStatus(paymentAttempt.id);
+        if (String(confirmed.status || "").toLowerCase() === "succeeded") {
+          latest = { ...latest, ...confirmed };
+          nextStatus = "succeeded";
+        }
+      }
+
+      const previousStatus = String(paymentAttempt.status || "unknown").toLowerCase();
+      setPaymentAttempt((current) => current?.id === paymentAttempt.id
+        ? { ...current, ...latest, status: nextStatus, pollTimedOut: false }
+        : current);
+      paymentPollRef.current = { attemptId: paymentAttempt.id, startedAt: Date.now() };
+      if (!["succeeded", "failed", "cancelled", "expired"].includes(previousStatus)) notifyTerminalPaymentStatus(nextStatus);
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.detail || "Could not refresh payment status.");
+    } finally {
+      setCheckingPaymentStatus(false);
+    }
+  };
+
+  // Poll status only. This never initiates another checkout or STK Push.
+  useEffect(() => {
+    const attemptId = paymentAttempt?.id;
+    const status = String(paymentAttempt?.status || "unknown").toLowerCase();
+    const terminal = ["succeeded", "failed", "cancelled", "expired"];
+    if (!attemptId || terminal.includes(status) || paymentAttempt?.pollTimedOut) return undefined;
+
+    if (paymentPollRef.current.attemptId !== attemptId) {
+      paymentPollRef.current = { attemptId, startedAt: Date.now() };
+    }
+
+    let cancelled = false;
+    let timerId;
+    const poll = async () => {
+      if (cancelled) return;
+      if (Date.now() - paymentPollRef.current.startedAt >= 5 * 60 * 1000) {
+        setPaymentAttempt((current) => current?.id === attemptId ? { ...current, pollTimedOut: true } : current);
+        return;
+      }
+
+      try {
+        let latest = await getPaymentAttemptStatus(attemptId);
+        if (cancelled) return;
+        let nextStatus = String(latest.status || "unknown").toLowerCase();
+
+        // Re-read the sale after success so the modal receives the final
+        // persisted balance_due instead of an earlier snapshot.
+        if (nextStatus === "succeeded") {
+          const confirmed = await getPaymentAttemptStatus(attemptId);
+          if (cancelled) return;
+          if (String(confirmed.status || "").toLowerCase() === "succeeded") {
+            latest = { ...latest, ...confirmed };
+          }
+        }
+
+        const previousStatus = String(paymentAttempt?.status || "unknown").toLowerCase();
+        setPaymentAttempt((current) => current?.id === attemptId
+          ? { ...current, ...latest, status: nextStatus, pollError: null }
+          : current);
+        if (!terminal.includes(previousStatus) && terminal.includes(nextStatus)) notifyTerminalPaymentStatus(nextStatus);
+      } catch (err) {
+        // A status endpoint/network error does not establish payment failure.
+        console.warn("Unable to poll payment attempt status.", err);
+      }
+
+      if (!cancelled) {
+        if (Date.now() - paymentPollRef.current.startedAt >= 5 * 60 * 1000) {
+          setPaymentAttempt((current) => current?.id === attemptId ? { ...current, pollTimedOut: true } : current);
+        } else {
+          timerId = setTimeout(poll, 3000);
+        }
+      }
+    };
+
+    timerId = setTimeout(poll, 1500);
+    return () => {
+      cancelled = true;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [paymentAttempt?.id, paymentAttempt?.status, paymentAttempt?.pollTimedOut]);
 
   return (
     <AppLayout title="Cart" subtitle="Review items and checkout">
       <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />
+      <PaymentAttemptModal
+        attempt={paymentAttempt}
+        open={paymentStatusOpen}
+        onClose={() => setPaymentStatusOpen(false)}
+        onRefresh={refreshPaymentStatus}
+        checkingStatus={checkingPaymentStatus}
+      />
 
       <DiscountRequestModal
         open={discountRequestOpen}
@@ -1503,6 +1918,13 @@ export default function Cart() {
         msg={msg}
         amountGiven={amountGiven}
         setAmountGiven={setAmountGiven}
+        stkPushEnabled={stkPushEnabled}
+        setStkPushEnabled={setStkPushEnabled}
+        stkPhoneNumber={stkPhoneNumber}
+        setStkPhoneNumber={setStkPhoneNumber}
+        stkAmount={stkAmount}
+        setStkAmount={setStkAmount}
+        checkoutOutcomeUnknown={checkoutOutcomeUnknown}
       />
 
       <HoldSaleModal
@@ -1869,7 +2291,7 @@ export default function Cart() {
               className="btn btn-primary"
               onClick={() => setCheckoutOpen(true)}
             >
-              Proceed to Checkout
+              {checkoutOutcomeUnknown ? "Checkout Needs Verification" : "Proceed to Checkout"}
             </button>
 
             <button
