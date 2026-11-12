@@ -6,6 +6,7 @@ import ProductFormModal from "./ProductFormModal";
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [modal, setModal] = useState(null); // null | product | "add"
+  const [ecommercePending, setEcommercePending] = useState(() => new Set());
 
   const [q, setQ] = useState("");
 
@@ -35,6 +36,49 @@ export default function AdminProducts() {
     if (!window.confirm("Deactivate this product?")) return;
     await api.post(`/api/products/${id}/deactivate/`);
     load();
+  }
+
+  async function toggleEcommerce(product) {
+    if (!product.is_active || !product.allows_bag || ecommercePending.has(product.id)) return;
+
+    const previousValue = Boolean(product.is_ecommerce_enabled);
+    const nextValue = !previousValue;
+
+    // Optimistic update: reflect the toggle immediately while the API saves.
+    setProducts((current) =>
+      current.map((item) =>
+        item.id === product.id
+          ? { ...item, is_ecommerce_enabled: nextValue }
+          : item
+      )
+    );
+    setEcommercePending((current) => new Set(current).add(product.id));
+
+    try {
+      await api.patch(`/api/products/${product.id}/update/`, {
+        is_ecommerce_enabled: nextValue,
+      });
+    } catch (error) {
+      // Revert only this product if the server rejects the update.
+      setProducts((current) =>
+        current.map((item) =>
+          item.id === product.id
+            ? { ...item, is_ecommerce_enabled: previousValue }
+            : item
+        )
+      );
+      const message =
+        error?.response?.data?.detail ||
+        error?.response?.data?.error ||
+        "Could not update ecommerce visibility. Please try again.";
+      window.alert(message);
+    } finally {
+      setEcommercePending((current) => {
+        const next = new Set(current);
+        next.delete(product.id);
+        return next;
+      });
+    }
   }
 
   return (
@@ -76,6 +120,7 @@ export default function AdminProducts() {
               <th>Bag Info</th>
               <th>Piece Info</th>
               <th>Status</th>
+              <th>Ecommerce</th>
               <th />
             </tr>
           </thead>
@@ -173,6 +218,41 @@ export default function AdminProducts() {
                   <span className={p.is_active ? "badge-success" : "badge-danger"}>
                     {p.is_active ? "Active" : "Inactive"}
                   </span>
+                </td>
+                <td>
+                  <button
+                    className="btn"
+                    type="button"
+                    style={{ fontSize: 12, whiteSpace: "nowrap" }}
+                    disabled={!p.is_active || !p.allows_bag || ecommercePending.has(p.id)}
+                    title={
+                      !p.allows_bag
+                        ? "Enable bag sales for this product before publishing it online."
+                        : !p.is_active
+                          ? "Activate this product before publishing it online."
+                          : ecommercePending.has(p.id)
+                            ? "Saving ecommerce visibility..."
+                            : "Change this product's ecommerce visibility"
+                    }
+                    onClick={() => toggleEcommerce(p)}
+                  >
+                    {p.is_ecommerce_enabled ? "Hide from ecommerce" : "Show in ecommerce"}
+                  </button>
+                  {ecommercePending.has(p.id) && (
+                    <div style={{ color: "#666", fontSize: 11, marginTop: 4 }}>
+                      Saving...
+                    </div>
+                  )}
+                  {!p.allows_bag && (
+                    <div style={{ color: "#999", fontSize: 11, marginTop: 4 }}>
+                      Bag sales required
+                    </div>
+                  )}
+                  {!p.is_active && (
+                    <div style={{ color: "#999", fontSize: 11, marginTop: 4 }}>
+                      Product inactive
+                    </div>
+                  )}
                 </td>
                 
                 {/* Actions Column */}

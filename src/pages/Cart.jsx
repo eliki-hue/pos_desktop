@@ -37,11 +37,19 @@ function ReceiptModal({ receipt, onClose }) {
     .filter(p => p.method === "CASH")
     .reduce((s, p) => s + Number(p.amount), 0);
 
-  const mpesaPaid = payments
-    .filter(p => p.method === "MPESA")
-    .reduce((s, p) => s + Number(p.amount), 0);
-
-  const totalPaid = cashPaid + mpesaPaid;
+  const paymentTotals = payments.reduce((totals, payment) => {
+    const method = payment.method || "UNKNOWN";
+    totals[method] = (totals[method] || 0) + Number(payment.amount || 0);
+    return totals;
+  }, {});
+  const totalPaid = Object.values(paymentTotals).reduce((sum, amount) => sum + amount, 0);
+  const paymentLabels = {
+    CASH: "Cash",
+    MPESA: "M-Pesa",
+    CARD: "Card",
+    BANK: "Bank Transfer",
+    CHEQUE: "Cheque",
+  };
   
   // Get amount given and change from receipt - ensure they're numbers
   const amountGiven = receipt.amount_given ? Number(receipt.amount_given) : totalPaid;
@@ -258,18 +266,12 @@ function ReceiptModal({ receipt, onClose }) {
             {/* PAYMENTS - UPDATED WITH AMOUNT GIVEN AND CHANGE */}
             <div style={{ marginTop: 4, fontSize:"12px" }}>
               <div style={{ fontWeight: 700, fontSize: 10 }}>PAYMENTS</div>
-              {cashPaid > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Cash:</span>
-                  <span>KES {cashPaid.toFixed(2)}</span>
+              {Object.entries(paymentTotals).map(([method, amount]) => (
+                <div key={method} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{paymentLabels[method] || method}:</span>
+                  <span>KES {amount.toFixed(2)}</span>
                 </div>
-              )}
-              {mpesaPaid > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>MPESA:</span>
-                  <span>KES {mpesaPaid.toFixed(2)}</span>
-                </div>
-              )}
+              ))}
               
               {/* AMOUNT GIVEN BY CUSTOMER */}
               {amountGiven >0 &&(<div style={{ 
@@ -704,6 +706,8 @@ function CheckoutModal({
   setAmountGiven,
   stkPushEnabled,
   setStkPushEnabled,
+  stkProvider,
+  setStkProvider,
   stkPhoneNumber,
   setStkPhoneNumber,
   stkAmount,
@@ -996,7 +1000,7 @@ function CheckoutModal({
             <section style={{ marginTop: 16, padding: 14, border: "1px solid #bfdbfe", borderRadius: 10, background: "#eff6ff" }}>
               <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800 }}>
                 <input
-                  type="checkbox"
+                  type="checkbox" disabled
                   checked={stkPushEnabled}
                   onChange={(event) => {
                     const enabled = event.target.checked;
@@ -1016,12 +1020,29 @@ function CheckoutModal({
                     }
                   }}
                 />
-                Request automated M-Pesa STK Push
+                Send prompt (STK Push) to customer for payment
               </label>
+              {stkPushEnabled && (
+                <label style={{ display: "grid", gap: 5, marginTop: 12 }}>
+                  <span style={{ fontWeight: 600 }}>Payment provider / network</span>
+                  <select
+                    className="input"
+                    value={stkProvider}
+                    onChange={(event) => setStkProvider(event.target.value)}
+                  >
+                    <option value="SAFARICOM_MPESA">Safaricom M-Pesa (Direct)</option>
+                    <option value="COOP_BANK" disabled>Co-operative Bank – M-Pesa STK (integration pending)</option>
+                    <option value="EQUITY_BANK_SAFARICOM" disabled>Equity Bank – Safaricom</option>
+                    <option value="EQUITY_BANK_EQUITEL" disabled>Equity Bank – Equitel</option>
+                  </select>
+                </label>
+              )}
               {stkPushEnabled && (
                 <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
                   <label>
-                    <span style={{ display: "block", fontWeight: 600, marginBottom: 5 }}>Customer M-Pesa phone number</span>
+                    <span style={{ display: "block", fontWeight: 600, marginBottom: 5 }}>
+                      Customer {stkProvider.endsWith("_EQUITEL") ? "Equitel" : "mobile"} phone number
+                    </span>
                     <input
                       className="input"
                       type="tel"
@@ -1049,7 +1070,7 @@ function CheckoutModal({
                     />
                   </label>
                   <div style={{ fontSize: 12, color: "#1e40af" }}>
-                    This sends a payment request. It is not counted as money received until the backend verifies the M-Pesa result.
+                    Wait for response to confirm payment.
                   </div>
                   {paymentMode === "PARTIAL" && subtotal > 0 && Math.abs(totalPaid + stkValue - subtotal) < 0.01 && (
                     <div style={{ color: "#92400e", fontSize: 12, fontWeight: 700 }}>
@@ -1222,26 +1243,48 @@ function CheckoutModal({
                     }}
                   >
                     <option value="CASH">Cash</option>
-                    <option value="MPESA">MPESA</option>
+                    <option value="MPESA">Manual M-Pesa</option>
+                    <option value="CARD">Card</option>
+                    <option value="BANK">Bank Transfer</option>
+                    <option value="CHEQUE">Cheque</option>
                   </select>
                   <input
                     className="input"
                     type="number"
                     step="0.01"
+                    min="0.01"
                     placeholder="Amount"
                     value={p.amount}
                     onChange={(e) => {
                       const copy = [...payments];
-                      copy[idx].amount = parseFloat(e.target.value) || "";
+                      copy[idx].amount = e.target.value;
                       setPayments(copy);
                     }}
                   />
+                  {p.method !== "CASH" && (
+                    <input
+                      className="input"
+                      type="text"
+                      maxLength={100}
+                      placeholder={
+                        p.method === "MPESA" ? "M-Pesa transaction code" :
+                        p.method === "BANK" ? "Bank transaction/reference" :
+                        p.method === "CHEQUE" ? "Cheque number" : "Card slip/reference"
+                      }
+                      value={p.reference || ""}
+                      onChange={(e) => {
+                        const copy = [...payments];
+                        copy[idx].reference = e.target.value;
+                        setPayments(copy);
+                      }}
+                    />
+                  )}
                 </div>
               ))}
               <button
                 className="btn"
                 style={{ marginTop: 8 }}
-                onClick={() => setPayments([...payments, { method: "CASH", amount: "" }])}
+                onClick={() => setPayments([...payments, { method: "CASH", amount: "", reference: "" }])}
               >
                 + Add Payment Method
               </button>
@@ -1273,7 +1316,7 @@ function CheckoutModal({
               : checkoutOutcomeUnknown
                 ? "Checkout Requires Verification"
                 : stkPushEnabled
-                  ? "Send M-Pesa STK Push"
+                  ? "Send STK Push"
                   : "Confirm Checkout"}
           </button>
         </div>
@@ -1286,6 +1329,13 @@ function CheckoutModal({
 
 
 function PaymentAttemptModal({ attempt, open, onClose, onRefresh, onRetry, checkingStatus }) {
+  const [clockNow, setClockNow] = useState(Date.now());
+  useEffect(() => {
+    if (!open || !attempt?.expires_at) return undefined;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [open, attempt?.expires_at]);
+
   if (!attempt || !open) return null;
 
   const status = String(attempt.status || "unknown").toLowerCase();
@@ -1301,6 +1351,31 @@ function PaymentAttemptModal({ attempt, open, onClose, onRefresh, onRetry, check
   };
   const current = configs[status] || configs.unknown;
   const terminalStatuses = ["succeeded", "failed", "cancelled", "expired"];
+  const unresolvedStatuses = ["pending", "initiating", "processing", "unknown"];
+  const expiresAtMs = attempt.expires_at ? Date.parse(attempt.expires_at) : NaN;
+  const retryWindowElapsed = Number.isFinite(expiresAtMs) && clockNow >= expiresAtMs;
+  // The status API is the source of truth. The local expiry calculation
+  // remains a fallback for the initial checkout response before the first poll.
+  const callbackIsStillUnresolved = [
+    "PENDING",
+    "PROCESSING",
+    "RETRY",
+    "REJECTED",
+  ].includes(String(attempt.callback_status || "").toUpperCase());
+  const retryAvailable = terminalStatuses.includes(status) || (
+    unresolvedStatuses.includes(status) &&
+    (
+      attempt.retry_available === true ||
+      (
+        attempt.retry_available == null &&
+        retryWindowElapsed &&
+        !callbackIsStillUnresolved
+      )
+    )
+  );
+  const secondsUntilRetry = Number.isFinite(expiresAtMs)
+    ? Math.max(0, Math.ceil((expiresAtMs - clockNow) / 1000))
+    : null;
   const isWaitingForResponse =
     Boolean(attempt.id) &&
     !terminalStatuses.includes(status) &&
@@ -1311,7 +1386,7 @@ function PaymentAttemptModal({ attempt, open, onClose, onRefresh, onRetry, check
       : ["failed", "cancelled", "expired"].includes(status)
         ? "This attempt is not confirmed as paid. Check sale/payment history before collecting money or creating another payment."
         : status === "unknown"
-          ? "The payment result is not yet known. Do not initiate another STK Push for this sale. Refresh the status or ask an authorised manager to reconcile this attempt."
+          ? "The payment result is not yet known. Wait for the response window. After it elapses, ask the customer to confirm that no money was deducted before retrying."
           : "Ask the customer to complete the M-Pesa prompt on their phone. This window will keep checking the backend for the final result. Do not submit checkout again while this attempt is pending."
   );
 
@@ -1323,7 +1398,12 @@ function PaymentAttemptModal({ attempt, open, onClose, onRefresh, onRetry, check
         <p style={{ marginTop: 12 }}>{explanation}</p>
         {isWaitingForResponse && (
           <div role="status" aria-live="polite" style={{ marginTop: 12, padding: 10, borderRadius: 8, background: "#eff6ff", color: "#1d4ed8", fontSize: 13 }}>
-            Automatically checking payment status every few seconds. This sale is not treated as paid until the backend confirms the M-Pesa result.
+            Automatically checking payment status. This sale is not treated as paid until the backend confirms the M-Pesa result.
+            {!retryAvailable && secondsUntilRetry !== null && (
+              <div style={{ marginTop: 6, fontWeight: 700 }}>
+                Retry becomes available in {secondsUntilRetry}s if the payment remains unconfirmed.
+              </div>
+            )}
           </div>
         )}
         <div style={{ display: "grid", gap: 7, marginTop: 12 }}>
@@ -1353,9 +1433,25 @@ function PaymentAttemptModal({ attempt, open, onClose, onRefresh, onRetry, check
             {checkingStatus ? "Checking..." : "Refresh Payment Status"}
           </button>
         )}
-        {["failed", "cancelled", "expired"].includes(status) && (
-          <button type="button" className="btn btn-primary" onClick={onRetry} style={{ marginTop: 16, width: "100%" }}>
-            Retry M-Pesa for this cart
+        {retryAvailable && !["succeeded"].includes(status) && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              const requiresCustomerConfirmation = unresolvedStatuses.includes(status);
+              if (requiresCustomerConfirmation) {
+                const confirmed = window.confirm(
+                  "Please ask the customer to check their M-Pesa balance/messages. Have they confirmed that NO money was deducted? Only choose OK if they confirm no deduction."
+                );
+                if (!confirmed) return;
+              }
+              onRetry({ customerConfirmedPreviousStkUnpaid: unresolvedStatuses.includes(status) });
+            }}
+            style={{ marginTop: 16, width: "100%" }}
+          >
+            {unresolvedStatuses.includes(status)
+              ? "Customer confirms no deduction — retry STK"
+              : "Retry M-Pesa for this sale"}
           </button>
         )}
         <button
@@ -1385,9 +1481,11 @@ export default function Cart() {
   const [receipt, setReceipt] = useState(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [stkPushEnabled, setStkPushEnabled] = useState(false);
+  const [stkProvider, setStkProvider] = useState("SAFARICOM_MPESA");
   const [stkPhoneNumber, setStkPhoneNumber] = useState("");
   const [stkAmount, setStkAmount] = useState("");
   const [paymentAttempt, setPaymentAttempt] = useState(null);
+  const [stkRetryConfirmed, setStkRetryConfirmed] = useState(false);
   const [paymentStatusOpen, setPaymentStatusOpen] = useState(false);
   const [checkingPaymentStatus, setCheckingPaymentStatus] = useState(false);
   const [checkoutOutcomeUnknown, setCheckoutOutcomeUnknown] = useState(false);
@@ -1672,6 +1770,7 @@ export default function Cart() {
         payment_mode: paymentMode,
         amount_given: givenAmount,
         change_given: calculatedChange,
+        customer_confirmed_previous_stk_unpaid: stkRetryConfirmed,
       };
 
       if (paymentMode !== "CREDIT") {
@@ -1680,6 +1779,7 @@ export default function Cart() {
           .map((payment) => ({
             method: payment.method,
             amount: Number(payment.amount),
+            reference: payment.reference?.trim() || null,
           }));
       }
 
@@ -1695,14 +1795,20 @@ export default function Cart() {
         }
         if (!phone || phone.length < 9) throw new Error("Enter a valid customer M-Pesa phone number.");
 
-        const signature = JSON.stringify([cart.id, requestedAmount.toFixed(2), phone]);
+        const signature = JSON.stringify([cart.id, requestedAmount.toFixed(2), phone, stkProvider]);
         if (!stkIdempotencyRef.current.key || stkIdempotencyRef.current.signature !== signature) {
           stkIdempotencyRef.current = { signature, key: createIdempotencyUuid() };
         }
+        const isEquity = stkProvider.startsWith("EQUITY_BANK_");
+        const isCoop = stkProvider === "COOP_BANK";
         payload.stk_push = {
           amount: requestedAmount.toFixed(2),
           phone_number: phone,
           idempotency_key: stkIdempotencyRef.current.key,
+          provider: isEquity ? "EQUITY_BANK" : isCoop ? "COOP_BANK" : "SAFARICOM_MPESA",
+          ...(isEquity
+            ? { payment_rail: stkProvider.endsWith("_EQUITEL") ? "EQUITEL" : "SAFARICOM" }
+            : {}),
         };
       }
 
@@ -1723,6 +1829,7 @@ export default function Cart() {
           setPaymentStatusOpen(true);
         } else {
           stkIdempotencyRef.current = { signature: null, key: null };
+          setStkRetryConfirmed(false);
           setPaymentAttempt({
             ...responseAttempt,
             sale_id: res.data?.sale_id ?? null,
@@ -1887,7 +1994,8 @@ export default function Cart() {
         open={paymentStatusOpen}
         onClose={() => setPaymentStatusOpen(false)}
         onRefresh={refreshPaymentStatus}
-        onRetry={() => {
+        onRetry={({ customerConfirmedPreviousStkUnpaid = false } = {}) => {
+          setStkRetryConfirmed(customerConfirmedPreviousStkUnpaid);
           setPaymentStatusOpen(false);
           setPaymentMode("FULL");
           setPayments([]);
@@ -1934,6 +2042,8 @@ export default function Cart() {
         setAmountGiven={setAmountGiven}
         stkPushEnabled={stkPushEnabled}
         setStkPushEnabled={setStkPushEnabled}
+        stkProvider={stkProvider}
+        setStkProvider={setStkProvider}
         stkPhoneNumber={stkPhoneNumber}
         setStkPhoneNumber={setStkPhoneNumber}
         stkAmount={stkAmount}
