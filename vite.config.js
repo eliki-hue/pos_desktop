@@ -1,20 +1,26 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+const backendDirectory =
+  process.env.BUILD_TARGET === "demo"
+    ? "../POS_demo-backend"
+    : "../POS_and_ecom-backend";
+
 export default defineConfig({
-  // React assets must load from Django static
+  // React assets are served through Django static files.
   base: "/static/pos/",
 
   plugins: [react()],
 
   build: {
-    // Output directly into Django backend static source
     outDir: path.resolve(
       __dirname,
-      "../POS_and_ecom-backend/pos_dist/pos"
+      backendDirectory,
+      "pos_dist",
+      "pos"
     ),
-
     emptyOutDir: true,
     manifest: true,
   },
